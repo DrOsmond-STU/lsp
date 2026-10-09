@@ -212,6 +212,7 @@ Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform*, *Pu
 | Asesor | Pelaksana asesmen; satu akun bisa aktif di banyak LSP, hanya melihat uji kompetensi yang ditugaskan kepadanya | ✅ (multi-LSP 🆕) |
 | Asesi | Peserta uji; satu akun bisa mendaftar di banyak LSP, hanya melihat permohonan/asesmen/sertifikat miliknya | ✅ (multi-LSP 🆕) |
 | Keuangan | Tagihan, pembayaran, honor asesor | 🆕 |
+| Marketing / Sales LSP | Mengelola CRM: lead, pipeline mitra, follow-up, kampanye (bagian 14) | 🆕 |
 | Mitra / Sponsor (Pemda, BUMN, perusahaan, kampus) | Mendaftarkan peserta massal dan memantau hasilnya | 🆕 |
 | Pemberi Kerja / Publik | Verifikasi keaslian sertifikat | 🆕 |
 
@@ -375,7 +376,114 @@ NAS hanya menyebut "dokumen manajemen". Untuk LSP, modul mutu inilah yang paling
 | **Helpdesk / tiket dukungan** di dalam aplikasi (bukan hanya telepon jam kerja) | 🆕 | P2 |
 | Chatbot FAQ asesi 24 jam | 🆕 | P3 |
 
-## 14. Ekosistem
+## 14. CRM (Customer Relationship Management)
+
+NAS hanya menyebut sistemnya "dapat digunakan sebagai CRM" ✅, tanpa rincian. Di sini CRM dibuat sebagai **modul tersendiri** dengan dua sasaran: **asesi perorangan (B2C)** dan **mitra/korporat (B2B)**. Seluruh data CRM **milik masing-masing LSP** (`lsp_id`) dan mengikuti aturan isolasi di bagian 0.
+
+### 14.1 Kontak & organisasi
+
+| Fitur | Status | Prioritas |
+|---|---|---|
+| Database kontak: calon asesi (lead), asesi, alumni, PIC mitra | 🆕 | P1 |
+| Database organisasi: perusahaan, BUMN, instansi pemerintah, kampus, asosiasi (beserta PIC-nya) | 🆕 | P1 |
+| **Timeline interaksi per kontak**: telepon, WA, email, meeting, catatan, riwayat permohonan & sertifikat di LSP ini | 🆕 | P1 |
+| Tag & segmentasi (mis. skema minat, instansi, kota, sumber lead, status) | 🆕 | P1 |
+| Deteksi & gabung kontak ganda (NIK/email/HP sama) | 🆕 | P2 |
+
+### 14.2 Akuisisi calon asesi (lead)
+
+| Fitur | Status | Prioritas |
+|---|---|---|
+| Form minat di website LSP / landing page per skema → otomatis masuk sebagai lead | 🆕 | P1 |
+| **QR code event** (job fair, seminar, kampus): scan → isi data singkat → masuk lead | 🆕 | P2 |
+| Tombol WhatsApp → percakapan tercatat ke kontak | 🆕 | P2 |
+| **Pelacakan sumber** (UTM: Instagram, Google, event, referral, mitra) untuk mengukur kanal paling efektif | 🆕 | P2 |
+| Impor lead dari Excel | 🆕 | P1 |
+
+### 14.3 Pipeline (Kanban)
+
+**Pipeline asesi (B2C)**
+
+```
+Lead → Dihubungi → Tertarik → Daftar (APL) → Bayar → Asesmen → Kompeten → Alumni → Re-sertifikasi
+                                   ↘ berkas tidak lengkap / belum bayar  → follow-up otomatis
+```
+
+**Pipeline mitra (B2B)**
+
+```
+Prospek → Presentasi/Demo → Penawaran → Negosiasi → MoU/PKS → Program berjalan → Selesai → Repeat order
+```
+
+| Fitur | Status | Prioritas |
+|---|---|---|
+| Papan Kanban yang bisa di-drag, tahapan bisa diatur per LSP | 🆕 | P2 |
+| Penugasan lead/prospek ke staf marketing tertentu | 🆕 | P2 |
+| **Penawaran (quotation) otomatis** PDF: skema, jumlah peserta, harga, diskon, masa berlaku | 🆕 | P2 |
+| Penyimpanan MoU/PKS + pengingat masa berlaku kerja sama | 🆕 | P2 |
+| Nilai deal & **forecast pendapatan** dari pipeline B2B | 🆕 | P3 |
+| Penawaran yang disetujui → langsung menjadi **program/kuota** di portal mitra & tagihan kolektif | 🆕 | P2 |
+
+### 14.4 Follow-up & retensi otomatis
+
+| Fitur | Status | Prioritas |
+|---|---|---|
+| **Pendaftar belum menyelesaikan proses** (berkas kurang / belum bayar / belum isi APL.02) → pengingat otomatis H+1, H+3, H+7 | 🆕 | P1 |
+| **Pengingat re-sertifikasi** 6, 3, dan 1 bulan sebelum sertifikat habis, dengan tautan langsung daftar perpanjangan | ✅ (pengingat) / 🆕 (tautan & pelacakan konversi) | P1 |
+| **Rekomendasi skema lanjutan** (jenjang berikutnya / skema terkait) untuk alumni | 🆕 | P2 |
+| Asesi **Belum Kompeten** → ajakan asesmen ulang / bimtek | 🆕 | P2 |
+| Tugas & pengingat follow-up untuk staf marketing (telepon hari ini, kirim penawaran, dsb.) | 🆕 | P1 |
+| Workflow otomatis sederhana: *jika [kejadian] maka [kirim pesan / buat tugas / ubah tahap]* | 🆕 | P3 |
+
+### 14.5 Kampanye & broadcast
+
+| Fitur | Status | Prioritas |
+|---|---|---|
+| Broadcast WA/email ke segmen (mis. "alumni skema X yang sertifikatnya habis ≤ 90 hari") | 🆕 | P2 |
+| Template pesan dengan variabel (nama, skema, tanggal habis, tautan) | 🆕 | P2 |
+| Penjadwalan kirim, batas kirim per hari (agar nomor WA tidak diblokir) | 🆕 | P2 |
+| Statistik: terkirim, dibaca, diklik, mendaftar (konversi) | 🆕 | P2 |
+| **Promo & kode diskon** per kampanye / periode | 🆕 | P2 |
+| **Program referral**: alumni/mitra pemasaran mendapat kode referral, komisi tercatat | 🆕 | P3 |
+
+### 14.6 Layanan pelanggan
+
+| Fitur | Status | Prioritas |
+|---|---|---|
+| **Kotak masuk terpadu (omnichannel)**: WA, email, chat web dalam satu layar, terhubung ke profil kontak | 🆕 | P3 |
+| Tiket helpdesk & keluhan terhubung ke kontak (lihat juga modul keluhan, bagian 9) | 🆕 | P2 |
+| **Survei kepuasan / NPS** otomatis setelah asesmen & setelah sertifikat terbit | 🆕 | P2 |
+| Balasan cepat (quick reply) & FAQ | 🆕 | P2 |
+
+### 14.7 Laporan CRM
+
+| Fitur | Status | Prioritas |
+|---|---|---|
+| **Funnel konversi**: lead → daftar → bayar → kompeten | 🆕 | P2 |
+| Efektivitas sumber lead & kampanye (biaya vs pendaftar) | 🆕 | P3 |
+| Tingkat re-sertifikasi (retensi) per skema | 🆕 | P2 |
+| Pendapatan per mitra & per staf marketing | 🆕 | P2 |
+| Skor kepuasan (NPS) per skema, TUK, asesor | 🆕 | P2 |
+
+### 14.8 Aturan privasi CRM (penting karena asesi multi-LSP)
+
+- CRM LSP hanya berisi **kontak milik LSP itu sendiri**: lead yang ia kumpulkan sendiri, atau asesi yang pernah mendaftar ke LSP itu. **LSP tidak bisa menarget asesi berdasarkan data di LSP lain** (mis. "orang yang pernah ikut skema X di LSP lain").
+- Profil global asesi **tidak bisa dicari** dari CRM. Data asesi baru masuk CRM sebuah LSP setelah asesi mendaftar/menyetujui berbagi data dengan LSP tersebut.
+- **Persetujuan pemasaran (opt-in) terpisah** dari notifikasi layanan (UU PDP): notifikasi proses asesmen tetap terkirim, tetapi promosi hanya ke kontak yang setuju. Setiap pesan promosi punya opsi **berhenti berlangganan**.
+- Ekspor data kontak dibatasi role (mis. hanya Admin LSP) dan tercatat di log audit.
+
+### 14.9 CRM Platform (untuk Super Admin, opsional)
+
+Untuk pengelola aplikasi menjual langganan ke LSP:
+
+| Fitur | Prioritas |
+|---|---|
+| Pipeline calon LSP klien: prospek → demo → trial → berlangganan | P3 |
+| Pengingat perpanjangan langganan & tagihan LSP | P2 |
+| **Sinyal churn**: LSP yang aktivitasnya menurun, kuota hampir habis, tiket support banyak | P3 |
+| Statistik penggunaan per LSP (agregat, tanpa data pribadi asesi) | P2 |
+
+## 15. Ekosistem
 
 | Fitur | Status | Prioritas |
 |---|---|---|
@@ -388,7 +496,7 @@ NAS hanya menyebut "dokumen manajemen". Untuk LSP, modul mutu inilah yang paling
 | **Job board / talent pool** pemegang sertifikat (dengan persetujuan asesi) | 🆕 | P3 |
 | **API publik & webhook** untuk integrasi HRIS/LMS mitra | 🆕 | P3 |
 
-## 15. Keamanan, Kepatuhan & Infrastruktur
+## 16. Keamanan, Kepatuhan & Infrastruktur
 
 | Fitur | Status | Prioritas |
 |---|---|---|
@@ -404,7 +512,7 @@ NAS hanya menyebut "dokumen manajemen". Untuk LSP, modul mutu inilah yang paling
 | Disaster recovery plan, uji restore backup berkala | 🆕 | P2 |
 | Status page & SLA uptime | 🆕 | P3 |
 
-## 16. Fitur AI (pembeda modern)
+## 17. Fitur AI (pembeda modern)
 
 | Fitur | Prioritas |
 |---|---|
@@ -416,15 +524,15 @@ NAS hanya menyebut "dokumen manajemen". Untuk LSP, modul mutu inilah yang paling
 
 ---
 
-## 17. Usulan tahapan rilis
+## 18. Usulan tahapan rilis
 
-**Fase 1 — MVP (±3–4 bulan)**: **multi-LSP (tenant) dengan isolasi data berlapis (bagian 0)** & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, audit trail, kepatuhan PDP.
+**Fase 1 — MVP (±3–4 bulan)**: **multi-LSP (tenant) dengan isolasi data berlapis (bagian 0)** & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, **CRM dasar** (kontak, lead, follow-up pendaftar belum selesai, pengingat re-sertifikasi), audit trail, kepatuhan PDP.
 
-**Fase 2 — Mutu & skala (±3 bulan)**: SJJ dengan proctoring, mode offline asesor, modul mutu (audit internal, CAPA, kaji ulang manajemen, ketidakberpihakan), keuangan & honor asesor, surveilans & RCC, portal mitra, helpdesk, dashboard analitik lanjutan.
+**Fase 2 — Mutu & skala (±3 bulan)**: SJJ dengan proctoring, mode offline asesor, modul mutu (audit internal, CAPA, kaji ulang manajemen, ketidakberpihakan), keuangan & honor asesor, surveilans & RCC, portal mitra, **CRM lanjutan** (pipeline B2B + penawaran, kampanye broadcast, survei NPS, laporan funnel), helpdesk, dashboard analitik lanjutan.
 
-**Fase 3 — Ekosistem**: website LSP builder, e-commerce, LMS bimtek, tracer study, talent pool, API publik, fitur AI.
+**Fase 3 — Ekosistem**: website LSP builder, e-commerce, LMS bimtek, tracer study, talent pool, API publik, fitur AI, **CRM omnichannel, workflow otomatis & referral**.
 
-## 18. Usulan teknologi (garis besar)
+## 19. Usulan teknologi (garis besar)
 
 - **Backend**: Laravel (PHP) atau NestJS (TypeScript), PostgreSQL, Redis (antrean notifikasi & cache)
 - **Web**: Next.js / React (admin LSP, TUK, asesor, asesi, portal mitra)
