@@ -15,7 +15,9 @@ Satu aplikasi dipakai oleh banyak LSP. Setiap LSP adalah **tenant**. Aturan dasa
 
 > **Setiap user terikat ke satu LSP. User hanya bisa membuka data LSP miliknya sendiri dan tidak bisa melihat data LSP lain, termasuk lewat URL, API, file, laporan, maupun pencarian.**
 >
-> **Pengecualian: Asesor** boleh terdaftar di lebih dari satu LSP dengan **satu akun**, tetapi **hanya bisa melihat data uji kompetensi yang ia tangani sendiri** di masing-masing LSP (lihat bagian 0.8).
+> **Pengecualian: Asesor dan Asesi** boleh terdaftar di lebih dari satu LSP dengan **satu akun**:
+> - **Asesor** hanya bisa melihat data uji kompetensi yang **ditugaskan kepadanya** (bagian 0.8).
+> - **Asesi** hanya bisa melihat **permohonan, asesmen, dan sertifikat miliknya sendiri** (bagian 0.9).
 
 ### 0.1 Hierarki data
 
@@ -25,7 +27,7 @@ Platform (Super Admin)
       ├── User LSP: Admin LSP, Manajer Mutu, Komite, Pleno, Keuangan
       ├── TUK ── Admin TUK            (hanya TUK miliknya, di dalam LSP-nya)
       ├── Asesor (bisa di banyak LSP) (hanya uji kompetensi yang ditugaskan kepadanya)
-      ├── Asesi                       (hanya data dirinya sendiri)
+      ├── Asesi  (bisa di banyak LSP) (hanya permohonan/asesmen/sertifikat miliknya)
       ├── Mitra/Sponsor               (hanya peserta yang ia daftarkan)
       └── Skema, MUK, Jadwal, Asesmen, Sertifikat, Dokumen, Keuangan, Mutu ...
 ```
@@ -48,18 +50,20 @@ Isolasi berlapis: **antar-LSP** (wajib, mutlak), lalu **di dalam LSP** per role 
 ### 0.3 Aturan kepemilikan data
 
 1. **Setiap tabel bisnis wajib punya kolom `lsp_id`** (NOT NULL + foreign key ke `lsp`): keanggotaan user, TUK, keanggotaan asesor, asesi, skema, MUK, bank soal, jadwal, asesmen, formulir FR, pleno, sertifikat, banding, keluhan, dokumen mutu, tagihan, notifikasi, log audit.
-2. **Akun dan keanggotaan dipisah**: tabel `akun` (identitas login) dan tabel `keanggotaan` (`akun_id`, `lsp_id`, `role`, status). Admin LSP, Manajer, Pleno, Keuangan, Admin TUK, Asesi, Mitra **hanya boleh punya satu keanggotaan**. **Asesor boleh punya banyak keanggotaan** (satu per LSP). Konteks LSP aktif **diambil dari sesi login, tidak pernah dari input/form/URL**.
+2. **Akun dan keanggotaan dipisah**: tabel `akun` (identitas login) dan tabel `keanggotaan` (`akun_id`, `lsp_id`, `role`, status). Role internal LSP (Admin LSP, Manajer, Komite, Pleno, Keuangan, Admin TUK) dan Mitra **hanya boleh punya satu keanggotaan**. **Asesor dan Asesi boleh punya banyak keanggotaan** (satu per LSP). Konteks LSP aktif **diambil dari sesi login, tidak pernah dari input/form/URL**.
 3. **Keunikan data bersifat per LSP**: email, nomor registrasi, nomor sertifikat, kode skema, kode TUK, dsb. unik di dalam `(lsp_id, ...)`, bukan global.
-4. **Asesor yang bekerja di beberapa LSP = satu akun, banyak keanggotaan.** Data operasional (penugasan, rekaman asesmen, honor) tetap milik masing-masing LSP. **Asesi** untuk saat ini tetap satu akun per LSP (bisa memakai pola keanggotaan yang sama di tahap berikutnya bila dibutuhkan).
-5. Data LSP tidak pernah dihapus permanen secara langsung: LSP yang berhenti langganan → **ditangguhkan → ekspor data untuk LSP → dihapus** sesuai kebijakan retensi (UU PDP).
+4. **Asesor dan Asesi di beberapa LSP = satu akun, banyak keanggotaan.** Profil pribadi disimpan sekali (global, milik orangnya). Data operasional (permohonan, penugasan, rekaman asesmen, pembayaran, honor, sertifikat) tetap **milik masing-masing LSP**.
+5. **Satu orang = satu akun**: NIK unik secara global pada profil asesor/asesi. Saat mendaftar dengan NIK yang sudah ada, sistem mengarahkan ke login (bukan membuat akun ganda). Kepemilikan akun dibuktikan lewat OTP email/HP; ada alur sengketa jika NIK dipakai orang lain.
+6. **Berkas yang diajukan ke LSP dibekukan (snapshot)**: saat asesi mengajukan permohonan atau asesor diverifikasi, salinan dokumen dari profil disimpan di folder LSP tersebut. Jika profil diubah kemudian, bukti audit di LSP tidak ikut berubah.
+7. Data LSP tidak pernah dihapus permanen secara langsung: LSP yang berhenti langganan → **ditangguhkan → ekspor data untuk LSP → dihapus** sesuai kebijakan retensi (UU PDP).
 
 ### 0.4 Penegakan isolasi (wajib berlapis, bukan hanya di tampilan)
 
 | Lapisan | Mekanisme |
 |---|---|
-| **Login & sesi** | User LSP: LSP dikenali dari subdomain, login hanya berhasil jika akun punya keanggotaan aktif di LSP tersebut; sesi menyimpan `lsp_id`. Asesor: login sekali, sesi menyimpan **daftar LSP tempat ia aktif** + daftar penugasannya (bagian 0.8). |
+| **Login & sesi** | User LSP: LSP dikenali dari subdomain, login hanya berhasil jika akun punya keanggotaan aktif di LSP tersebut; sesi menyimpan `lsp_id`. Asesor & Asesi: login sekali (dari subdomain LSP mana pun atau portal pusat), sesi menyimpan **daftar LSP tempat ia aktif**; akses per data tetap dicek ke penugasan (asesor) atau kepemilikan (asesi). |
 | **Aplikasi (backend)** | Middleware tenant + *global scope* otomatis `WHERE lsp_id = :lsp_id_sesi` di semua query. Developer tidak perlu (dan tidak boleh) menulis filter manual. |
-| **Database** | **PostgreSQL Row-Level Security (RLS)** di setiap tabel: koneksi men-set `app.current_lsp_id` (user LSP) atau `app.current_asesor_id` (asesor), dan DB menolak baris di luar haknya walaupun ada bug di kode aplikasi. Untuk asesor, kebijakan RLS berbasis **tabel penugasan**, bukan sekadar `lsp_id`. |
+| **Database** | **PostgreSQL Row-Level Security (RLS)** di setiap tabel: koneksi men-set `app.current_lsp_id` (user LSP) `app.current_asesor_id` (asesor), atau `app.current_asesi_id` (asesi), dan DB menolak baris di luar haknya walaupun ada bug di kode aplikasi. Untuk asesor, kebijakan RLS berbasis **tabel penugasan**; untuk asesi, berbasis **pemilik permohonan**, bukan sekadar `lsp_id`. |
 | **Penyimpanan file** | Folder/bucket terpisah per LSP (`/lsp/{lsp_id}/...`), akses file hanya lewat *signed URL* berumur pendek yang dibuat setelah cek kepemilikan. Tidak ada URL file publik permanen. |
 | **ID data** | Pakai UUID (bukan angka urut) agar ID tidak bisa ditebak. Akses ke ID milik LSP lain dibalas **404 Not Found** (bukan 403), sehingga keberadaan data tidak bocor. |
 | **Proses latar belakang** | Antrean job (notifikasi, generate PDF, laporan BNSP, impor Excel) selalu membawa `lsp_id` dan menjalankan query dalam konteks LSP tersebut. |
@@ -83,6 +87,8 @@ Isolasi berlapis: **antar-LSP** (wajib, mutlak), lalu **di dalam LSP** per role 
 - Test otomatis untuk **setiap endpoint**: user LSP A mencoba membaca/mengubah/menghapus data LSP B → harus 404.
 - Test asesor: asesor yang anggota LSP A & B mencoba membuka asesmen yang **tidak ditugaskan kepadanya** (di LSP A, LSP B, maupun LSP C) → harus 404.
 - Test LSP A tidak bisa melihat penugasan, honor, atau riwayat asesor tersebut di LSP B.
+- Test asesi: asesi X mencoba membuka permohonan/asesmen/sertifikat asesi Y (di LSP yang sama maupun berbeda) → harus 404.
+- Test LSP A tidak bisa melihat permohonan, nilai, pembayaran, atau sertifikat asesi tersebut di LSP B (kecuali sertifikat yang secara sadar dilampirkan asesi).
 - Test unggah/unduh file lintas LSP, test ekspor laporan, test job antrean.
 - Penetration test pihak ketiga sebelum go-live dan setiap tahun.
 
@@ -135,11 +141,64 @@ asesor boleh membuka data X  ⇔
 AND ada penugasan(asesor, X.jadwal_id)
 ```
 
+### 0.9 Asesi di banyak LSP
+
+Satu asesi bisa mengikuti uji kompetensi di beberapa LSP. Ia memakai **satu akun**, tetapi **hanya bisa melihat data miliknya sendiri**, dan **setiap LSP hanya melihat permohonan yang diajukan ke LSP tersebut**.
+
+**Struktur data**
+
+| Tabel | Isi | Pemilik |
+|---|---|---|
+| `akun` | Email, nomor HP, password, 2FA (opsional) | Asesi |
+| `profil_asesi` (global) | NIK, nama sesuai KTP, tempat/tanggal lahir, jenis kelamin, alamat, pendidikan terakhir, pekerjaan/instansi, pas foto, **dokumen pribadi** (KTP, ijazah, transkrip, sertifikat pelatihan, CV) | Asesi (diisi sekali, dipakai ulang saat mendaftar ke LSP mana pun) |
+| `keanggotaan_asesi` (per LSP) | `lsp_id`, nomor registrasi asesi di LSP itu, persetujuan berbagi data, status | LSP |
+| `permohonan` (per LSP) | `lsp_id`, `asesi_id`, skema, APL.01/APL.02, **snapshot berkas** yang diajukan, pembayaran, jadwal, hasil asesmen, banding, sertifikat | LSP |
+
+**Yang BISA dilihat asesi**
+
+- Daftar LSP tempat ia pernah/sedang mendaftar.
+- **Dashboard gabungan**: semua permohonan & status real-time dari seluruh LSP, jadwal uji, tagihan.
+- **Dompet sertifikat**: semua sertifikat miliknya dari semua LSP, beserta masa berlaku dan pengingat perpanjangan.
+- Per permohonan: berkas yang ia ajukan, formulir yang perlu ia isi, jadwal, asesor & TUK yang ditugaskan, hasil keputusan, umpan balik, banding, invoice/kuitansi, group chat jadwalnya.
+
+**Yang TIDAK BISA dilihat asesi**
+
+- Data asesi lain (termasuk peserta satu jadwal, kecuali nama di daftar hadir/group chat bila LSP mengizinkan).
+- Catatan internal asesor/pleno sebelum keputusan diumumkan, bank soal & kunci jawaban, data internal LSP.
+
+**Yang bisa dilihat LSP tentang asesi**
+
+- **Hanya** profil asesi yang dibagikan saat mendaftar ke LSP tersebut, beserta permohonan-permohonan ke LSP itu.
+- **Tidak bisa** melihat permohonan, nilai, pembayaran, atau sertifikat asesi di LSP lain.
+- **Pengecualian dengan persetujuan**: jika skema mensyaratkan sertifikat sebelumnya (mis. jenjang lanjutan, RPL, perpanjangan), asesi dapat **memilih sendiri** sertifikat dari dompetnya untuk dilampirkan. Yang terlampir hanya sertifikat itu, dan keasliannya dicek otomatis lewat verifikasi QR.
+- Tidak ada fitur menjelajah/mencari semua asesi di platform.
+
+**Alur pendaftaran**
+
+1. Asesi membuka situs/subdomain LSP → klik daftar.
+2. Jika NIK/email sudah terdaftar → diminta login. Jika belum → buat akun & isi profil global.
+3. Asesi **menyetujui berbagi profil** dengan LSP tersebut (UU PDP) → keanggotaan dibuat.
+4. Asesi memilih skema, mengisi APL.01/APL.02, memilih berkas dari profil atau unggah baru → **berkas dibekukan sebagai snapshot** di folder LSP tersebut.
+5. Pendaftaran massal oleh mitra/sponsor: jika peserta sudah punya akun, ia menerima undangan untuk menautkan; data baru terlihat oleh LSP setelah peserta menyetujui.
+
+**Hapus akun & retensi**
+
+- Asesi bisa meminta hapus akun/profil global (hak subjek data UU PDP).
+- **Rekaman asesmen & sertifikat yang dipegang LSP tetap disimpan** sesuai kewajiban retensi rekaman sertifikasi, lalu dihapus otomatis setelah masa retensi berakhir.
+
+**Aturan akses (ringkas)**
+
+```
+asesi boleh membuka data X  ⇔  X.asesi_id = asesi yang login
+LSP  boleh membuka data asesi ⇔  ada keanggotaan_asesi(asesi, LSP) yang disetujui
+                                 dan data tersebut milik/diajukan ke LSP itu
+```
+
 ---
 
 ## 1. Peran pengguna (role)
 
-Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform*, *Publik*, dan **Asesor** (bisa di banyak LSP, lihat bagian 0.8).
+Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform*, *Publik*, serta **Asesor dan Asesi** (bisa di banyak LSP, lihat bagian 0.8 & 0.9).
 
 | Role | Keterangan | Status |
 |---|---|---|
@@ -151,7 +210,7 @@ Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform*, *Pu
 | Tim Pleno / Pengambil Keputusan | Keputusan sertifikasi (harus pihak yang tidak menguji) | ✅ |
 | Admin TUK | Operasional TUK | ✅ |
 | Asesor | Pelaksana asesmen; satu akun bisa aktif di banyak LSP, hanya melihat uji kompetensi yang ditugaskan kepadanya | ✅ (multi-LSP 🆕) |
-| Asesi | Peserta uji | ✅ |
+| Asesi | Peserta uji; satu akun bisa mendaftar di banyak LSP, hanya melihat permohonan/asesmen/sertifikat miliknya | ✅ (multi-LSP 🆕) |
 | Keuangan | Tagihan, pembayaran, honor asesor | 🆕 |
 | Mitra / Sponsor (Pemda, BUMN, perusahaan, kampus) | Mendaftarkan peserta massal dan memantau hasilnya | 🆕 |
 | Pemberi Kerja / Publik | Verifikasi keaslian sertifikat | 🆕 |
