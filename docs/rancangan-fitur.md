@@ -9,11 +9,88 @@ Legenda:
 
 ---
 
+## 0. Arsitektur Multi-LSP (Multi-Tenant): fondasi utama
+
+Satu aplikasi dipakai oleh banyak LSP. Setiap LSP adalah **tenant**. Aturan dasarnya:
+
+> **Setiap user terikat ke satu LSP. User hanya bisa membuka data LSP miliknya sendiri dan tidak bisa melihat data LSP lain, termasuk lewat URL, API, file, laporan, maupun pencarian.**
+
+### 0.1 Hierarki data
+
+```
+Platform (Super Admin)
+ └── LSP  (tenant, lsp_id)
+      ├── User LSP: Admin LSP, Manajer Mutu, Komite, Pleno, Keuangan
+      ├── TUK ── Admin TUK            (hanya TUK miliknya, di dalam LSP-nya)
+      ├── Asesor                      (hanya jadwal/asesi yang ditugaskan kepadanya)
+      ├── Asesi                       (hanya data dirinya sendiri)
+      ├── Mitra/Sponsor               (hanya peserta yang ia daftarkan)
+      └── Skema, MUK, Jadwal, Asesmen, Sertifikat, Dokumen, Keuangan, Mutu ...
+```
+
+Isolasi berlapis: **antar-LSP** (wajib, mutlak), lalu **di dalam LSP** per role (TUK, asesor, asesi, mitra hanya melihat bagiannya).
+
+### 0.2 Data LSP (tabel `lsp`)
+
+| Kelompok | Field |
+|---|---|
+| Identitas | Nama LSP, singkatan, jenis LSP (P1 / P2 / P3), NPWP, alamat, provinsi/kota, telepon, email, website |
+| Lisensi BNSP | Nomor SK lisensi, tanggal terbit, **masa berlaku** (dengan pengingat), ruang lingkup skema, file SK |
+| Organisasi | Ketua/Direktur, Manajer Sertifikasi, Manajer Mutu, Manajer Administrasi, struktur organisasi |
+| Branding | Logo, warna, **subdomain** (mis. `lsp-abc.aplikasi.id`), custom domain (opsional), kop surat, template sertifikat |
+| Pengesahan | Spesimen tanda tangan & stempel (untuk dokumen & sertifikat), nomor urut dokumen/sertifikat per LSP |
+| Keuangan | Rekening bank, akun payment gateway milik LSP |
+| Langganan | Paket, status (trial / aktif / ditangguhkan / berhenti), masa langganan, kuota (jumlah asesi, storage, user) |
+| Pengaturan | Zona waktu, format penomoran, kanal notifikasi, template notifikasi |
+
+### 0.3 Aturan kepemilikan data
+
+1. **Setiap tabel bisnis wajib punya kolom `lsp_id`** (NOT NULL + foreign key ke `lsp`): user, TUK, asesor, asesi, skema, MUK, bank soal, jadwal, asesmen, formulir FR, pleno, sertifikat, banding, keluhan, dokumen mutu, tagihan, notifikasi, log audit.
+2. **Setiap user punya satu `lsp_id`** (kecuali Super Admin Platform). `lsp_id` user **diambil dari sesi login, tidak pernah dari input/form/URL**.
+3. **Keunikan data bersifat per LSP**: email, nomor registrasi, nomor sertifikat, kode skema, kode TUK, dsb. unik di dalam `(lsp_id, ...)`, bukan global.
+4. **Asesor/asesi yang terdaftar di 2 LSP = 2 akun terpisah** (satu per LSP, login melalui subdomain masing-masing). Data, riwayat, dan dokumennya tidak tercampur. *(Alternatif nanti: satu identitas login dengan pilihan LSP saat masuk, tetapi data tetap terpisah per LSP.)*
+5. Data LSP tidak pernah dihapus permanen secara langsung: LSP yang berhenti langganan → **ditangguhkan → ekspor data untuk LSP → dihapus** sesuai kebijakan retensi (UU PDP).
+
+### 0.4 Penegakan isolasi (wajib berlapis, bukan hanya di tampilan)
+
+| Lapisan | Mekanisme |
+|---|---|
+| **Login & sesi** | LSP dikenali dari subdomain. Login hanya berhasil jika `user.lsp_id` = LSP subdomain tersebut. Token/sesi menyimpan `lsp_id`. |
+| **Aplikasi (backend)** | Middleware tenant + *global scope* otomatis `WHERE lsp_id = :lsp_id_sesi` di semua query. Developer tidak perlu (dan tidak boleh) menulis filter manual. |
+| **Database** | **PostgreSQL Row-Level Security (RLS)** di setiap tabel: koneksi men-set `app.current_lsp_id`, dan DB menolak baris LSP lain walaupun ada bug di kode aplikasi. |
+| **Penyimpanan file** | Folder/bucket terpisah per LSP (`/lsp/{lsp_id}/...`), akses file hanya lewat *signed URL* berumur pendek yang dibuat setelah cek kepemilikan. Tidak ada URL file publik permanen. |
+| **ID data** | Pakai UUID (bukan angka urut) agar ID tidak bisa ditebak. Akses ke ID milik LSP lain dibalas **404 Not Found** (bukan 403), sehingga keberadaan data tidak bocor. |
+| **Proses latar belakang** | Antrean job (notifikasi, generate PDF, laporan BNSP, impor Excel) selalu membawa `lsp_id` dan menjalankan query dalam konteks LSP tersebut. |
+| **Cache & pencarian** | Kunci cache dan indeks pencarian diberi prefiks/filter `lsp_id`. |
+| **Laporan & ekspor** | Semua dashboard, ekspor Excel/PDF, dan laporan BNSP hanya berisi data LSP sesi. |
+| **Notifikasi** | Email/WA dikirim atas nama LSP masing-masing; tautan di dalamnya mengarah ke subdomain LSP tersebut. |
+
+### 0.5 Super Admin Platform
+
+- Mengelola daftar LSP: **onboarding LSP baru** (buat tenant → buat akun Admin LSP pertama → kirim undangan), paket, penangguhan, pemantauan kuota.
+- **Secara default tidak bisa membaca data operasional LSP** (asesi, nilai, dokumen). Hanya melihat statistik agregat (jumlah user, asesmen, storage).
+- Akses untuk keperluan *support* hanya lewat fitur **"masuk sebagai" (impersonate) dengan izin Admin LSP**, berbatas waktu, dan **tercatat di log audit yang bisa dilihat oleh LSP tersebut**.
+
+### 0.6 Satu-satunya pengecualian lintas LSP
+
+- **Halaman publik verifikasi sertifikat** (scan QR / cek nomor): hanya menampilkan data minimum (nama pemegang, skema, LSP penerbit, status & masa berlaku). Tidak ada daftar atau pencarian bebas.
+- Data agregat anonim untuk Super Admin (tanpa data pribadi).
+
+### 0.7 Pengujian isolasi (wajib sebelum rilis)
+
+- Test otomatis untuk **setiap endpoint**: user LSP A mencoba membaca/mengubah/menghapus data LSP B → harus 404.
+- Test unggah/unduh file lintas LSP, test ekspor laporan, test job antrean.
+- Penetration test pihak ketiga sebelum go-live dan setiap tahun.
+
+---
+
 ## 1. Peran pengguna (role)
+
+Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform* dan *Publik*.
 
 | Role | Keterangan | Status |
 |---|---|---|
-| Super Admin Platform | Pengelola SaaS: tenant LSP, paket langganan, billing, monitoring | 🆕 |
+| Super Admin Platform | Pengelola SaaS: onboarding LSP, paket langganan, billing, monitoring (tidak membaca data operasional LSP, lihat bagian 0.5) | 🆕 |
 | Admin LSP | Operasional LSP | ✅ |
 | Manajer Mutu / Manajer Sertifikasi | Pengendalian mutu, audit internal, kaji ulang manajemen | 🆕 |
 | Komite Skema | Penyusunan & kaji ulang skema | 🆕 |
@@ -229,7 +306,7 @@ NAS hanya menyebut "dokumen manajemen". Untuk LSP, modul mutu inilah yang paling
 
 ## 17. Usulan tahapan rilis
 
-**Fase 1 — MVP (±3–4 bulan)**: multi-tenant & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, audit trail, kepatuhan PDP.
+**Fase 1 — MVP (±3–4 bulan)**: **multi-LSP (tenant) dengan isolasi data berlapis (bagian 0)** & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, audit trail, kepatuhan PDP.
 
 **Fase 2 — Mutu & skala (±3 bulan)**: SJJ dengan proctoring, mode offline asesor, modul mutu (audit internal, CAPA, kaji ulang manajemen, ketidakberpihakan), keuangan & honor asesor, surveilans & RCC, portal mitra, helpdesk, dashboard analitik lanjutan.
 
