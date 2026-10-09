@@ -80,8 +80,18 @@ tr:last-child td{border-bottom:0}
 .stack{display:flex;flex-direction:column;gap:1rem}
 .grid{display:grid;gap:1rem}
 .g2{grid-template-columns:repeat(2,minmax(0,1fr))} .g3{grid-template-columns:repeat(3,minmax(0,1fr))} .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
-input,select{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.7rem .9rem;width:100%;min-width:0}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.7rem .9rem;width:100%;min-width:0}
 label.f{display:flex;flex-direction:column;gap:.35rem;font-size:.82rem;font-weight:600;color:var(--muted)}
+.tabs{display:flex;gap:.4rem;flex-wrap:wrap}
+.flow{display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;font-size:.78rem;font-weight:700}
+.flow span{padding:.3rem .65rem;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.flow i{font-style:normal;color:var(--muted)}
+.qitem{display:flex;flex-direction:column;gap:.3rem;text-align:left;width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:.8rem .9rem;cursor:pointer;font:inherit;color:var(--fg)}
+.qitem.on{border-color:var(--brand-b);background:var(--info-bg)}
+.checklist{display:grid;gap:.45rem;margin:0;padding:0;list-style:none;font-size:.9rem}
+.checklist label{display:flex;gap:.6rem;align-items:flex-start;cursor:pointer}
+.checklist input{width:auto;margin-top:.25rem}
+.navbadge{margin-left:auto;background:var(--g-orange);color:#fff;font-size:.68rem;font-weight:800;border-radius:999px;padding:.05rem .45rem;box-shadow:0 6px 12px -6px var(--s-orange)}
 .sample{font-size:.72rem;font-weight:700;color:var(--warn);background:var(--warn-bg);padding:.15rem .5rem;border-radius:6px}
 
 /* ---------- Portal publik ---------- */
@@ -286,8 +296,33 @@ const LSPS = [
   {nama:'LSP Kesehatan Nusa Husada',jenis:'P3',kota:'Medan',skema:21,tuk:7,warna:'pink',lisensi:'Berlaku s.d. Okt 2028'}
 ];
 
+const KELAS = [
+  {judul:'Persiapan Uji Junior Web Developer',info:'Online · 12 modul · 8 jam',warna:'blue',harga:350000,lsp:'LSP Teknologi Digital Nusantara'},
+  {judul:'Teknik Latte Art untuk Barista',info:'Tatap muka · Denpasar',warna:'orange',harga:500000,lsp:'LSP Pariwisata Bahari Indonesia'},
+  {judul:'Dasar K3 Kelistrikan',info:'Webinar · 2 sesi',warna:'teal',harga:0,lsp:'LSP Konstruksi Mandiri'}
+];
+/* Listing yang diajukan LSP ke etalase/LMS. Hanya status 'tayang' yang muncul di portal publik. */
+const ME_LSP = 'LSP Teknologi Digital Nusantara';
+let LISTINGS = [
+  {id:'L1',tipe:'skema',judul:'Junior Web Developer',lsp:ME_LSP,harga:750000,status:'tayang',tgl:'02 Okt 2026',catatan:'',static:true},
+  {id:'L2',tipe:'pelatihan',judul:'Persiapan Uji Junior Web Developer',lsp:ME_LSP,harga:350000,status:'tayang',tgl:'02 Okt 2026',catatan:'',static:true},
+  {id:'L3',tipe:'skema',judul:'Pemrogram Junior (Junior Coder)',lsp:ME_LSP,harga:650000,status:'menunggu',tgl:'08 Okt 2026',catatan:'',
+    pub:{id:'jc',kode:'JC',nama:'Pemrogram Junior (Junior Coder)',bidang:'TIK',kkni:'Level 2',lsp:ME_LSP,kota:'Jakarta',metode:['Tatap muka','SJJ'],harga:650000,unit:6,warna:'teal',rating:5.0},desc:'Skema untuk lulusan SMK RPL. Uji praktik membuat program sederhana dan wawancara.'},
+  {id:'L4',tipe:'pelatihan',judul:'Bootcamp Laravel 5 Hari',lsp:ME_LSP,harga:1200000,status:'revisi',tgl:'05 Okt 2026',catatan:'Hapus kalimat "dijamin kompeten saat uji" di deskripsi. Cantumkan nama instruktur.',
+    pub:{judul:'Bootcamp Laravel 5 Hari',info:'Tatap muka · Jakarta · 5 hari',warna:'purple',harga:1200000,lsp:ME_LSP},desc:'Belajar Laravel dari nol sampai deploy. Dijamin kompeten saat uji.'},
+  {id:'L5',tipe:'skema',judul:'Barista Kopi Nusantara (jadwal Nov)',lsp:'LSP Pariwisata Bahari Indonesia',harga:600000,status:'menunggu',tgl:'07 Okt 2026',catatan:'',
+    pub:{id:'brs2',kode:'BKN',nama:'Barista Kopi Nusantara',bidang:'Pariwisata',kkni:'Level 2',lsp:'LSP Pariwisata Bahari Indonesia',kota:'Denpasar',metode:['Tatap muka'],harga:600000,unit:7,warna:'orange',rating:5.0},desc:'Skema barista dengan fokus kopi nusantara. TUK Hotel Sanur.'},
+  {id:'L6',tipe:'pelatihan',judul:'Kelas Persiapan Housekeeping Supervisor',lsp:'LSP Pariwisata Bahari Indonesia',harga:450000,status:'menunggu',tgl:'09 Okt 2026',catatan:'',
+    pub:{judul:'Kelas Persiapan Housekeeping Supervisor',info:'Webinar · 3 sesi',warna:'pink',harga:450000,lsp:'LSP Pariwisata Bahari Indonesia'},desc:'Persiapan uji untuk supervisor housekeeping. Tidak wajib untuk mendaftar uji.'},
+  {id:'L7',tipe:'skema',judul:'Teknisi Jaringan (paket korporat)',lsp:ME_LSP,harga:0,status:'draf',tgl:'—',catatan:''}
+];
+const ST = {draf:['plain','Draf'],menunggu:['warn','Menunggu persetujuan'],revisi:['bad','Perlu revisi'],tayang:['ok','Tayang'],ditolak:['bad','Ditolak']};
+const allSkema = () => SKEMA.concat(LISTINGS.filter(l=>l.tipe==='skema'&&l.status==='tayang'&&l.pub&&!l.static).map(l=>({...l.pub,baru:true})));
+const allKelas = () => KELAS.concat(LISTINGS.filter(l=>l.tipe==='pelatihan'&&l.status==='tayang'&&l.pub&&!l.static).map(l=>({...l.pub,baru:true})));
+const antrean = () => LISTINGS.filter(l=>l.status==='menunggu');
+
 /* ===================== State & helpers ===================== */
-const S = {role:'publik', page:'beranda', skema:'jwd', filter:'Semua', q:'', jadwal:0, step:0, appPage:'dashboard', lspCtx:'all', navOpen:false, verif:false};
+const S = {role:'publik', page:'beranda', skema:'jwd', filter:'Semua', q:'', jadwal:0, step:0, appPage:'dashboard', lspCtx:'all', navOpen:false, verif:false, etab:'semua', form:null, pick:null};
 const $ = s => document.querySelector(s);
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600)}
 function go(page,extra={}){Object.assign(S,{page,navOpen:false},extra);render();window.scrollTo(0,0)}
@@ -305,7 +340,7 @@ function topbar(){
 }
 function skemaCard(s){
   return `<article class="card skema" data-skema="${s.id}" tabindex="0">
-    <div class="spread"><span class="badge" style="background:${GRAD[s.warna]}">${s.kode}</span><span class="chip plain">${ic('star')}${s.rating}</span></div>
+    <div class="spread"><span class="badge" style="background:${GRAD[s.warna]}">${s.kode}</span>${s.baru?'<span class="chip ok">Baru</span>':`<span class="chip plain">${ic('star')}${s.rating}</span>`}</div>
     <div><h3>${s.nama}</h3><p class="muted" style="font-size:.85rem;margin-top:.2rem">${s.lsp}</p></div>
     <div class="meta"><span class="chip info">${s.bidang}</span><span class="chip plain">KKNI ${s.kkni}</span>${s.metode.map(m=>`<span class="chip ${m==='SJJ'?'ok':'plain'}">${m}</span>`).join('')}</div>
     <div class="spread" style="margin-top:auto"><div><span class="eyebrow">Mulai</span><div class="price">${rp(s.harga)}</div></div><span class="muted row" style="gap:.25rem;font-size:.84rem">${ic('pin')}${s.kota}</span></div>
@@ -378,7 +413,7 @@ function pBeranda(){
 }
 function pCari(){
   const bidang=['Semua','TIK','Pariwisata','Konstruksi','Bisnis'];
-  const list=SKEMA.filter(s=>(S.filter==='Semua'||s.bidang===S.filter)&&(!S.q||s.nama.toLowerCase().includes(S.q.toLowerCase())));
+  const list=allSkema().filter(s=>(S.filter==='Semua'||s.bidang===S.filter)&&(!S.q||s.nama.toLowerCase().includes(S.q.toLowerCase())));
   return `<section class="block"><div class="wrap stack">
     <div><p class="eyebrow">Marketplace skema</p><h2>Cari skema dari semua LSP</h2></div>
     <div class="card stack" style="gap:.8rem">
@@ -390,7 +425,7 @@ function pCari(){
   </div></section>`;
 }
 function pDetail(){
-  const s=SKEMA.find(x=>x.id===S.skema)||SKEMA[0];
+  const s=allSkema().find(x=>x.id===S.skema)||SKEMA[0];
   const j=JADWAL[S.jadwal];
   const steps=['Pilih jadwal','Data diri','APL.01 & APL.02','Unggah berkas','Pembayaran'];
   let body='';
@@ -466,10 +501,13 @@ function pLsp(){
   </article>`).join('')}</div></div></section>`;
 }
 function pLms(){
-  const k=[['Persiapan Uji Junior Web Developer','Online · 12 modul · 8 jam','blue',350000],['Teknik Latte Art untuk Barista','Tatap muka · Denpasar','orange',500000],['Dasar K3 Kelistrikan','Webinar · 2 sesi','teal',0]];
+  const k=allKelas();
   return `<section class="block"><div class="wrap stack"><div><p class="eyebrow">Pelatihan (LMS)</p><h2>Kelas persiapan & bimtek</h2></div>
   <p class="alert warn">${ic('shield')}<span>Pelatihan tidak wajib untuk ikut uji kompetensi. Instruktur kelas tidak boleh menjadi asesor peserta yang ia ajar.</span></p>
-  <div class="grid g3">${k.map(x=>`<article class="card stack" style="gap:.7rem"><div style="height:120px;border-radius:16px;background:${GRAD[x[2]]};display:grid;place-items:center;color:#fff">${ic('book','ico" style="width:42px;height:42px')}</div><h3>${x[0]}</h3><p class="muted" style="font-size:.86rem">${x[1]}</p><div class="spread"><span class="price">${x[3]?rp(x[3]):'Gratis'}</span><button class="btn sm ${x[2]}" data-toast="Kelas ditambahkan">Ikuti kelas</button></div></article>`).join('')}</div></div></section>`;
+  <div class="grid g3">${k.map(kelasCard).join('')}</div></div></section>`;
+}
+function kelasCard(x){
+  return `<article class="card stack" style="gap:.7rem"><div style="height:120px;border-radius:16px;background:${GRAD[x.warna]};display:grid;place-items:center;color:#fff">${ic('book','ico" style="width:42px;height:42px')}</div><div class="spread"><h3>${x.judul}</h3>${x.baru?'<span class="chip ok">Baru</span>':''}</div><p class="muted" style="font-size:.86rem">${x.info} · ${x.lsp}</p><div class="spread"><span class="price">${x.harga?rp(x.harga):'Gratis'}</span><button class="btn sm ${x.warna}" data-toast="Kelas ditambahkan">Ikuti kelas</button></div></article>`;
 }
 function pVerif(){
   return `<section class="block"><div class="wrap stack" style="max-width:760px"><div><p class="eyebrow">Verifikasi publik</p><h2>Verifikasi sertifikat kompetensi</h2></div>
@@ -493,9 +531,9 @@ function publik(){
 const MENU = {
   asesi:{nama:'Rina Kartika Sari',inisial:'RK',ctx:'Asesi · 2 LSP',items:[['dashboard','Beranda','home'],['skema','Daftar Skema Baru','search'],['jadwal','Jadwal Saya','cal'],['bayar','Pembayaran','wallet'],['sertifikat','Dompet Sertifikat','cert'],['kelas','Kelas Saya','book'],['profil','Profil & Dokumen','users']]},
   asesor:{nama:'Budi Santoso, S.Kom.',inisial:'BS',ctx:'Asesor · MET.000.004521 2021',items:[['dashboard','Beranda','home'],['kalender','Kalender Gabungan','cal'],['pra','Tinjau Pra-Asesmen','doc'],['asesmen','Asesmen (MUK/FR)','check'],['pleno','Pleno','shield'],['riwayat','Riwayat & Logbook','book'],['honor','Honor','money']]},
-  admin:{nama:'Dewi Lestari',inisial:'DL',ctx:'Admin LSP',items:[['g','Operasional'],['dashboard','Dashboard','home'],['daftar','Pendaftaran','doc'],['jadwalA','Jadwal & Penugasan','cal'],['asesmenA','Asesmen','check'],['plenoA','Pleno & Sertifikat','cert'],['g','Data'],['master','Skema, Asesor, TUK','build'],['alumni','Database Alumni','users'],['g','Manajemen'],['mutu','Mutu (Pedoman 201)','shield'],['keuangan','Keuangan','money'],['crm','CRM','chat'],['laporan','Laporan BNSP','chart'],['setting','Profil LSP & Pengaturan','gear']]},
+  admin:{nama:'Dewi Lestari',inisial:'DL',ctx:'Admin LSP',items:[['g','Operasional'],['dashboard','Dashboard','home'],['daftar','Pendaftaran','doc'],['jadwalA','Jadwal & Penugasan','cal'],['asesmenA','Asesmen','check'],['plenoA','Pleno & Sertifikat','cert'],['g','Data'],['master','Skema, Asesor, TUK','build'],['alumni','Database Alumni','users'],['g','Manajemen'],['etalase','Etalase & Pelatihan','wallet'],['mutu','Mutu (Pedoman 201)','shield'],['keuangan','Keuangan','money'],['crm','CRM','chat'],['laporan','Laporan BNSP','chart'],['setting','Profil LSP & Pengaturan','gear']]},
   tuk:{nama:'Agus Pratama',inisial:'AP',ctx:'Admin TUK Sewaktu Kuningan',items:[['dashboard','Dashboard TUK','home'],['pemohon','Pemohon','doc'],['jadwalT','Jadwal','cal'],['sarpras','Sarana & Prasarana','build'],['chat','Group Chat','chat'],['alumniT','Alumni TUK','users']]},
-  super:{nama:'Tim Platform',inisial:'TP',ctx:'Super Admin Platform',items:[['dashboard','Ringkasan Platform','home'],['lspList','LSP Klien','build'],['paket','Paket & Tagihan','money'],['pustaka','Pustaka SKKNI','book'],['support','Tiket Support','chat'],['audit','Log Akses Support','shield']]}
+  super:{nama:'Tim Platform',inisial:'TP',ctx:'Super Admin Platform',items:[['dashboard','Ringkasan Platform','home'],['approval','Persetujuan Listing','check'],['lspList','LSP Klien','build'],['paket','Paket & Tagihan','money'],['pustaka','Pustaka SKKNI','book'],['support','Tiket Support','chat'],['audit','Log Akses Support','shield']]}
 };
 const MODUL = {
   skema:['Daftar skema baru','Cari skema di semua LSP, pilih jadwal, dan pakai ulang berkas dari profil.',['Pencarian marketplace','Pakai ulang dokumen profil','Simpan draf pendaftaran']],
@@ -586,6 +624,7 @@ function dAdmin(){
         <div class="alert bad">${ic('bell')}<span><b>Sertifikat MET 3 asesor</b> habis dalam 30 hari. Asesor tidak bisa ditugaskan setelah tanggal itu.</span></div>
         <div class="alert warn">${ic('shield')}<span><b>Surveilans BNSP</b> 18 Nov 2026. Checklist kesiapan 82% lengkap.</span></div>
         <div class="alert info">${ic('build')}<span><b>TUK SMK 7 Jakarta</b> verifikasi berakhir 30 Okt 2026.</span></div>
+        ${LISTINGS.some(l=>l.lsp===ME_LSP&&l.status==='revisi')?`<div class="alert bad">${ic('wallet')}<span><b>Etalase:</b> ${LISTINGS.filter(l=>l.lsp===ME_LSP&&l.status==='revisi').length} listing perlu revisi dari Admin Platform. <button class="btn sm red" data-go-app="etalase" style="margin-top:.4rem">Buka etalase</button></span></div>`:''}
       </div>
     </div>
   </div>
@@ -603,11 +642,61 @@ function dTuk(){
 }
 function dSuper(){
   return `<div class="spread"><div><p class="eyebrow">Platform</p><h2>Ringkasan platform</h2></div><button class="btn green" data-toast="Undangan onboarding dikirim">${ic('build')}Tambah LSP klien</button></div>
-  <div class="grid g4">${kpi('build','blue','168','LSP aktif')}${kpi('money','green','Rp412 jt','MRR')}${kpi('chat','orange','14','Tiket terbuka')}${kpi('bell','red','6','Sinyal churn')}</div>
+  <div class="grid g4">${kpi('check','orange',String(antrean().length),'Listing menunggu persetujuan',antrean().length?'<button class="btn sm orange" data-go-app="approval" style="margin-top:.3rem">Tinjau sekarang</button>':'')}${kpi('build','blue','168','LSP aktif')}${kpi('money','green','Rp412 jt','MRR')}${kpi('bell','red','6','Sinyal churn')}</div>
   <div class="card"><div class="spread" style="margin-bottom:.6rem"><h3>LSP klien</h3><span class="chip plain">Data agregat, tanpa data pribadi asesi</span></div><div class="table-wrap"><table><thead><tr><th>LSP</th><th>Paket</th><th>Asesi/tahun</th><th>Storage</th><th>Status</th></tr></thead><tbody>
   ${[['LSP Teknologi Digital Nusantara','Pro','3.912 / 5.000','64%','ok','Aktif'],['LSP Pariwisata Bahari Indonesia','Basic','980 / 1.000','91%','warn','Kuota hampir habis'],['LSP Konstruksi Mandiri','Pro','1.204 / 5.000','22%','ok','Aktif'],['LSP Kesehatan Nusa Husada','Basic','112 / 1.000','8%','bad','Aktivitas turun 60%'],['LSP Politeknik Negeri Maritim','Trial','40 / 200','3%','info','Trial s.d. 20 Okt']].map(r=>`<tr><td><b>${r[0]}</b></td><td><span class="chip plain">${r[1]}</span></td><td class="num">${r[2]}</td><td class="num">${r[3]}</td><td><span class="chip ${r[4]}">${r[5]}</span></td></tr>`).join('')}
   </tbody></table></div></div>
   <div class="alert warn">${ic('shield')}<span>Super Admin tidak bisa membuka data operasional LSP. Akses support hanya lewat "masuk sebagai" dengan izin Admin LSP dan tercatat di log.</span></div>`;
+}
+function pEtalase(){
+  const mine=LISTINGS.filter(l=>l.lsp===ME_LSP);
+  const tabs=[['semua','Semua'],['tayang','Tayang'],['menunggu','Menunggu'],['revisi','Perlu revisi'],['draf','Draf'],['ditolak','Ditolak']];
+  const list=mine.filter(l=>S.etab==='semua'||l.status===S.etab);
+  const count=k=>k==='semua'?mine.length:mine.filter(l=>l.status===k).length;
+  const form=S.form?`<form class="card stack" id="listingForm" style="gap:.9rem;border:2px solid var(--brand-b)">
+      <div class="spread"><h3>${S.form==='skema'?'Tambah skema ke etalase':'Tambah kelas pelatihan'}</h3><button type="button" class="btn ghost sm" data-closeform="1">Batal</button></div>
+      <div class="grid g2">
+        <label class="f">Judul<input id="lf-judul" required value="${S.form==='skema'?'Analis Data Junior (jadwal Desember)':'Kelas Persiapan Analis Data'}"></label>
+        <label class="f">${S.form==='skema'?'Skema berlisensi':'Skema terkait (opsional)'}<select id="lf-skema"><option>Analis Data Junior</option><option>Junior Web Developer</option><option>Digital Marketing</option></select></label>
+        <label class="f">Harga (Rp)<input id="lf-harga" type="number" min="0" step="1000" value="${S.form==='skema'?950000:400000}"></label>
+        <label class="f">${S.form==='skema'?'Metode':'Format'}<select id="lf-format">${S.form==='skema'?'<option>Tatap muka</option><option>SJJ</option><option>Tatap muka & SJJ</option>':'<option>Online</option><option>Webinar</option><option>Tatap muka</option>'}</select></label>
+      </div>
+      <label class="f">Deskripsi<textarea id="lf-desc" rows="3">${S.form==='skema'?'Uji kompetensi analis data junior. TUK Sewaktu Kuningan atau daring.':'Kelas persiapan 4 sesi. Tidak wajib untuk mendaftar uji kompetensi.'}</textarea></label>
+      ${S.form==='pelatihan'?`<label class="row" style="gap:.5rem;font-size:.88rem"><input type="checkbox" id="lf-ack" checked style="width:auto">Saya menyatakan kelas ini bukan syarat wajib uji, dan instruktur tidak akan menjadi asesor pesertanya.</label>`:''}
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn ghost" data-savedraft="1">Simpan draf</button><button type="submit" class="btn green">${ic('check')}Ajukan persetujuan</button></div>
+    </form>`:'';
+  return `<div class="spread"><div><p class="eyebrow">${ME_LSP}</p><h2>Etalase & Pelatihan</h2></div><div class="row"><button class="btn" data-newform="skema">${ic('cert')}Tambah skema</button><button class="btn purple" data-newform="pelatihan">${ic('book')}Tambah pelatihan</button></div></div>
+  <div class="alert info">${ic('shield')}<span>Listing baru dan setiap perubahan baru tampil di portal publik setelah <b>disetujui Admin Platform</b>. Versi lama tetap tayang selama perubahan ditinjau.</span></div>
+  <div class="flow"><span>Draf</span><i>→</i><span>Diajukan</span><i>→</i><span>Ditinjau Admin Platform</span><i>→</i><span style="background:var(--ok-bg);color:var(--ok)">Tayang</span><i>/</i><span style="background:var(--bad-bg);color:var(--bad)">Perlu revisi</span></div>
+  ${form}
+  <div class="card">
+    <div class="tabs" style="margin-bottom:.8rem">${tabs.map(([k,l])=>`<button class="fchip ${S.etab===k?'on':''}" data-etab="${k}">${l} <span class="num">(${count(k)})</span></button>`).join('')}</div>
+    <div class="table-wrap"><table><thead><tr><th>Judul</th><th>Jenis</th><th>Harga</th><th>Status</th><th>Catatan Admin Platform</th><th>Aksi</th></tr></thead><tbody>
+    ${list.map(l=>`<tr><td><b>${l.judul}</b><div class="muted" style="font-size:.76rem">Diajukan ${l.tgl}</div></td><td><span class="chip ${l.tipe==='skema'?'info':'plain'}">${l.tipe==='skema'?'Skema uji':'Pelatihan'}</span></td><td class="num">${l.harga?rp(l.harga):'—'}</td><td><span class="chip ${ST[l.status][0]}">${ST[l.status][1]}</span></td><td style="max-width:280px;font-size:.84rem" class="${l.catatan?'':'muted'}">${l.catatan||'—'}</td><td>${
+      l.status==='draf'||l.status==='revisi'?`<button class="btn sm green" data-submit="${l.id}">Ajukan</button>`:
+      l.status==='menunggu'?`<button class="btn sm ghost" data-withdraw="${l.id}">Tarik</button>`:
+      l.status==='tayang'?`<button class="btn sm orange" data-toast="Perubahan dikirim untuk ditinjau. Versi lama tetap tayang.">Ubah</button>`:'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Belum ada listing dengan status ini.</td></tr>'}
+    </tbody></table></div>
+  </div>`;
+}
+function pApproval(){
+  const q=antrean();
+  if(!S.pick||!q.find(l=>l.id===S.pick))S.pick=q[0]?.id||null;
+  const cur=q.find(l=>l.id===S.pick);
+  const preview=cur&&cur.pub?(cur.tipe==='skema'?skemaCard(cur.pub):kelasCard(cur.pub)):'';
+  return `<div class="spread"><div><p class="eyebrow">Kurasi e-commerce & LMS</p><h2>Persetujuan listing</h2></div><span class="chip ${q.length?'warn':'ok'}">${q.length} menunggu · SLA 2 hari kerja</span></div>
+  <div class="grid g4">${kpi('check','orange',String(q.length),'Menunggu')}${kpi('cal','blue','1,4 hari','Rata-rata waktu tinjau')}${kpi('star','green','46','Disetujui bulan ini')}${kpi('bell','red','5','Ditolak / revisi')}</div>
+  ${q.length?`<div class="layout-2" style="grid-template-columns:minmax(0,1fr) minmax(0,1.5fr)">
+    <div class="stack" style="gap:.6rem">${q.map(l=>`<button class="qitem ${l.id===S.pick?'on':''}" data-pick="${l.id}"><span class="spread" style="width:100%"><b>${l.judul}</b><span class="chip ${l.tipe==='skema'?'info':'plain'}">${l.tipe==='skema'?'Skema':'Pelatihan'}</span></span><span class="muted" style="font-size:.8rem">${l.lsp} · diajukan ${l.tgl}</span></button>`).join('')}</div>
+    <div class="card stack">
+      <div class="spread"><div><p class="eyebrow">Pratinjau tampilan publik</p><h3>${cur.judul}</h3><p class="muted" style="font-size:.84rem">${cur.lsp} · ${cur.harga?rp(cur.harga):'Gratis'}</p></div><span class="chip warn">Belum tayang</span></div>
+      <div style="max-width:340px">${preview}</div>
+      <div><p class="eyebrow">Deskripsi dari LSP</p><p style="margin-top:.3rem">${cur.desc||'—'}</p></div>
+      <div><p class="eyebrow" style="margin-bottom:.5rem">Checklist kurasi</p><ul class="checklist">${(cur.tipe==='skema'?['Skema masuk ruang lingkup lisensi BNSP LSP & lisensi masih berlaku','Harga, biaya tambahan, dan kebijakan refund jelas','Tidak ada klaim menyesatkan ("pasti lulus", "dijamin kompeten")','Lokasi TUK & jadwal benar']:['Tidak dinyatakan sebagai syarat wajib uji','Instruktur tercatat (untuk cek konflik kepentingan asesor)','Harga & kebijakan refund jelas','Tidak ada klaim menyesatkan']).map((c,i)=>`<li><label><input type="checkbox" id="ck-${cur.id}-${i}" checked>${c}</label></li>`).join('')}</ul></div>
+      <label class="f">Catatan untuk LSP (wajib untuk revisi / tolak)<textarea id="ap-note" rows="2" placeholder="Mis. hapus klaim 'dijamin kompeten' di deskripsi"></textarea></label>
+      <div class="row" style="justify-content:flex-end"><button class="btn red" data-decide="ditolak">Tolak</button><button class="btn orange" data-decide="revisi">Minta revisi</button><button class="btn green" data-decide="tayang">${ic('check')}Setujui & tayangkan</button></div>
+    </div>
+  </div>`:`<div class="card empty"><h3>Antrean kosong</h3><p class="muted">Semua listing sudah ditinjau. Coba ajukan listing baru dari akun Admin LSP.</p></div>`}`;
 }
 function modul(k){
   const m=MODUL[k]||['Modul','',[]];
@@ -618,7 +707,7 @@ function app(){
   const dash={asesi:dAsesi,asesor:dAsesor,admin:dAdmin,tuk:dTuk,super:dSuper}[r];
   const multi=(r==='asesi'||r==='asesor');
   const lspOpts=r==='asesi'?['LSP Teknologi Digital Nusantara','LSP Pariwisata Bahari Indonesia']:['LSP Teknologi Digital Nusantara','LSP Konstruksi Mandiri','LSP Manajemen Profesional'];
-  const navItems=m.items.map(it=>it[0]==='g'?`<div class="grp">${it[1]}</div>`:`<button data-go-app="${it[0]}" class="${S.appPage===it[0]?'on':''}">${ic(it[2])}${it[1]}</button>`).join('');
+  const navItems=m.items.map(it=>it[0]==='g'?`<div class="grp">${it[1]}</div>`:`<button data-go-app="${it[0]}" class="${S.appPage===it[0]?'on':''}">${ic(it[2])}${it[1]}${it[0]==='approval'&&antrean().length?`<span class="navbadge">${antrean().length}</span>`:''}</button>`).join('');
   return `<div class="app">
     <aside class="side">
       <button class="logo" data-logout="1"><span class="logo-mark">${ic('shield')}</span>PortalLSP</button>
@@ -632,7 +721,7 @@ function app(){
         <div class="row" style="margin-left:auto;gap:.6rem"><button class="bell" aria-label="Notifikasi" data-toast="3 notifikasi baru">${ic('bell')}<i>3</i></button><span class="avatar">${m.inisial}</span><div style="line-height:1.2"><b style="font-size:.86rem">${m.nama}</b><div class="muted" style="font-size:.74rem">${m.ctx}</div></div></div>
       </div>
       <div class="menu-mobile">${m.items.filter(i=>i[0]!=='g').map(it=>`<button data-go-app="${it[0]}" class="${S.appPage===it[0]?'on':''}">${it[1]}</button>`).join('')}<button data-logout="1">Keluar</button></div>
-      <div class="content">${S.appPage==='dashboard'?dash():modul(S.appPage)}</div>
+      <div class="content">${S.appPage==='dashboard'?dash():S.appPage==='etalase'?pEtalase():S.appPage==='approval'?pApproval():modul(S.appPage)}</div>
     </div>
   </div>`;
 }
@@ -658,8 +747,31 @@ document.addEventListener('click',e=>{
   if(d.step){S.step=Math.max(0,Math.min(4,S.step+Number(d.step)));render();return}
   if(t.id==='bayar'){toast('Pembayaran berhasil. Permohonan masuk ke LSP.');setTimeout(()=>setRole('asesi'),900);return}
   if(d.go){go(d.go,d.verif?{verif:true}:{});return}
+  if(d.etab){S.etab=d.etab;render();return}
+  if(d.newform){S.form=d.newform;render();return}
+  if(d.closeform){S.form=null;render();return}
+  if(d.savedraft){addListing('draf');return}
+  if(d.submit){const l=LISTINGS.find(x=>x.id===d.submit);l.status='menunggu';l.tgl='09 Okt 2026';l.catatan='';if(!l.pub)l.pub={id:l.id,kode:'TJ',nama:l.judul,bidang:'TIK',kkni:'Level 3',lsp:l.lsp,kota:'Jakarta',metode:['Tatap muka'],harga:l.harga||800000,unit:8,warna:'blue',rating:5};if(l.tipe==='pelatihan'&&l.pub)l.pub.judul=l.judul;render();toast('Diajukan ke Admin Platform untuk ditinjau');return}
+  if(d.withdraw){LISTINGS.find(x=>x.id===d.withdraw).status='draf';render();toast('Pengajuan ditarik, kembali menjadi draf');return}
+  if(d.pick){S.pick=d.pick;render();return}
+  if(d.decide){
+    const l=LISTINGS.find(x=>x.id===S.pick);const note=($('#ap-note')?.value||'').trim();
+    if(d.decide!=='tayang'&&!note){toast('Isi catatan untuk LSP dulu');$('#ap-note').focus();return}
+    l.status=d.decide;l.catatan=d.decide==='tayang'?'Disetujui':note;S.pick=null;render();
+    toast(d.decide==='tayang'?'Disetujui. Listing sudah tayang di portal publik.':d.decide==='revisi'?'Permintaan revisi dikirim ke LSP':'Listing ditolak. LSP sudah diberi tahu.');return}
   if(d.toast){toast(d.toast)}
 });
+let seq=8;
+function addListing(status){
+  const f=S.form,judul=$('#lf-judul').value.trim()||'Listing baru',harga=Number($('#lf-harga').value)||0,fmt=$('#lf-format').value,desc=$('#lf-desc').value.trim();
+  if(f==='pelatihan'&&status==='menunggu'&&!$('#lf-ack').checked){toast('Centang pernyataan pelatihan dulu');return}
+  const id='L'+(seq++);
+  const pub=f==='skema'?{id,kode:judul.split(/\s+/).filter(w=>/^[A-Z]/.test(w)).map(w=>w[0]).join('').slice(0,3)||'NEW',nama:judul,bidang:'TIK',kkni:'Level 4',lsp:ME_LSP,kota:'Jakarta',metode:fmt.includes('&')?['Tatap muka','SJJ']:[fmt],harga,unit:9,warna:'pink',rating:5}
+    :{judul,info:fmt,warna:'green',harga,lsp:ME_LSP};
+  LISTINGS.unshift({id,tipe:f,judul,lsp:ME_LSP,harga,status,tgl:status==='draf'?'—':'09 Okt 2026',catatan:'',pub,desc});
+  S.form=null;S.etab='semua';render();
+  toast(status==='draf'?'Disimpan sebagai draf':'Diajukan. Tampil di portal setelah disetujui Admin Platform.');
+}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('article[data-skema]'))e.target.click()});
 document.addEventListener('change',e=>{
   if(e.target.name==='jd'){S.jadwal=Number(e.target.value);render()}
@@ -670,6 +782,7 @@ document.addEventListener('submit',e=>{
   e.preventDefault();
   if(e.target.id==='heroSearch'){S.q=$('#hq').value;S.filter='Semua';go('cari')}
   if(e.target.id==='verifForm'){S.verif=true;render();toast('Sertifikat ditemukan')}
+  if(e.target.id==='listingForm'){addListing('menunggu')}
 });
 render();
 </script>

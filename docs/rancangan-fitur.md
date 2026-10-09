@@ -73,6 +73,7 @@ Isolasi berlapis: **antar-LSP** (wajib, mutlak), lalu **di dalam LSP** per role 
 
 ### 0.5 Super Admin Platform
 
+- **Menyetujui / meminta revisi / menolak listing** e-commerce & LMS yang diajukan LSP sebelum tampil publik (bagian 15.1, Kurasi).
 - Mengelola daftar LSP: **onboarding LSP baru** (buat tenant → buat akun Admin LSP pertama → kirim undangan), paket, penangguhan, pemantauan kuota.
 - **Secara default tidak bisa membaca data operasional LSP** (asesi, nilai, dokumen). Hanya melihat statistik agregat (jumlah user, asesmen, storage).
 - Akses untuk keperluan *support* hanya lewat fitur **"masuk sebagai" (impersonate) dengan izin Admin LSP**, berbatas waktu, dan **tercatat di log audit yang bisa dilihat oleh LSP tersebut**.
@@ -202,7 +203,7 @@ Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform*, *Pu
 
 | Role | Keterangan | Status |
 |---|---|---|
-| Super Admin Platform | Pengelola SaaS: onboarding LSP, paket langganan, billing, monitoring (tidak membaca data operasional LSP, lihat bagian 0.5) | 🆕 |
+| Super Admin Platform | Pengelola SaaS: onboarding LSP, paket langganan, billing, monitoring, **kurasi & persetujuan listing e-commerce/LMS** (tidak membaca data operasional LSP, lihat bagian 0.5) | 🆕 |
 | Admin LSP | Operasional LSP | ✅ |
 | Manajer Mutu / Manajer Sertifikasi | Pengendalian mutu, audit internal, kaji ulang manajemen | 🆕 |
 | Komite Skema | Penyusunan & kaji ulang skema | 🆕 |
@@ -629,13 +630,48 @@ E-commerce ini **bukan modul terpisah**: begitu dibayar, pesanan otomatis menjad
 > - Risiko ini tercatat di analisis risiko ketidakberpihakan (bagian 10).
 > - Opsi: LMS dioperasikan oleh **lembaga pelatihan (LPK) mitra** sebagai pihak terpisah, sementara LSP hanya menautkan.
 
+#### Kurasi: listing LSP wajib disetujui Admin Platform sebelum tampil publik
+
+LSP bisa **menambahkan sendiri** produk ke etalase e-commerce (skema uji, paket bundling, jadwal) dan kelas pelatihan ke LMS dari menu **Etalase & Pelatihan**. Namun **tidak ada yang tampil di portal publik sebelum disetujui Admin Platform** (Super Admin / tim kurasi).
+
+**Alur status listing**
+
+```
+Draf → Diajukan → Ditinjau → Tayang
+                    ├→ Perlu revisi → (LSP perbaiki) → Diajukan lagi
+                    └→ Ditolak (dengan alasan)
+Tayang → Diturunkan (takedown oleh Admin Platform, dengan alasan) / Diarsipkan (oleh LSP)
+```
+
+| Fitur | Prioritas |
+|---|---|
+| LSP membuat listing: jenis (skema uji / paket / pelatihan), judul, skema terkait, harga, kuota, metode/format, deskripsi, foto, kebijakan refund | P1 |
+| Simpan draf, ajukan persetujuan, tarik kembali pengajuan | P1 |
+| **Antrean persetujuan** untuk Admin Platform: pratinjau persis seperti tampilan publik + checklist kurasi | P1 |
+| Keputusan: **Setujui** / **Minta revisi** (catatan wajib) / **Tolak** (alasan wajib); notifikasi ke LSP via email/WA/in-app | P1 |
+| **Perubahan pada listing yang sudah tayang juga butuh persetujuan.** Versi lama tetap tayang sampai versi baru disetujui | P1 |
+| Data operasional berubah otomatis tanpa persetujuan: sisa kuota, status penuh, penutupan pendaftaran | P1 |
+| Takedown listing yang sudah tayang oleh Admin Platform (mis. lisensi habis, keluhan), dengan alasan & notifikasi | P1 |
+| Riwayat keputusan & log audit (siapa menyetujui, kapan, versi mana) | P1 |
+| SLA tinjauan (mis. maks. 2 hari kerja), pengingat bila antrean menumpuk | P2 |
+| Setujui massal untuk pengajuan sejenis (mis. 10 jadwal baru skema yang sama) | P2 |
+| Opsi **"LSP terpercaya"**: jadwal baru dari skema yang sudah pernah disetujui boleh tayang otomatis (default **mati**) | P3 |
+
+**Checklist kurasi (dicek Admin Platform)**
+
+- Skema masuk ruang lingkup lisensi BNSP LSP dan lisensi masih berlaku.
+- Harga, biaya tambahan, dan kebijakan refund tertulis jelas.
+- Tidak ada klaim menyesatkan (mis. "dijamin kompeten", "pasti lulus").
+- Untuk pelatihan: **tidak dinyatakan sebagai syarat wajib uji**, dan instruktur tercatat (agar sistem bisa memblokir instruktur menjadi asesor pesertanya).
+- Foto/materi tidak melanggar hak cipta, kontak & lokasi TUK benar.
+
 #### Setelah login: dashboard per role
 
 | Role | Menu utama |
 |---|---|
 | Asesi | Dashboard (status semua permohonan di semua LSP), Daftar Skema, Jadwal Saya, Pembayaran, Kelas Saya (LMS), Dompet Sertifikat, Profil & Dokumen |
 | Asesor | Kalender gabungan, Penugasan, Pra-asesmen, Asesmen (MUK/FR), Pleno, Riwayat, Logbook, Honor |
-| Admin LSP | Dashboard, Pendaftaran, Jadwal, Asesmen, Pleno & Sertifikat, Data Master, Mutu, Keuangan, CRM, Halaman Profil LSP, Laporan, Pengaturan |
+| Admin LSP | Dashboard, Pendaftaran, Jadwal, Asesmen, Pleno & Sertifikat, Data Master, **Etalase & Pelatihan**, Mutu, Keuangan, CRM, Halaman Profil LSP, Laporan, Pengaturan |
 | Admin TUK | Dashboard TUK, Pemohon, Jadwal, Sarana-prasarana, Chat |
 | Mitra | Program/kuota, Peserta, Progres & hasil, Tagihan |
 
@@ -693,7 +729,7 @@ Deck NAS menyebut "*untuk paket Basic*", artinya fitur dibedakan per paket. Apli
 
 ## 18. Usulan tahapan rilis
 
-**Fase 1 — MVP (±3–4 bulan)**: **multi-LSP (tenant) dengan isolasi data berlapis (bagian 0)** & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, **CRM dasar** (kontak, lead, follow-up pendaftar belum selesai, pengingat re-sertifikasi), **migrasi data dari Excel**, **persuratan otomatis** (surat tugas, SK pleno, BAPS), **portal pusat + halaman profil LSP + cari skema & checkout (marketplace dasar)**, jadwal terbuka + kartu peserta, cetak sertifikat di blanko, paket langganan & feature flag, audit trail, kepatuhan PDP.
+**Fase 1 — MVP (±3–4 bulan)**: **multi-LSP (tenant) dengan isolasi data berlapis (bagian 0)** & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, **CRM dasar** (kontak, lead, follow-up pendaftar belum selesai, pengingat re-sertifikasi), **migrasi data dari Excel**, **persuratan otomatis** (surat tugas, SK pleno, BAPS), **portal pusat + halaman profil LSP + cari skema & checkout (marketplace dasar) + kurasi listing oleh Admin Platform**, jadwal terbuka + kartu peserta, cetak sertifikat di blanko, paket langganan & feature flag, audit trail, kepatuhan PDP.
 
 **Fase 2 — Mutu & skala (±3 bulan)**: SJJ dengan proctoring, mode offline asesor, modul mutu (audit internal, CAPA, kaji ulang manajemen, ketidakberpihakan), keuangan & honor asesor, surveilans & RCC, portal mitra, **CRM lanjutan** (pipeline B2B + penawaran, kampanye broadcast, survei NPS, laporan funnel), helpdesk, dashboard analitik lanjutan, jalur RPL, logbook asesor, pustaka SKKNI global, refund & waiting list, tindak lanjut temuan BNSP.
 
