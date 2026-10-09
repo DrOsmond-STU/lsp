@@ -233,6 +233,10 @@ Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform*, *Pu
 | **Deklarasi konflik kepentingan** asesor per asesi/jadwal (blok otomatis jika asesor pernah melatih asesi atau satu instansi) | 🆕 | P1 |
 | **Inventaris sarana-prasarana TUK** per skema (alat, bahan, ruang) | 🆕 | P2 |
 | Rotasi asesor & beban kerja asesor | 🆕 | P3 |
+| **Logbook / portofolio asesor**: rekap jumlah & jenis asesmen per tahun dari **semua LSP tempat ia bertugas** (hanya terlihat oleh asesor sendiri), siap diunduh sebagai bukti perpanjangan sertifikat asesor (RCC MET) | 🆕 | P2 |
+| **Rapat teknis / kalibrasi asesor** sebelum uji (penyamaan persepsi MUK), notulen & daftar hadir | 🆕 | P2 |
+| Evaluasi kinerja asesor oleh LSP (nilai dari umpan balik asesi, ketepatan waktu, kelengkapan dokumen) + catatan kode etik & sanksi | 🆕 | P3 |
+| Kartu identitas digital asesor (QR) | 🆕 | P3 |
 
 ### 2.1 Hak akses Admin TUK
 
@@ -247,6 +251,15 @@ Admin TUK memakai web yang sama dengan Admin LSP, tetapi menunya terbatas dan **
 | Tinjau proses sertifikasi | ✅ semua | ✅ asesi di TUK-nya |
 | Database alumni | ✅ semua | ✅ alumni yang diuji di TUK-nya |
 | Usulan jadwal asesmen (disetujui Admin LSP) | ✅ | ✅ |
+
+### 2.2 Data referensi global & migrasi data
+
+| Fitur | Status | Prioritas |
+|---|---|---|
+| **Pustaka unit kompetensi global** (SKKNI, SKK Khusus) yang dikelola Super Admin; LSP cukup **mengimpor** unit ke skemanya, tidak mengetik ulang | 🆕 | P2 |
+| Data referensi bersama: provinsi/kab/kota/kecamatan, jenjang pendidikan, bidang/sektor, jenjang KKNI, bank | 🆕 | P1 |
+| **Migrasi data dari sistem lama / Excel** saat onboarding LSP: asesor, asesi, alumni, sertifikat, skema, TUK (dengan validasi & laporan baris gagal) | 🆕 | P1 |
+| Impor data massal kapan saja via template Excel (asesi, asesor, peserta jadwal, soal) | 🆕 | P1 |
 
 ## 3. Modul Skema Sertifikasi
 
@@ -277,6 +290,8 @@ Admin TUK memakai web yang sama dengan Admin LSP, tetapi menunya terbatas dan **
 | **Kuota & kode voucher kerja sama** (peserta dibiayai sponsor) | 🆕 | P2 |
 | **Pembayaran online** (payment gateway: VA, QRIS, e-wallet), invoice & kuitansi otomatis | 🆕 | P1 |
 | Penyesuaian yang beralasan untuk asesi berkebutuhan khusus (FR.AK.07) | 🆕 | P2 |
+| **Jalur RPL (Rekognisi Pembelajaran Lampau)**: asesi memilih jalur portofolio, sistem menampilkan bukti yang dibutuhkan per unit, asesor memverifikasi tanpa uji praktik penuh | 🆕 | P2 |
+| Simpan draf pendaftaran & lanjutkan nanti | 🆕 | P1 |
 
 ## 5. Modul Penjadwalan
 
@@ -288,6 +303,11 @@ Admin TUK memakai web yang sama dengan Admin LSP, tetapi menunya terbatas dan **
 | **Validasi bentrok jadwal** asesor/TUK/ruang | 🆕 | P1 |
 | **Rasio asesor : asesi** sesuai ketentuan, sistem menolak jika terlampaui | 🆕 | P1 |
 | Sinkronisasi ke Google Calendar / Outlook (file .ics) | 🆕 | P3 |
+| **Jadwal uji terbuka & pilih jadwal sendiri**: asesi memilih jadwal yang tersedia saat mendaftar (tampil juga di website LSP) | 🆕 | P1 |
+| **Kuota peserta per jadwal** + daftar tunggu (waiting list) otomatis naik bila ada yang batal | 🆕 | P2 |
+| **Reschedule & pembatalan** oleh asesi/LSP dengan aturan batas waktu, tercatat riwayatnya | 🆕 | P1 |
+| **Kartu peserta uji** (PDF/QR) untuk check-in di TUK | 🆕 | P1 |
+| Kapasitas ruang & jadwal pemakaian ruang TUK | 🆕 | P2 |
 
 ## 6. Modul Verifikasi TUK
 
@@ -332,6 +352,19 @@ Mendukung tiga metode: **paper-based, paperless, dan Sertifikasi Jarak Jauh (SJJ
 | **Halaman publik verifikasi sertifikat** (cek nomor/QR, tanpa membuka data pribadi berlebih) | 🆕 | P1 |
 | Pelacakan blanko (diajukan → dicetak → diterima → dikirim ke asesi, dengan nomor resi) | 🆕 | P2 |
 | Badge digital yang bisa dibagikan ke LinkedIn | 🆕 | P3 |
+| **Impor nomor registrasi & nomor blanko dari BNSP** ke data sertifikat asesi | 🆕 | P1 |
+| **Cetak sertifikat di blanko BNSP** dengan kalibrasi posisi cetak (geser margin per printer), cetak massal | 🆕 | P1 |
+| Asesi mengunduh sertifikat digital & dokumen hasil asesmen dari aplikasi | 🆕 | P1 |
+| Sertifikat dwibahasa (Indonesia–Inggris) | 🆕 | P3 |
+
+### 8.1 Persuratan & dokumen otomatis
+
+| Fitur | Status | Prioritas |
+|---|---|---|
+| Generate otomatis: **surat tugas asesor**, **SK tim pleno**, undangan asesi, berita acara asesmen, daftar hadir, **BAPS**, surat keterangan sedang proses sertifikasi | 🆕 | P1 |
+| **Penomoran surat otomatis** sesuai format LSP (nomor/kode/bulan romawi/tahun) | 🆕 | P1 |
+| Template surat bisa diubah per LSP (kop, isi, penanda tangan) + TTE | 🆕 | P2 |
+| Arsip surat masuk & surat keluar | 🆕 | P2 |
 
 ## 9. Modul Banding, Keluhan, Surveilans & Re-sertifikasi
 
@@ -360,6 +393,10 @@ NAS hanya menyebut "dokumen manajemen". Untuk LSP, modul mutu inilah yang paling
 | Pakta kerahasiaan & ketidakberpihakan seluruh personel (tanda tangan digital) | 🆕 | P1 |
 | Monitoring kinerja asesor (witness internal, konsistensi keputusan) | 🆕 | P3 |
 | **Checklist kesiapan surveilans BNSP** (dokumen apa yang sudah/belum lengkap) | 🆕 | P2 |
+| **Jadwal surveilans/witness BNSP & tindak lanjut temuan BNSP** (temuan → CAPA → bukti penutupan) | 🆕 | P2 |
+| Notulen rapat (komite skema, ketidakberpihakan, rapat manajemen) dengan daftar hadir & TTE | 🆕 | P2 |
+| **Jadwal retensi arsip**: masa simpan per jenis rekaman, pemusnahan terkontrol dengan berita acara | 🆕 | P3 |
+| Sasaran mutu & indikator kinerja LSP (target vs realisasi) | 🆕 | P3 |
 
 ## 11. Modul Keuangan
 
@@ -371,6 +408,9 @@ NAS hanya menyebut "dokumen manajemen". Untuk LSP, modul mutu inilah yang paling
 | Biaya blanko BNSP & biaya sewa TUK | 🆕 | P2 |
 | Laporan pendapatan per skema/TUK/periode, ekspor ke akuntansi | 🆕 | P2 |
 | E-Faktur / PPN bila diperlukan | 🆕 | P3 |
+| **Pembatalan & refund** sesuai kebijakan LSP (penuh / sebagian / jadi saldo untuk jadwal lain) | 🆕 | P2 |
+| Cicilan / pembayaran bertahap untuk tagihan kolektif mitra | 🆕 | P3 |
+| Integrasi software akuntansi (mis. Jurnal, Accurate) | 🆕 | P3 |
 
 ## 12. Dashboard & Analitik
 
@@ -395,6 +435,9 @@ NAS hanya menyebut "dokumen manajemen". Untuk LSP, modul mutu inilah yang paling
 | Pengumuman / broadcast ke segmen tertentu | 🆕 | P2 |
 | **Helpdesk / tiket dukungan** di dalam aplikasi (bukan hanya telepon jam kerja) | 🆕 | P2 |
 | Chatbot FAQ asesi 24 jam | 🆕 | P3 |
+| **Kotak notifikasi di dalam aplikasi** (lonceng, tanda belum dibaca) | 🆕 | P1 |
+| **Pengingat jadwal** H-3 & H-1 ke asesi, asesor, TUK + konfirmasi kehadiran | 🆕 | P1 |
+| Preferensi notifikasi per user (kanal & jenis yang ingin diterima) | 🆕 | P2 |
 
 ## 14. CRM (Customer Relationship Management)
 
@@ -544,6 +587,15 @@ Deck NAS menyebut "*untuk paket Basic*", artinya fitur dibedakan per paket. Apli
 | **Multi-tenant + white-label** (subdomain/custom domain & logo per LSP) | 🆕 | P1 |
 | Disaster recovery plan, uji restore backup berkala | 🆕 | P2 |
 | Status page & SLA uptime | 🆕 | P3 |
+| Login alternatif: **OTP WhatsApp/email**, login dengan Google; lupa password mandiri | 🆕 | P1 |
+| Manajemen sesi & perangkat (lihat perangkat yang login, keluar dari semua perangkat), batas waktu sesi | 🆕 | P2 |
+| Kebijakan password, pembatasan percobaan login, CAPTCHA | 🆕 | P1 |
+| Rate limiting, WAF, proteksi DDoS | 🆕 | P1 |
+| Monitoring aplikasi & error, log terpusat, peringatan otomatis ke tim teknis | 🆕 | P1 |
+| Verifikasi NIK via Dukcapil (memerlukan kerja sama/PKS) | 🆕 | P3 |
+| **Multi-bahasa** antarmuka (Indonesia / Inggris) | 🆕 | P3 |
+| **Aksesibilitas** (kontras, ukuran huruf, pembaca layar) untuk asesi difabel | 🆕 | P2 |
+| Aplikasi web responsif + PWA (bisa dipasang di HP tanpa app store) | 🆕 | P1 |
 
 ## 17. Fitur AI (pembeda modern)
 
@@ -559,9 +611,9 @@ Deck NAS menyebut "*untuk paket Basic*", artinya fitur dibedakan per paket. Apli
 
 ## 18. Usulan tahapan rilis
 
-**Fase 1 — MVP (±3–4 bulan)**: **multi-LSP (tenant) dengan isolasi data berlapis (bagian 0)** & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, **CRM dasar** (kontak, lead, follow-up pendaftar belum selesai, pengingat re-sertifikasi), audit trail, kepatuhan PDP.
+**Fase 1 — MVP (±3–4 bulan)**: **multi-LSP (tenant) dengan isolasi data berlapis (bagian 0)** & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, **CRM dasar** (kontak, lead, follow-up pendaftar belum selesai, pengingat re-sertifikasi), **migrasi data dari Excel**, **persuratan otomatis** (surat tugas, SK pleno, BAPS), jadwal terbuka + kartu peserta, cetak sertifikat di blanko, paket langganan & feature flag, audit trail, kepatuhan PDP.
 
-**Fase 2 — Mutu & skala (±3 bulan)**: SJJ dengan proctoring, mode offline asesor, modul mutu (audit internal, CAPA, kaji ulang manajemen, ketidakberpihakan), keuangan & honor asesor, surveilans & RCC, portal mitra, **CRM lanjutan** (pipeline B2B + penawaran, kampanye broadcast, survei NPS, laporan funnel), helpdesk, dashboard analitik lanjutan.
+**Fase 2 — Mutu & skala (±3 bulan)**: SJJ dengan proctoring, mode offline asesor, modul mutu (audit internal, CAPA, kaji ulang manajemen, ketidakberpihakan), keuangan & honor asesor, surveilans & RCC, portal mitra, **CRM lanjutan** (pipeline B2B + penawaran, kampanye broadcast, survei NPS, laporan funnel), helpdesk, dashboard analitik lanjutan, jalur RPL, logbook asesor, pustaka SKKNI global, refund & waiting list, tindak lanjut temuan BNSP.
 
 **Fase 3 — Ekosistem**: website LSP builder, e-commerce, LMS bimtek, tracer study, talent pool, API publik, fitur AI, **CRM omnichannel, workflow otomatis & referral**.
 
