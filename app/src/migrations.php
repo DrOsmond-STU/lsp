@@ -123,6 +123,10 @@ function migrations(): array
             // Admin LSP memegang semua hak akses tingkat LSP, termasuk data TUK di LSP-nya.
             seed_rbac_missing();
         },
+        6 => function (): void {
+            // Proses sertifikasi lengkap: skema, jadwal, permohonan, tagihan, sertifikat, kelas, CRM, mutu, TUK, SKKNI, tiket.
+            migrate_domain();
+        },
     ];
 }
 

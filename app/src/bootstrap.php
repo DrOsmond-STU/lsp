@@ -24,5 +24,8 @@ require __DIR__ . '/auth.php';
 require __DIR__ . '/asesi.php';
 require __DIR__ . '/notify.php';
 require __DIR__ . '/ai.php';
+require __DIR__ . '/schema_domain.php';
+require __DIR__ . '/domain.php';
+require __DIR__ . '/lsp_ops.php';
 require __DIR__ . '/migrations.php';
 require __DIR__ . '/routes.php';

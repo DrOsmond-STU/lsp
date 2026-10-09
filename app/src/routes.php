@@ -35,6 +35,27 @@ function dispatch(string $route): void
         'notifications/log' => 'r_notif_log',
         'ai/chat' => 'r_ai_chat',
         'lsps' => 'r_lsps',
+        // Proses sertifikasi
+        'dokumen' => 'r_dokumen', 'dokumen/upload' => 'r_dokumen_upload', 'dokumen/file' => 'r_dokumen_file',
+        'asesi/apply' => 'r_asesi_apply', 'asesi/permohonan' => 'r_asesi_permohonan', 'asesi/resubmit' => 'r_asesi_resubmit',
+        'asesi/cancel' => 'r_asesi_cancel', 'asesi/tagihan' => 'r_asesi_tagihan', 'asesi/bayar' => 'r_asesi_bayar',
+        'asesi/sertifikat' => 'r_asesi_sertifikat', 'asesi/kelas' => 'r_asesi_kelas', 'asesi/kelas/daftar' => 'r_asesi_kelas_daftar',
+        'asesi/kelas/progres' => 'r_asesi_kelas_progres', 'sertifikat/cetak' => 'r_sertifikat_cetak',
+        'asesor/jadwal' => 'r_asesor_jadwal', 'asesor/pra' => 'r_asesor_pra', 'asesor/pra/putus' => 'r_asesor_pra_putus',
+        'asesor/asesmen' => 'r_asesor_asesmen', 'asesor/asesmen/simpan' => 'r_asesor_asesmen_simpan', 'asesor/riwayat' => 'r_asesor_riwayat',
+        'asesor/honor' => 'r_asesor_honor', 'pleno' => 'r_pleno', 'pleno/putus' => 'r_pleno_putus',
+        'chat' => 'r_chat', 'chat/kirim' => 'r_chat_kirim', 'chat/ruang' => 'r_chat_ruang',
+        'lsp/dashboard' => 'r_lsp_dashboard', 'lsp/pendaftaran' => 'r_lsp_pendaftaran', 'lsp/pendaftaran/putus' => 'r_lsp_pendaftaran_putus',
+        'lsp/asesmen' => 'r_lsp_asesmen', 'lsp/hasil' => 'r_lsp_hasil', 'lsp/jadwal' => 'r_lsp_jadwal', 'lsp/jadwal/asesor' => 'r_lsp_jadwal_asesor',
+        'lsp/asesor' => 'r_lsp_asesor', 'lsp/skema' => 'r_lsp_skema', 'lsp/tuk' => 'r_lsp_tuk', 'lsp/opsi' => 'r_lsp_opsi',
+        'lsp/alumni' => 'r_lsp_alumni', 'lsp/keuangan' => 'r_lsp_keuangan', 'lsp/keuangan/lunas' => 'r_lsp_keuangan_lunas',
+        'lsp/laporan' => 'r_lsp_laporan', 'lsp/crm' => 'r_lsp_crm', 'lsp/crm/tahap' => 'r_lsp_crm_tahap', 'lsp/mutu' => 'r_lsp_mutu',
+        'lsp/pengaturan' => 'r_lsp_pengaturan',
+        'tuk/dashboard' => 'r_tuk_dashboard', 'tuk/pemohon' => 'r_tuk_pemohon', 'tuk/jadwal' => 'r_tuk_jadwal', 'tuk/sarpras' => 'r_tuk_sarpras',
+        'tuk/alumni' => 'r_tuk_alumni',
+        'platform/dashboard' => 'r_platform_dashboard', 'platform/lsp' => 'r_platform_lsp', 'platform/lsp/status' => 'r_platform_lsp_status',
+        'platform/paket' => 'r_platform_paket', 'skkni' => 'r_skkni', 'tiket' => 'r_tiket', 'tiket/balas' => 'r_tiket_balas', 'audit' => 'r_audit',
+        'pub/catalog' => 'r_pub_catalog', 'pub/skema' => 'r_pub_skema', 'pub/jadwal' => 'r_pub_jadwal', 'pub/lsp' => 'r_pub_lsp', 'pub/verify' => 'r_pub_verify',
     ];
     if (!isset($routes[$route])) {
         fail('Alamat API tidak ditemukan.', 404);
@@ -62,7 +83,7 @@ function listing_row(array $r, bool $internal): array
         'lsp_nama' => $r['lsp_nama'],
     ];
     if ($internal) {
-        $out += ['status' => $r['status'], 'catatan' => $r['catatan'], 'submitted_at' => $r['submitted_at'], 'reviewed_at' => $r['reviewed_at']];
+        $out += ['skema_id' => isset($r['skema_id']) && $r['skema_id'] !== null ? (int)$r['skema_id'] : null, 'status' => $r['status'], 'catatan' => $r['catatan'], 'submitted_at' => $r['submitted_at'], 'reviewed_at' => $r['reviewed_at']];
     }
     return $out;
 }
@@ -147,10 +168,15 @@ function r_listings(): void
     if ($tipe === 'pelatihan' && $status === 'menunggu' && (body()['ack'] ?? false) !== true) {
         fail('Centang pernyataan bahwa pelatihan bukan syarat wajib uji.', 422);
     }
+    // Listing skema bisa ditautkan ke skema master LSP itu agar asesi bisa langsung mendaftar jadwalnya.
+    $skemaId = $tipe === 'skema' ? int_in('skema_id') : 0;
+    if ($skemaId && !q('SELECT 1 FROM skema WHERE id = ? AND lsp_id = ?', [$skemaId, $lspId])->fetch()) {
+        fail('Skema master tidak ditemukan di LSP ini.', 422);
+    }
     $t = now();
-    q('INSERT INTO listings (lsp_id, tipe, judul, bidang, kota, format, harga, deskripsi, status, created_by, submitted_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [$lspId, $tipe, $judul, $bidang, $kota, $format, $harga, $desc, $status, (int)current_user()['id'], $status === 'menunggu' ? $t : null, $t, $t]);
+    q('INSERT INTO listings (lsp_id, tipe, judul, bidang, kota, format, harga, deskripsi, status, created_by, submitted_at, created_at, updated_at, skema_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [$lspId, $tipe, $judul, $bidang, $kota, $format, $harga, $desc, $status, (int)current_user()['id'], $status === 'menunggu' ? $t : null, $t, $t, $skemaId ?: null]);
     $id = (int)db()->lastInsertId();
     audit($status === 'menunggu' ? 'listing.submitted' : 'listing.drafted', 'listing:' . $id);
     if ($status === 'menunggu') {
