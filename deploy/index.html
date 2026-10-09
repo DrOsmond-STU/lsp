@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Purwarupa Portal LSP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: portal publik (topbar + konten) dan aplikasi (sidebar gradasi biru + konten); tombol gradasi warna-warni berbayang melayang */
+:root{
+  --bg:#f2f6fd; --surface:#ffffff; --surface-2:#eaf1fc; --fg:#0e1a3a; --muted:#5b6889; --line:#dbe4f3;
+  --brand-a:#1e3a8a; --brand-b:#1d4ed8; --brand-c:#0ea5e9;
+  --grad:linear-gradient(135deg,var(--brand-a) 0%,var(--brand-b) 48%,var(--brand-c) 100%);
+  --g-blue:linear-gradient(135deg,#3b82f6,#1d4ed8); --s-blue:rgba(29,78,216,.45);
+  --g-green:linear-gradient(135deg,#34d399,#059669); --s-green:rgba(5,150,105,.42);
+  --g-orange:linear-gradient(135deg,#fbbf24,#f97316); --s-orange:rgba(249,115,22,.42);
+  --g-pink:linear-gradient(135deg,#f472b6,#db2777); --s-pink:rgba(219,39,119,.42);
+  --g-purple:linear-gradient(135deg,#a78bfa,#7c3aed); --s-purple:rgba(124,58,237,.42);
+  --g-teal:linear-gradient(135deg,#2dd4bf,#0d9488); --s-teal:rgba(13,148,136,.42);
+  --g-red:linear-gradient(135deg,#f87171,#dc2626); --s-red:rgba(220,38,38,.42);
+  --ok:#059669; --ok-bg:#d9f7ea; --warn:#b45309; --warn-bg:#fdf0d5; --bad:#c81e1e; --bad-bg:#fde2e2; --info:#1d4ed8; --info-bg:#dfe9ff;
+  --card-shadow:0 1px 2px rgba(14,26,58,.05),0 8px 24px -12px rgba(14,26,58,.18);
+  --font:"Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r-sm:10px; --r-md:16px; --r-lg:22px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0a1126; --surface:#111a35; --surface-2:#172347; --fg:#e7edff; --muted:#9aa8cd; --line:#25335f;
+  --brand-a:#172b6b; --brand-b:#1d4ed8; --brand-c:#0891b2;
+  --ok:#34d399; --ok-bg:#0f3a2c; --warn:#fbbf24; --warn-bg:#3d2c0c; --bad:#f87171; --bad-bg:#431818; --info:#93b4ff; --info-bg:#1a2a5c;
+  --card-shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px -12px rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0a1126; --surface:#111a35; --surface-2:#172347; --fg:#e7edff; --muted:#9aa8cd; --line:#25335f;
+  --brand-a:#172b6b; --brand-b:#1d4ed8; --brand-c:#0891b2;
+  --ok:#34d399; --ok-bg:#0f3a2c; --warn:#fbbf24; --warn-bg:#3d2c0c; --bad:#f87171; --bad-bg:#431818; --info:#93b4ff; --info-bg:#1a2a5c;
+  --card-shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px -12px rgba(0,0,0,.6); color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;line-height:1.2;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(1.9rem,4.4vw,3rem);font-weight:800}
+h2{font-size:clamp(1.3rem,2.4vw,1.7rem);font-weight:800}
+h3{font-size:1.08rem;font-weight:700}
+p{margin:0}
+a{color:inherit}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono);font-size:.86em;letter-spacing:0}
+.num{font-variant-numeric:tabular-nums}
+.eyebrow{font-size:.74rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+:focus-visible{outline:3px solid var(--brand-c);outline-offset:2px;border-radius:8px}
+
+/* ---------- Tombol warna-warni melayang ---------- */
+.btn{--g:var(--g-blue);--s:var(--s-blue);display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border:0;cursor:pointer;
+  font:inherit;font-weight:700;font-size:.92rem;color:#fff;background:var(--g);padding:.72rem 1.15rem;border-radius:999px;
+  box-shadow:0 10px 22px -8px var(--s),0 2px 4px rgba(0,0,0,.06);transition:transform .18s ease,box-shadow .18s ease;white-space:nowrap;text-decoration:none}
+.btn:hover{transform:translateY(-3px);box-shadow:0 18px 30px -10px var(--s),0 3px 6px rgba(0,0,0,.08)}
+.btn:active{transform:translateY(-1px)}
+.btn.sm{padding:.48rem .85rem;font-size:.82rem}
+.btn.lg{padding:.95rem 1.5rem;font-size:1rem}
+.btn.green{--g:var(--g-green);--s:var(--s-green)} .btn.orange{--g:var(--g-orange);--s:var(--s-orange)}
+.btn.pink{--g:var(--g-pink);--s:var(--s-pink)} .btn.purple{--g:var(--g-purple);--s:var(--s-purple)}
+.btn.teal{--g:var(--g-teal);--s:var(--s-teal)} .btn.red{--g:var(--g-red);--s:var(--s-red)}
+.btn.ghost{background:var(--surface);color:var(--fg);box-shadow:var(--card-shadow);border:1px solid var(--line)}
+.btn.white{background:#fff;color:#1d4ed8;box-shadow:0 14px 28px -10px rgba(0,0,0,.45)}
+.btn.glass{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);box-shadow:0 10px 24px -12px rgba(0,0,0,.4)}
+.ico{width:1.05em;height:1.05em;flex:none}
+
+/* ---------- Kartu, chip, tabel ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--card-shadow);padding:1.25rem;min-width:0}
+.chip{display:inline-flex;align-items:center;gap:.35rem;font-size:.75rem;font-weight:700;padding:.22rem .6rem;border-radius:999px;white-space:nowrap}
+.chip.ok{background:var(--ok-bg);color:var(--ok)} .chip.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.bad{background:var(--bad-bg);color:var(--bad)} .chip.info{background:var(--info-bg);color:var(--info)}
+.chip.plain{background:var(--surface-2);color:var(--muted)}
+.dot{width:.55rem;height:.55rem;border-radius:50%;display:inline-block;flex:none}
+.table-wrap{overflow-x:auto;border-radius:var(--r-md)}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{text-align:left;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:.6rem .75rem;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:.75rem;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+.spread{display:flex;justify-content:space-between;align-items:center;gap:.75rem;flex-wrap:wrap}
+.stack{display:flex;flex-direction:column;gap:1rem}
+.grid{display:grid;gap:1rem}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))} .g3{grid-template-columns:repeat(3,minmax(0,1fr))} .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+input,select{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.7rem .9rem;width:100%;min-width:0}
+label.f{display:flex;flex-direction:column;gap:.35rem;font-size:.82rem;font-weight:600;color:var(--muted)}
+.sample{font-size:.72rem;font-weight:700;color:var(--warn);background:var(--warn-bg);padding:.15rem .5rem;border-radius:6px}
+
+/* ---------- Portal publik ---------- */
+.wrap{max-width:1180px;margin:0 auto;padding-inline:clamp(16px,4vw,32px)}
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.topbar .wrap{display:flex;align-items:center;gap:1rem;padding-block:.75rem}
+.logo{display:flex;align-items:center;gap:.55rem;font-weight:800;font-size:1.08rem;cursor:pointer;background:none;border:0;color:inherit;font-family:inherit;padding:0}
+.logo-mark{width:34px;height:34px;border-radius:11px;background:var(--grad);display:grid;place-items:center;box-shadow:0 8px 18px -8px var(--s-blue)}
+.nav{display:flex;gap:.2rem;margin-left:auto;flex-wrap:wrap}
+.nav button{background:none;border:0;font:inherit;font-weight:600;font-size:.88rem;color:var(--muted);padding:.5rem .7rem;border-radius:10px;cursor:pointer}
+.nav button:hover,.nav button.on{color:var(--fg);background:var(--surface-2)}
+.menu-btn{display:none;margin-left:auto}
+.hero{background:var(--grad);color:#fff;position:relative;overflow:hidden}
+.hero::before,.hero::after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none}
+.hero::before{width:520px;height:520px;right:-140px;top:-220px}
+.hero::after{width:300px;height:300px;left:-90px;bottom:-170px}
+.hero .wrap{position:relative;padding-block:clamp(2.5rem,7vw,4.5rem);display:grid;grid-template-columns:1.25fr 1fr;gap:2.5rem;align-items:center}
+.hero p.lead{font-size:1.08rem;opacity:.9;max-width:52ch;margin-top:.9rem}
+.search{margin-top:1.6rem;background:var(--surface);color:var(--fg);border-radius:20px;padding:.5rem;display:flex;gap:.5rem;box-shadow:0 24px 50px -20px rgba(0,0,0,.5);flex-wrap:wrap}
+.search input,.search select{border:0;background:transparent;flex:1 1 180px}
+.search select{flex:0 1 180px}
+.quick{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}
+.hero-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:var(--r-lg);padding:1.2rem;backdrop-filter:blur(6px)}
+.hero-card .cert{background:#fff;color:#0e1a3a;border-radius:16px;padding:1rem;box-shadow:0 20px 40px -18px rgba(0,0,0,.55)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-top:-2.2rem;position:relative;z-index:2}
+.stat{background:var(--surface);border-radius:var(--r-lg);padding:1rem 1.2rem;box-shadow:var(--card-shadow);border:1px solid var(--line)}
+.stat b{font-size:1.6rem;font-weight:800;display:block;font-variant-numeric:tabular-nums}
+section.block{padding-block:2.6rem}
+.sec-head{display:flex;justify-content:space-between;align-items:end;gap:1rem;margin-bottom:1.2rem;flex-wrap:wrap}
+.skema{display:flex;flex-direction:column;gap:.8rem;transition:transform .18s ease,box-shadow .18s ease;cursor:pointer}
+.skema:hover{transform:translateY(-4px);box-shadow:0 22px 40px -18px var(--s-blue)}
+.skema .badge{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:.95rem}
+.skema .meta{display:flex;gap:.4rem;flex-wrap:wrap}
+.price{font-weight:800;font-size:1.1rem;font-variant-numeric:tabular-nums}
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}
+.step-n{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;margin-bottom:.7rem}
+.cta{background:var(--grad);color:#fff;border-radius:28px;padding:clamp(1.5rem,4vw,2.5rem);display:flex;justify-content:space-between;align-items:center;gap:1.5rem;flex-wrap:wrap;box-shadow:0 30px 60px -30px var(--s-blue)}
+.filters{display:flex;gap:.5rem;flex-wrap:wrap}
+.fchip{border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-weight:600;font-size:.84rem;padding:.45rem .85rem;border-radius:999px;cursor:pointer}
+.fchip.on{background:var(--g-blue);color:#fff;border-color:transparent;box-shadow:0 8px 18px -8px var(--s-blue)}
+.layout-2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:1.25rem;align-items:start}
+.sched-opt{display:flex;gap:.8rem;align-items:center;border:1.5px solid var(--line);border-radius:14px;padding:.8rem;cursor:pointer}
+.sched-opt.on{border-color:var(--brand-b);background:var(--info-bg)}
+.stepper{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.2rem}
+.stepper span{flex:1 1 120px;font-size:.78rem;font-weight:700;padding:.5rem .7rem;border-radius:12px;background:var(--surface-2);color:var(--muted)}
+.stepper span.done{background:var(--ok-bg);color:var(--ok)} .stepper span.now{background:var(--g-blue);color:#fff;box-shadow:0 8px 18px -8px var(--s-blue)}
+.pay{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem}
+.pay label{border:1.5px solid var(--line);border-radius:14px;padding:.8rem;display:flex;gap:.6rem;align-items:center;cursor:pointer;font-weight:600}
+.pay input{width:auto}
+.plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.2rem;align-items:start}
+.plan.feat{border:2px solid var(--brand-b);transform:translateY(-8px)}
+.plan ul{padding-left:1.1rem;margin:.6rem 0 0;display:grid;gap:.35rem;font-size:.9rem}
+footer{border-top:1px solid var(--line);padding-block:1.6rem;margin-top:1rem;font-size:.85rem}
+
+/* ---------- Aplikasi (setelah login) ---------- */
+.app{display:grid;grid-template-columns:262px minmax(0,1fr);min-height:100%}
+.side{background:var(--grad);color:#fff;padding:1.1rem .85rem;display:flex;flex-direction:column;gap:1rem;position:sticky;top:0;height:100vh;overflow-y:auto}
+.side .logo{color:#fff}
+.side .logo-mark{background:rgba(255,255,255,.18);box-shadow:none}
+.tenant{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:14px;padding:.7rem .8rem;font-size:.8rem}
+.tenant b{display:block;font-size:.9rem}
+.side nav{display:flex;flex-direction:column;gap:.15rem}
+.side nav button{display:flex;align-items:center;gap:.65rem;background:none;border:0;color:rgba(255,255,255,.82);font:inherit;font-weight:600;font-size:.88rem;padding:.6rem .7rem;border-radius:12px;cursor:pointer;text-align:left}
+.side nav button:hover{background:rgba(255,255,255,.12);color:#fff}
+.side nav button.on{background:#fff;color:#1d4ed8;box-shadow:0 12px 24px -12px rgba(0,0,0,.55)}
+.side nav .grp{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;opacity:.6;padding:.7rem .7rem .2rem;font-weight:700}
+.main{min-width:0;display:flex;flex-direction:column}
+.apptop{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:.7rem clamp(16px,3vw,28px);display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.apptop select{width:auto;padding:.5rem .8rem;font-weight:600;font-size:.86rem}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--g-pink);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.85rem;box-shadow:0 8px 16px -8px var(--s-pink)}
+.bell{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;width:38px;height:38px;display:grid;place-items:center;cursor:pointer;color:var(--fg)}
+.bell i{position:absolute;top:-4px;right:-4px;background:var(--g-red);color:#fff;font-style:normal;font-size:.65rem;font-weight:800;border-radius:999px;padding:.05rem .35rem}
+.content{padding:clamp(16px,3vw,28px);display:flex;flex-direction:column;gap:1.25rem}
+.kpi{display:flex;gap:.9rem;align-items:center}
+.kpi .k-ico{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;color:#fff;flex:none}
+.kpi b{font-size:1.5rem;font-weight:800;display:block;font-variant-numeric:tabular-nums;line-height:1.1}
+.track{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.3rem;margin-top:.8rem}
+.track div{height:8px;border-radius:99px;background:var(--surface-2)}
+.track div.d{background:var(--g-green)} .track div.n{background:var(--g-blue);box-shadow:0 0 0 3px var(--info-bg)}
+.track-l{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.3rem;font-size:.66rem;color:var(--muted);margin-top:.35rem;font-weight:600}
+.cert-card{border-radius:var(--r-lg);padding:1.1rem;color:#fff;position:relative;overflow:hidden;box-shadow:0 18px 34px -16px var(--s)}
+.cert-card::after{content:"";position:absolute;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.12);right:-50px;top:-60px}
+.funnel{display:flex;flex-direction:column;gap:.55rem}
+.funnel .bar{height:30px;border-radius:10px;display:flex;align-items:center;padding-inline:.7rem;color:#fff;font-weight:700;font-size:.8rem;min-width:max-content}
+.day{display:grid;grid-template-columns:70px minmax(0,1fr);gap:.8rem;padding:.75rem 0;border-bottom:1px solid var(--line)}
+.day:last-child{border-bottom:0}
+.ev{border-left:4px solid var(--c);background:var(--surface-2);border-radius:10px;padding:.55rem .75rem;margin-bottom:.45rem}
+.ev:last-child{margin-bottom:0}
+.alert{display:flex;gap:.7rem;align-items:flex-start;padding:.75rem .9rem;border-radius:14px}
+.alert.warn{background:var(--warn-bg);color:var(--warn)} .alert.bad{background:var(--bad-bg);color:var(--bad)} .alert.info{background:var(--info-bg);color:var(--info)}
+.empty{text-align:center;padding:2.5rem 1rem}
+.empty ul{display:inline-grid;gap:.4rem;text-align:left;margin:1rem 0 0;padding-left:1.2rem}
+.menu-mobile{display:none}
+
+/* ---------- Bar demo melayang ---------- */
+.demo{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:999px;box-shadow:0 22px 50px -18px rgba(14,26,58,.55);padding:.35rem;display:flex;gap:.25rem;align-items:center;max-width:calc(100vw - 24px);overflow-x:auto}
+.demo span{font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-inline:.6rem .3rem;white-space:nowrap}
+.demo button{border:0;background:none;font:inherit;font-weight:700;font-size:.8rem;padding:.45rem .8rem;border-radius:999px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.demo button.on{background:var(--g-blue);color:#fff;box-shadow:0 8px 16px -8px var(--s-blue)}
+.toast{position:fixed;right:18px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;background:var(--g-green);color:#fff;font-weight:700;padding:.8rem 1.1rem;border-radius:14px;box-shadow:0 18px 30px -12px var(--s-green);max-width:calc(100vw - 36px)}
+body{padding-bottom:90px}
+
+@media (max-width:980px){
+  .hero .wrap,.layout-2{grid-template-columns:minmax(0,1fr)}
+  .hero-card{display:none}
+  .g4,.stats,.steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3,.plans{grid-template-columns:minmax(0,1fr)}
+  .plan.feat{transform:none}
+  .nav{display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);flex-direction:column;padding:.6rem;border-bottom:1px solid var(--line);box-shadow:var(--card-shadow)}
+  .nav.open{display:flex}
+  .menu-btn{display:inline-flex}
+  .topbar .auth{display:none}
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .menu-mobile{display:flex;gap:.4rem;overflow-x:auto;padding:.6rem clamp(16px,3vw,28px) 0;scrollbar-width:none}
+  .menu-mobile button{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-weight:600;font-size:.8rem;padding:.4rem .75rem;border-radius:999px;cursor:pointer}
+  .menu-mobile button.on{background:var(--g-blue);color:#fff;border-color:transparent}
+}
+@media (max-width:560px){
+  .g2,.pay{grid-template-columns:minmax(0,1fr)}
+  .stats,.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .steps{grid-template-columns:minmax(0,1fr)}
+  .search select{flex:1 1 100%}
+  .search .btn{flex:1 1 100%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.btn:hover,.skema:hover{transform:none}}
+</style>
+
+</head>
+<body>
+<div id="root"></div>
+<div class="demo" role="tablist" aria-label="Lihat purwarupa sebagai">
+  <span>Lihat sebagai</span>
+  <button data-role="publik" class="on">Publik</button>
+  <button data-role="asesi">Asesi</button>
+  <button data-role="asesor">Asesor</button>
+  <button data-role="admin">Admin LSP</button>
+  <button data-role="tuk">Admin TUK</button>
+  <button data-role="super">Super Admin</button>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ===================== Data contoh ===================== */
+const ICON = {
+  search:'<path d="M11 4a7 7 0 1 0 4.4 12.4l4.1 4.1 1.4-1.4-4.1-4.1A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/>',
+  home:'<path d="M12 3 3 10v11h6v-6h6v6h6V10l-9-7Z"/>',
+  doc:'<path d="M6 2h8l6 6v14H6V2Zm7 1.5V9h5.5L13 3.5ZM8 12h8v2H8v-2Zm0 4h8v2H8v-2Z"/>',
+  cal:'<path d="M7 2h2v2h6V2h2v2h3v18H4V4h3V2Zm-1 8v10h12V10H6Z"/>',
+  cert:'<path d="M4 4h16v12h-5l1 6-4-2-4 2 1-6H4V4Zm4 4v2h8V8H8Zm0 4v2h5v-2H8Z"/>',
+  wallet:'<path d="M3 6h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3V6Zm13 6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM5 3h12v2H5V3Z"/>',
+  users:'<path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0v1H2v-1Zm15-9a3 3 0 1 0 0-6v6Zm1 2h-1.2A8.9 8.9 0 0 1 19 20v1h3v-1a6 6 0 0 0-4-7Z"/>',
+  check:'<path d="m9 16.2-4.2-4.2-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2Z"/>',
+  chat:'<path d="M4 4h16v12H8l-4 4V4Z"/>',
+  chart:'<path d="M4 20V10h3v10H4Zm6.5 0V4h3v16h-3ZM17 20v-7h3v7h-3Z"/>',
+  money:'<path d="M2 6h20v12H2V6Zm10 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM5 9v6h1V9H5Zm13 0v6h1V9h-1Z"/>',
+  shield:'<path d="M12 2 4 5v6c0 5 3.4 9.5 8 11 4.6-1.5 8-6 8-11V5l-8-3Zm-1 13-3.5-3.5 1.4-1.4 2.1 2.1 4.6-4.6 1.4 1.4L11 15Z"/>',
+  build:'<path d="M3 21V7l6-4 6 4v2h6v12H3Zm2-2h4v-3H5v3Zm0-5h4v-3H5v3Zm6 5h4v-3h-4v3Zm0-5h4v-3h-4v3Zm6 5h2v-3h-2v3Z"/>',
+  gear:'<path d="m19.4 13 .1-1-.1-1 2.1-1.6-2-3.5-2.5 1a7 7 0 0 0-1.7-1L15 3h-4l-.4 2.6a7 7 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11l-.1 1 .1 1-2.1 1.6 2 3.5 2.5-1a7 7 0 0 0 1.7 1L11 21h4l.4-2.6a7 7 0 0 0 1.7-1l2.5 1 2-3.5-2.2-1.9ZM13 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/>',
+  bell:'<path d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8a2.5 2.5 0 0 0 2.4 2Zm7-6V11a7 7 0 0 0-5-6.7V3h-4v1.3A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2Z"/>',
+  book:'<path d="M4 3h7a3 3 0 0 1 3 3v15a2 2 0 0 0-2-2H4V3Zm16 0h-4a3 3 0 0 0-1 .2V20a3 3 0 0 1 1-1h4V3Z"/>',
+  pin:'<path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5Z"/>',
+  menu:'<path d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/>',
+  qr:'<path d="M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v8h-8V3Zm2 2v4h4V5h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Zm8-2h2v2h-2v-2Zm4 0h4v2h-2v2h-2v-4Zm-4 4h2v4h-2v-4Zm4 2h4v2h-4v-2Z"/>',
+  star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/>',
+  logout:'<path d="M10 3H4v18h6v-2H6V5h4V3Zm6.6 4.6L15.2 9l2 2H9v2h8.2l-2 2 1.4 1.4L21 12l-4.4-4.4Z"/>'
+};
+const ic = (n,c='ico') => `<svg class="${c}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${ICON[n]}</svg>`;
+const rp = n => 'Rp' + n.toLocaleString('id-ID');
+const GRAD = {blue:'var(--g-blue)',green:'var(--g-green)',orange:'var(--g-orange)',pink:'var(--g-pink)',purple:'var(--g-purple)',teal:'var(--g-teal)',red:'var(--g-red)'};
+
+const SKEMA = [
+  {id:'jwd',kode:'JWD',nama:'Junior Web Developer',bidang:'TIK',kkni:'Level 3',lsp:'LSP Teknologi Digital Nusantara',kota:'Jakarta',metode:['Tatap muka','SJJ'],harga:750000,unit:9,warna:'blue',rating:4.8},
+  {id:'dm',kode:'DM',nama:'Digital Marketing',bidang:'TIK',kkni:'Level 4',lsp:'LSP Teknologi Digital Nusantara',kota:'Bandung',metode:['SJJ'],harga:850000,unit:7,warna:'purple',rating:4.7},
+  {id:'brs',kode:'BRS',nama:'Barista',bidang:'Pariwisata',kkni:'Level 2',lsp:'LSP Pariwisata Bahari Indonesia',kota:'Denpasar',metode:['Tatap muka'],harga:600000,unit:8,warna:'orange',rating:4.9},
+  {id:'hk',kode:'HK',nama:'Housekeeping Supervisor',bidang:'Pariwisata',kkni:'Level 4',lsp:'LSP Pariwisata Bahari Indonesia',kota:'Yogyakarta',metode:['Tatap muka'],harga:900000,unit:10,warna:'pink',rating:4.6},
+  {id:'til',kode:'TIL',nama:'Teknisi Instalasi Listrik Bangunan',bidang:'Konstruksi',kkni:'Level 3',lsp:'LSP Konstruksi Mandiri',kota:'Surabaya',metode:['Tatap muka'],harga:1100000,unit:11,warna:'teal',rating:4.7},
+  {id:'adm',kode:'APK',nama:'Pengelola Administrasi Perkantoran',bidang:'Bisnis',kkni:'Level 3',lsp:'LSP Manajemen Profesional',kota:'Jakarta',metode:['Tatap muka','SJJ'],harga:700000,unit:8,warna:'green',rating:4.5},
+  {id:'ad',kode:'AD',nama:'Analis Data Junior',bidang:'TIK',kkni:'Level 4',lsp:'LSP Teknologi Digital Nusantara',kota:'Jakarta',metode:['SJJ'],harga:950000,unit:9,warna:'red',rating:4.8},
+  {id:'las',kode:'LAS',nama:'Juru Las 3G SMAW',bidang:'Konstruksi',kkni:'Level 2',lsp:'LSP Konstruksi Mandiri',kota:'Batam',metode:['Tatap muka'],harga:1350000,unit:6,warna:'orange',rating:4.6}
+];
+const UNIT_JWD = [
+  ['J.620100.004.02','Menggunakan struktur data'],
+  ['J.620100.005.02','Mengimplementasikan user interface'],
+  ['J.620100.011.01','Melakukan instalasi software tools pemrograman'],
+  ['J.620100.012.01','Melakukan pengaturan software tools pemrograman'],
+  ['J.620100.016.01','Menulis kode dengan prinsip sesuai guidelines dan best practices'],
+  ['J.620100.017.02','Mengimplementasikan pemrograman terstruktur'],
+  ['J.620100.019.02','Menggunakan library atau komponen pre-existing'],
+  ['J.620100.023.02','Membuat dokumen kode program'],
+  ['J.620100.025.02','Melakukan debugging']
+];
+const JADWAL = [
+  {tgl:'Sab, 24 Okt 2026',jam:'08.00–16.00 WIB',tuk:'TUK Sewaktu Kuningan',kota:'Jakarta Selatan',metode:'Tatap muka',sisa:6,kuota:20},
+  {tgl:'Sab, 31 Okt 2026',jam:'08.00–15.00 WIB',tuk:'Daring (SJJ) via Zoom',kota:'Seluruh Indonesia',metode:'SJJ',sisa:3,kuota:10},
+  {tgl:'Sab, 14 Nov 2026',jam:'08.00–16.00 WIB',tuk:'TUK Tempat Kerja PT Data Prima',kota:'Jakarta Barat',metode:'Tatap muka',sisa:0,kuota:15}
+];
+const LSPS = [
+  {nama:'LSP Teknologi Digital Nusantara',jenis:'P3',kota:'Jakarta',skema:42,tuk:18,warna:'blue',lisensi:'Berlaku s.d. Mar 2029'},
+  {nama:'LSP Pariwisata Bahari Indonesia',jenis:'P3',kota:'Denpasar',skema:27,tuk:11,warna:'orange',lisensi:'Berlaku s.d. Jan 2028'},
+  {nama:'LSP Konstruksi Mandiri',jenis:'P2',kota:'Surabaya',skema:19,tuk:9,warna:'teal',lisensi:'Berlaku s.d. Agu 2027'},
+  {nama:'LSP Manajemen Profesional',jenis:'P3',kota:'Jakarta',skema:33,tuk:14,warna:'green',lisensi:'Berlaku s.d. Jun 2028'},
+  {nama:'LSP Politeknik Negeri Maritim',jenis:'P1',kota:'Semarang',skema:15,tuk:4,warna:'purple',lisensi:'Berlaku s.d. Des 2027'},
+  {nama:'LSP Kesehatan Nusa Husada',jenis:'P3',kota:'Medan',skema:21,tuk:7,warna:'pink',lisensi:'Berlaku s.d. Okt 2028'}
+];
+
+/* ===================== State & helpers ===================== */
+const S = {role:'publik', page:'beranda', skema:'jwd', filter:'Semua', q:'', jadwal:0, step:0, appPage:'dashboard', lspCtx:'all', navOpen:false, verif:false};
+const $ = s => document.querySelector(s);
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600)}
+function go(page,extra={}){Object.assign(S,{page,navOpen:false},extra);render();window.scrollTo(0,0)}
+function goApp(p){S.appPage=p;render();window.scrollTo(0,0)}
+
+/* ===================== Portal publik ===================== */
+const PUB_NAV = [['beranda','Beranda'],['cari','Cari Skema'],['jadwal','Jadwal Uji'],['lsp','Daftar LSP'],['lms','Pelatihan'],['verif','Verifikasi Sertifikat'],['untuk','Untuk LSP']];
+function topbar(){
+  return `<header class="topbar"><div class="wrap" style="position:relative">
+    <button class="logo" data-go="beranda"><span class="logo-mark">${ic('shield')}</span>PortalLSP</button>
+    <nav class="nav ${S.navOpen?'open':''}" aria-label="Menu utama">${PUB_NAV.map(([k,l])=>`<button data-go="${k}" class="${S.page===k||(k==='cari'&&S.page==='detail')?'on':''}">${l}</button>`).join('')}</nav>
+    <div class="row auth"><button class="btn ghost sm" data-login="asesi">Masuk</button><button class="btn sm" data-login="asesi">Daftar</button></div>
+    <button class="btn ghost sm menu-btn" id="menuBtn" aria-label="Buka menu">${ic('menu')}</button>
+  </div></header>`;
+}
+function skemaCard(s){
+  return `<article class="card skema" data-skema="${s.id}" tabindex="0">
+    <div class="spread"><span class="badge" style="background:${GRAD[s.warna]}">${s.kode}</span><span class="chip plain">${ic('star')}${s.rating}</span></div>
+    <div><h3>${s.nama}</h3><p class="muted" style="font-size:.85rem;margin-top:.2rem">${s.lsp}</p></div>
+    <div class="meta"><span class="chip info">${s.bidang}</span><span class="chip plain">KKNI ${s.kkni}</span>${s.metode.map(m=>`<span class="chip ${m==='SJJ'?'ok':'plain'}">${m}</span>`).join('')}</div>
+    <div class="spread" style="margin-top:auto"><div><span class="eyebrow">Mulai</span><div class="price">${rp(s.harga)}</div></div><span class="muted row" style="gap:.25rem;font-size:.84rem">${ic('pin')}${s.kota}</span></div>
+  </article>`;
+}
+function pBeranda(){
+  return `<section class="hero"><div class="wrap">
+    <div>
+      <span class="chip" style="background:rgba(255,255,255,.18);color:#fff">Satu portal untuk ${LSPS.length*28}+ LSP di Indonesia</span>
+      <h1 style="margin-top:1rem">Cari, daftar, dan raih sertifikat kompetensi BNSP dalam satu tempat</h1>
+      <p class="lead">Bandingkan skema dari berbagai LSP, pilih jadwal dan TUK terdekat, bayar online, lalu pantau proses asesmen sampai sertifikat terbit.</p>
+      <form class="search" id="heroSearch">
+        <input id="hq" placeholder="Cari skema, mis. Web Developer, Barista" aria-label="Cari skema">
+        <select id="hk" aria-label="Lokasi"><option>Semua lokasi</option><option>Jakarta</option><option>Bandung</option><option>Surabaya</option><option>Denpasar</option></select>
+        <button class="btn" type="submit">${ic('search')}Cari Skema</button>
+      </form>
+      <div class="quick">
+        <button class="btn sm green" data-filter="TIK">Teknologi Informasi</button>
+        <button class="btn sm orange" data-filter="Pariwisata">Pariwisata</button>
+        <button class="btn sm teal" data-filter="Konstruksi">Konstruksi</button>
+        <button class="btn sm pink" data-filter="Bisnis">Bisnis</button>
+      </div>
+    </div>
+    <div class="hero-card">
+      <p class="eyebrow" style="color:rgba(255,255,255,.8)">Status pendaftaran Anda</p>
+      <div class="cert" style="margin-top:.7rem">
+        <div class="spread"><b>Junior Web Developer</b><span class="chip info">Pra-asesmen</span></div>
+        <p class="muted" style="font-size:.82rem">LSP Teknologi Digital Nusantara · 24 Okt 2026</p>
+        <div class="track">${[1,1,1,2,0,0,0].map(v=>`<div class="${v===1?'d':v===2?'n':''}"></div>`).join('')}</div>
+        <div class="track-l"><span>Daftar</span><span>Berkas</span><span>Bayar</span><span>Pra</span><span>Uji</span><span>Pleno</span><span>Sertifikat</span></div>
+      </div>
+      <div class="row" style="margin-top:.9rem;justify-content:space-between"><span style="font-size:.85rem;opacity:.9">Asesor sedang meninjau APL.02 Anda</span><button class="btn sm white" data-login="asesi">Lihat</button></div>
+    </div>
+  </div></section>
+  <div class="wrap"><div class="stats">
+    ${[['168','LSP terdaftar'],['2.940','skema aktif'],['1.210','TUK terhubung'],['84.500','asesi tersertifikasi']].map(([b,l])=>`<div class="stat"><b>${b}</b><span class="muted" style="font-size:.85rem">${l}</span></div>`).join('')}
+  </div><p class="muted" style="font-size:.75rem;margin-top:.5rem"><span class="sample">Data contoh</span> Angka, nama LSP, dan skema di purwarupa ini fiktif.</p></div>
+
+  <section class="block"><div class="wrap">
+    <div class="sec-head"><div><p class="eyebrow">Paling banyak dicari</p><h2>Skema populer bulan ini</h2></div><button class="btn sm purple" data-go="cari">Lihat semua skema</button></div>
+    <div class="grid g4">${SKEMA.slice(0,4).map(skemaCard).join('')}</div>
+  </div></section>
+
+  <section class="block" style="padding-top:0"><div class="wrap layout-2">
+    <div class="card">
+      <div class="sec-head" style="margin-bottom:.6rem"><h3>Jadwal uji terdekat</h3><button class="btn sm teal" data-go="jadwal">Semua jadwal</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Skema</th><th>TUK</th><th>Sisa kuota</th></tr></thead><tbody>
+        ${[['24 Okt','Junior Web Developer','TUK Sewaktu Kuningan, Jakarta',6],['25 Okt','Barista','TUK Hotel Sanur, Denpasar',2],['31 Okt','Digital Marketing','Daring (SJJ)',3],['01 Nov','Teknisi Instalasi Listrik','TUK SMK Negeri 5 Surabaya',0]].map(r=>`<tr><td class="num"><b>${r[0]}</b></td><td>${r[1]}</td><td class="muted">${r[2]}</td><td>${r[3]?`<span class="chip ${r[3]<=3?'warn':'ok'}">${r[3]} kursi</span>`:'<span class="chip bad">Penuh</span>'}</td></tr>`).join('')}
+      </tbody></table></div>
+    </div>
+    <div class="card" style="background:var(--grad);color:#fff;border:0">
+      <p class="eyebrow" style="color:rgba(255,255,255,.8)">Verifikasi sertifikat</p>
+      <h3 style="margin-top:.4rem;font-size:1.25rem">Pastikan sertifikat kompetensi asli</h3>
+      <p style="opacity:.9;font-size:.9rem;margin-top:.4rem">Masukkan nomor sertifikat atau pindai QR di sertifikat.</p>
+      <div class="search" style="margin-top:1rem"><input placeholder="Nomor sertifikat" value="62090 2433 1 0012345 2026" aria-label="Nomor sertifikat"><button class="btn green" data-go="verif" data-verif="1">${ic('check')}Cek</button></div>
+    </div>
+  </div></section>
+
+  <section class="block" style="padding-top:0"><div class="wrap">
+    <div class="sec-head"><div><p class="eyebrow">Alur sertifikasi</p><h2>Empat langkah sampai sertifikat terbit</h2></div></div>
+    <div class="steps">
+      ${[['blue','Pilih skema & jadwal','Bandingkan skema dari semua LSP, lalu pilih TUK dan tanggal uji.'],['purple','Isi APL & unggah berkas','Isi FR.APL.01 dan asesmen mandiri FR.APL.02. Berkas dari profil bisa dipakai ulang.'],['orange','Bayar & ikuti asesmen','Bayar lewat VA, QRIS, atau e-wallet. Ikuti uji tatap muka atau jarak jauh (SJJ).'],['green','Terima sertifikat','Keputusan pleno tampil langsung. Sertifikat tersimpan di dompet sertifikat Anda.']].map((s,i)=>`<div class="card"><div class="step-n" style="background:${GRAD[s[0]]};box-shadow:0 10px 20px -8px var(--s-${s[0]})">${i+1}</div><h3>${s[1]}</h3><p class="muted" style="font-size:.88rem;margin-top:.35rem">${s[2]}</p></div>`).join('')}
+    </div>
+  </div></section>
+
+  <section class="block" style="padding-top:0"><div class="wrap"><div class="cta">
+    <div style="max-width:60ch"><p class="eyebrow" style="color:rgba(255,255,255,.8)">Untuk Lembaga Sertifikasi Profesi</p><h2 style="margin-top:.35rem">Kelola asesmen, mutu, dan sertifikat LSP Anda tanpa tumpukan berkas</h2><p style="opacity:.9;margin-top:.5rem">Paperless, SJJ, pleno, laporan BNSP, dan modul mutu Pedoman 201 dalam satu sistem.</p></div>
+    <div class="row"><button class="btn lg white" data-go="untuk">Lihat paket</button><button class="btn lg orange" data-go="untuk">Minta demo</button></div>
+  </div></div></section>`;
+}
+function pCari(){
+  const bidang=['Semua','TIK','Pariwisata','Konstruksi','Bisnis'];
+  const list=SKEMA.filter(s=>(S.filter==='Semua'||s.bidang===S.filter)&&(!S.q||s.nama.toLowerCase().includes(S.q.toLowerCase())));
+  return `<section class="block"><div class="wrap stack">
+    <div><p class="eyebrow">Marketplace skema</p><h2>Cari skema dari semua LSP</h2></div>
+    <div class="card stack" style="gap:.8rem">
+      <div class="row"><input id="cq" placeholder="Cari nama skema" value="${S.q}" style="flex:1 1 260px" aria-label="Cari nama skema"><select style="flex:0 1 200px" aria-label="Lokasi"><option>Semua lokasi</option><option>Jakarta</option><option>Surabaya</option></select><select style="flex:0 1 200px" aria-label="Metode"><option>Semua metode</option><option>Tatap muka</option><option>SJJ (jarak jauh)</option></select></div>
+      <div class="filters">${bidang.map(b=>`<button class="fchip ${S.filter===b?'on':''}" data-filter="${b}">${b}</button>`).join('')}</div>
+    </div>
+    <div class="spread"><p class="muted"><b class="num" style="color:var(--fg)">${list.length}</b> skema ditemukan · diurutkan berdasarkan relevansi</p><span class="chip plain">Hanya skema berlisensi BNSP aktif</span></div>
+    <div class="grid g4">${list.map(skemaCard).join('')||'<div class="card empty" style="grid-column:1/-1"><h3>Belum ada skema yang cocok</h3><p class="muted">Coba kata kunci lain atau pilih bidang "Semua".</p></div>'}</div>
+  </div></section>`;
+}
+function pDetail(){
+  const s=SKEMA.find(x=>x.id===S.skema)||SKEMA[0];
+  const j=JADWAL[S.jadwal];
+  const steps=['Pilih jadwal','Data diri','APL.01 & APL.02','Unggah berkas','Pembayaran'];
+  let body='';
+  if(S.step===0){
+    body=`<div class="stack" style="gap:.6rem">${JADWAL.map((x,i)=>`<label class="sched-opt ${S.jadwal===i?'on':''}" ${x.sisa?'':'style="opacity:.55"'}><input type="radio" name="jd" value="${i}" ${S.jadwal===i?'checked':''} ${x.sisa?'':'disabled'} style="width:auto">
+      <div style="flex:1;min-width:0"><b>${x.tgl}</b> · <span class="muted">${x.jam}</span><div class="muted" style="font-size:.85rem">${x.tuk} · ${x.kota}</div></div>
+      ${x.sisa?`<span class="chip ${x.sisa<=3?'warn':'ok'}">Sisa ${x.sisa}/${x.kuota}</span>`:'<span class="chip bad">Penuh · daftar tunggu</span>'}</label>`).join('')}</div>`;
+  } else if(S.step===1){
+    body=`<div class="grid g2"><label class="f">Nama sesuai KTP<input id="f-nama" value="Rina Kartika Sari"></label><label class="f">NIK<input id="f-nik" class="mono" value="3174 0123 4567 0001"></label><label class="f">Email<input id="f-mail" value="rina.kartika@contoh.id"></label><label class="f">No. WhatsApp<input id="f-wa" value="0812 3456 7890"></label></div><p class="alert info" style="margin-top:1rem">${ic('check')}Data diambil dari profil Anda. Perubahan di sini tidak mengubah berkas yang sudah diajukan ke LSP lain.</p>`;
+  } else if(S.step===2){
+    body=`<p class="muted" style="margin-bottom:.8rem">Asesmen mandiri (FR.APL.02): nilai diri Anda untuk tiap unit kompetensi.</p><div class="table-wrap"><table><thead><tr><th>Unit</th><th>Judul</th><th>Kompeten?</th></tr></thead><tbody>${UNIT_JWD.slice(0,4).map((u,i)=>`<tr><td class="mono">${u[0]}</td><td>${u[1]}</td><td><span class="chip ${i===3?'warn':'ok'}">${i===3?'Belum yakin':'Ya'}</span></td></tr>`).join('')}</tbody></table></div><p class="muted" style="font-size:.82rem;margin-top:.6rem">+${UNIT_JWD.length-4} unit lainnya</p>`;
+  } else if(S.step===3){
+    body=`<div class="stack" style="gap:.55rem">${[['KTP','Dari profil','ok'],['Ijazah terakhir (SMK/D3/S1)','Dari profil','ok'],['Pas foto latar merah','Dari profil','ok'],['Sertifikat pelatihan pemrograman web','Belum diunggah','warn'],['Portofolio / bukti kerja','Opsional','plain']].map(r=>`<div class="spread card" style="padding:.75rem 1rem;box-shadow:none"><span class="row" style="gap:.6rem">${ic('doc')}<b style="font-size:.9rem">${r[0]}</b></span><span class="row"><span class="chip ${r[2]}">${r[1]}</span>${r[2]!=='ok'?'<button class="btn sm teal" data-toast="Berkas diunggah">Unggah</button>':''}</span></div>`).join('')}</div>`;
+  } else {
+    body=`<div class="pay">${[['Virtual Account BCA','blue'],['QRIS','green'],['GoPay / OVO','purple'],['Virtual Account BRI','teal'],['Virtual Account Mandiri','orange'],['Kode voucher mitra','pink']].map((p,i)=>`<label><input type="radio" name="pay" ${i===1?'checked':''}><span class="dot" style="background:${GRAD[p[1]]}"></span>${p[0]}</label>`).join('')}</div><p class="muted" style="font-size:.82rem;margin-top:.8rem">Pembayaran masuk langsung ke rekening ${s.lsp}.</p>`;
+  }
+  return `<section class="block"><div class="wrap stack">
+    <button class="btn ghost sm" data-go="cari" style="align-self:flex-start">← Kembali ke pencarian</button>
+    <div class="layout-2">
+      <div class="stack">
+        <div class="card" style="background:var(--grad);color:#fff;border:0">
+          <div class="row"><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${s.bidang}</span><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">KKNI ${s.kkni}</span><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${s.unit} unit kompetensi</span></div>
+          <h1 style="font-size:clamp(1.6rem,3.4vw,2.3rem);margin-top:.8rem">${s.nama}</h1>
+          <p style="opacity:.9;margin-top:.4rem">${s.lsp} · Lisensi BNSP berlaku s.d. Mar 2029</p>
+        </div>
+        <div class="card">
+          <div class="stepper">${steps.map((t,i)=>`<span class="${i<S.step?'done':i===S.step?'now':''}">${i+1}. ${t}</span>`).join('')}</div>
+          <h3 style="margin-bottom:.9rem">${steps[S.step]}</h3>
+          ${body}
+          <div class="spread" style="margin-top:1.2rem">
+            <button class="btn ghost" data-step="-1" ${S.step===0?'hidden':''}>Kembali</button>
+            ${S.step<4?`<button class="btn ${['blue','purple','orange','teal'][S.step]}" data-step="1" style="margin-left:auto">Lanjut ke ${steps[S.step+1]}</button>`:`<button class="btn green lg" id="bayar" style="margin-left:auto">${ic('wallet')}Bayar ${rp(s.harga)}</button>`}
+          </div>
+        </div>
+        <div class="card">
+          <h3>Unit kompetensi</h3><p class="muted" style="font-size:.85rem">Mengacu SKKNI · <span class="sample">contoh</span></p>
+          <div class="table-wrap" style="margin-top:.7rem"><table><thead><tr><th>Kode unit</th><th>Judul unit</th></tr></thead><tbody>${UNIT_JWD.map(u=>`<tr><td class="mono">${u[0]}</td><td>${u[1]}</td></tr>`).join('')}</tbody></table></div>
+        </div>
+      </div>
+      <aside class="stack" style="position:sticky;top:80px">
+        <div class="card">
+          <p class="eyebrow">Ringkasan</p>
+          <div class="stack" style="gap:.55rem;margin-top:.7rem;font-size:.9rem">
+            <div class="spread"><span class="muted">Skema</span><b>${s.nama}</b></div>
+            <div class="spread"><span class="muted">Jadwal</span><b>${j.tgl}</b></div>
+            <div class="spread"><span class="muted">TUK</span><b style="text-align:right">${j.tuk}</b></div>
+            <div class="spread"><span class="muted">Metode</span><span class="chip ${j.metode==='SJJ'?'ok':'plain'}">${j.metode}</span></div>
+            <hr style="border:0;border-top:1px dashed var(--line);width:100%">
+            <div class="spread"><span class="muted">Biaya uji</span><span class="num">${rp(s.harga)}</span></div>
+            <div class="spread"><span class="muted">Biaya layanan</span><span class="num">Rp0</span></div>
+            <div class="spread"><b>Total</b><span class="price">${rp(s.harga)}</span></div>
+          </div>
+        </div>
+        <div class="card"><h3>Persyaratan dasar</h3><ul style="margin:.6rem 0 0;padding-left:1.1rem;display:grid;gap:.3rem;font-size:.9rem"><li>Minimal lulusan SMK/D3 bidang TIK, atau</li><li>Pengalaman kerja pemrograman web minimal 1 tahun</li><li>KTP dan pas foto berlatar merah</li></ul></div>
+        <div class="card row" style="justify-content:space-between"><div><b>${s.lsp}</b><p class="muted" style="font-size:.82rem">Jakarta · 42 skema · 18 TUK</p></div><button class="btn sm purple" data-go="lsp">Profil LSP</button></div>
+      </aside>
+    </div>
+  </div></section>`;
+}
+function pJadwal(){
+  const rows=[['24 Okt 2026','Junior Web Developer','LSP Teknologi Digital Nusantara','TUK Sewaktu Kuningan, Jakarta','Tatap muka',6],['25 Okt 2026','Barista','LSP Pariwisata Bahari Indonesia','TUK Hotel Sanur, Denpasar','Tatap muka',2],['31 Okt 2026','Digital Marketing','LSP Teknologi Digital Nusantara','Daring','SJJ',3],['01 Nov 2026','Teknisi Instalasi Listrik Bangunan','LSP Konstruksi Mandiri','TUK SMK Negeri 5 Surabaya','Tatap muka',0],['07 Nov 2026','Pengelola Administrasi Perkantoran','LSP Manajemen Profesional','TUK Graha Mandala, Jakarta','Tatap muka',12],['08 Nov 2026','Analis Data Junior','LSP Teknologi Digital Nusantara','Daring','SJJ',8]];
+  return `<section class="block"><div class="wrap stack"><div><p class="eyebrow">Kalender uji</p><h2>Jadwal uji kompetensi terbuka</h2></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Skema</th><th>LSP</th><th>TUK</th><th>Metode</th><th>Kuota</th><th></th></tr></thead><tbody>
+  ${rows.map(r=>`<tr><td class="num"><b>${r[0]}</b></td><td>${r[1]}</td><td class="muted">${r[2]}</td><td class="muted">${r[3]}</td><td><span class="chip ${r[4]==='SJJ'?'ok':'plain'}">${r[4]}</span></td><td>${r[5]?`<span class="chip ${r[5]<=3?'warn':'ok'}">Sisa ${r[5]}</span>`:'<span class="chip bad">Penuh</span>'}</td><td>${r[5]?'<button class="btn sm" data-skema="jwd">Daftar</button>':'<button class="btn sm orange" data-toast="Anda masuk daftar tunggu">Daftar tunggu</button>'}</td></tr>`).join('')}
+  </tbody></table></div></div></div></section>`;
+}
+function pLsp(){
+  return `<section class="block"><div class="wrap stack"><div><p class="eyebrow">Direktori</p><h2>Daftar LSP</h2><p class="muted" style="margin-top:.3rem">Setiap LSP punya halaman profil di portal ini. Hanya LSP dengan lisensi BNSP aktif yang tampil.</p></div>
+  <div class="grid g3">${LSPS.map(l=>`<article class="card stack" style="gap:.8rem">
+    <div class="row"><span class="logo-mark" style="width:48px;height:48px;background:${GRAD[l.warna]};box-shadow:0 10px 20px -8px var(--s-${l.warna});color:#fff">${ic('build')}</span><div style="min-width:0"><h3>${l.nama}</h3><p class="muted" style="font-size:.84rem">LSP ${l.jenis} · ${l.kota}</p></div></div>
+    <div class="row"><span class="chip ok">${ic('check')}${l.lisensi}</span></div>
+    <div class="spread"><span class="muted" style="font-size:.88rem"><b class="num" style="color:var(--fg)">${l.skema}</b> skema · <b class="num" style="color:var(--fg)">${l.tuk}</b> TUK</span><button class="btn sm ${l.warna}" data-toast="Membuka profil ${l.nama}">Lihat profil</button></div>
+  </article>`).join('')}</div></div></section>`;
+}
+function pLms(){
+  const k=[['Persiapan Uji Junior Web Developer','Online · 12 modul · 8 jam','blue',350000],['Teknik Latte Art untuk Barista','Tatap muka · Denpasar','orange',500000],['Dasar K3 Kelistrikan','Webinar · 2 sesi','teal',0]];
+  return `<section class="block"><div class="wrap stack"><div><p class="eyebrow">Pelatihan (LMS)</p><h2>Kelas persiapan & bimtek</h2></div>
+  <p class="alert warn">${ic('shield')}<span>Pelatihan tidak wajib untuk ikut uji kompetensi. Instruktur kelas tidak boleh menjadi asesor peserta yang ia ajar.</span></p>
+  <div class="grid g3">${k.map(x=>`<article class="card stack" style="gap:.7rem"><div style="height:120px;border-radius:16px;background:${GRAD[x[2]]};display:grid;place-items:center;color:#fff">${ic('book','ico" style="width:42px;height:42px')}</div><h3>${x[0]}</h3><p class="muted" style="font-size:.86rem">${x[1]}</p><div class="spread"><span class="price">${x[3]?rp(x[3]):'Gratis'}</span><button class="btn sm ${x[2]}" data-toast="Kelas ditambahkan">Ikuti kelas</button></div></article>`).join('')}</div></div></section>`;
+}
+function pVerif(){
+  return `<section class="block"><div class="wrap stack" style="max-width:760px"><div><p class="eyebrow">Verifikasi publik</p><h2>Verifikasi sertifikat kompetensi</h2></div>
+  <form class="card row" id="verifForm"><input id="vnum" class="mono" style="flex:1 1 260px" value="62090 2433 1 0012345 2026" aria-label="Nomor sertifikat"><button class="btn green" type="submit">${ic('check')}Verifikasi</button><button class="btn purple" type="button" data-toast="Kamera tidak tersedia di purwarupa">${ic('qr')}Pindai QR</button></form>
+  ${S.verif?`<div class="card" style="border:2px solid var(--ok)"><div class="spread"><span class="chip ok" style="font-size:.85rem">${ic('check')}Sertifikat asli & berlaku</span><span class="sample">contoh</span></div>
+  <div class="grid g2" style="margin-top:1rem;font-size:.92rem">${[['Nama pemegang','Rina Kartika Sari'],['Skema','Junior Web Developer'],['LSP penerbit','LSP Teknologi Digital Nusantara'],['Nomor registrasi','62090 2433 1 0012345 2026'],['Tanggal terbit','12 Mei 2026'],['Berlaku sampai','11 Mei 2029']].map(r=>`<div><p class="eyebrow">${r[0]}</p><b>${r[1]}</b></div>`).join('')}</div>
+  <p class="muted" style="font-size:.8rem;margin-top:1rem">Hanya data minimum yang ditampilkan untuk melindungi data pribadi pemegang sertifikat.</p></div>`:''}
+  </div></section>`;
+}
+function pUntuk(){
+  const plans=[['Basic','Rp1.500.000','/bulan','teal',['Asesmen paperless & paper-based','Hingga 1.000 asesi/tahun','5 TUK, 30 asesor','Laporan BNSP & sertifikat ber-QR','Support 08.00–17.00 WIB']],['Pro','Rp3.500.000','/bulan','blue',['Semua fitur Basic','SJJ dengan proctoring','Modul mutu Pedoman 201','CRM & kampanye WA','Hingga 5.000 asesi/tahun']],['Enterprise','Hubungi kami','','purple',['Semua fitur Pro','Asesi & TUK tanpa batas','LMS & e-commerce lanjutan','API & integrasi HRIS','Support prioritas 24 jam']]];
+  return `<section class="block"><div class="wrap stack" style="gap:1.6rem"><div style="text-align:center"><p class="eyebrow">Untuk LSP</p><h2>Pilih paket sesuai skala LSP Anda</h2><p class="muted" style="margin-top:.3rem"><span class="sample">Harga contoh</span></p></div>
+  <div class="plans">${plans.map((p,i)=>`<div class="card plan ${i===1?'feat':''}"><div class="spread"><h3>${p[0]}</h3>${i===1?'<span class="chip info">Paling dipilih</span>':''}</div><p style="margin-top:.6rem"><span class="price" style="font-size:1.6rem">${p[1]}</span><span class="muted">${p[2]}</span></p><ul>${p[4].map(f=>`<li>${f}</li>`).join('')}</ul><button class="btn ${p[3]}" style="width:100%;margin-top:1.1rem" data-toast="Permintaan demo terkirim (purwarupa)">${i===2?'Hubungi sales':'Coba gratis 14 hari'}</button></div>`).join('')}</div></div></section>`;
+}
+function publik(){
+  const pages={beranda:pBeranda,cari:pCari,detail:pDetail,jadwal:pJadwal,lsp:pLsp,lms:pLms,verif:pVerif,untuk:pUntuk};
+  return topbar()+(pages[S.page]||pBeranda)()+`<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Purwarupa UI/UX · nama produk sementara</span></span><span class="muted">Terdaftar PSE · Server di Indonesia</span></div></footer>`;
+}
+
+/* ===================== Aplikasi per role ===================== */
+const MENU = {
+  asesi:{nama:'Rina Kartika Sari',inisial:'RK',ctx:'Asesi · 2 LSP',items:[['dashboard','Beranda','home'],['skema','Daftar Skema Baru','search'],['jadwal','Jadwal Saya','cal'],['bayar','Pembayaran','wallet'],['sertifikat','Dompet Sertifikat','cert'],['kelas','Kelas Saya','book'],['profil','Profil & Dokumen','users']]},
+  asesor:{nama:'Budi Santoso, S.Kom.',inisial:'BS',ctx:'Asesor · MET.000.004521 2021',items:[['dashboard','Beranda','home'],['kalender','Kalender Gabungan','cal'],['pra','Tinjau Pra-Asesmen','doc'],['asesmen','Asesmen (MUK/FR)','check'],['pleno','Pleno','shield'],['riwayat','Riwayat & Logbook','book'],['honor','Honor','money']]},
+  admin:{nama:'Dewi Lestari',inisial:'DL',ctx:'Admin LSP',items:[['g','Operasional'],['dashboard','Dashboard','home'],['daftar','Pendaftaran','doc'],['jadwalA','Jadwal & Penugasan','cal'],['asesmenA','Asesmen','check'],['plenoA','Pleno & Sertifikat','cert'],['g','Data'],['master','Skema, Asesor, TUK','build'],['alumni','Database Alumni','users'],['g','Manajemen'],['mutu','Mutu (Pedoman 201)','shield'],['keuangan','Keuangan','money'],['crm','CRM','chat'],['laporan','Laporan BNSP','chart'],['setting','Profil LSP & Pengaturan','gear']]},
+  tuk:{nama:'Agus Pratama',inisial:'AP',ctx:'Admin TUK Sewaktu Kuningan',items:[['dashboard','Dashboard TUK','home'],['pemohon','Pemohon','doc'],['jadwalT','Jadwal','cal'],['sarpras','Sarana & Prasarana','build'],['chat','Group Chat','chat'],['alumniT','Alumni TUK','users']]},
+  super:{nama:'Tim Platform',inisial:'TP',ctx:'Super Admin Platform',items:[['dashboard','Ringkasan Platform','home'],['lspList','LSP Klien','build'],['paket','Paket & Tagihan','money'],['pustaka','Pustaka SKKNI','book'],['support','Tiket Support','chat'],['audit','Log Akses Support','shield']]}
+};
+const MODUL = {
+  skema:['Daftar skema baru','Cari skema di semua LSP, pilih jadwal, dan pakai ulang berkas dari profil.',['Pencarian marketplace','Pakai ulang dokumen profil','Simpan draf pendaftaran']],
+  jadwal:['Jadwal saya','Semua jadwal uji Anda dari seluruh LSP.',['Kartu peserta ber-QR','Reschedule & pembatalan','Pengingat H-3 dan H-1']],
+  bayar:['Pembayaran','Tagihan dan kuitansi dari setiap LSP.',['VA, QRIS, e-wallet','Kuitansi otomatis','Refund sesuai kebijakan LSP']],
+  sertifikat:['Dompet sertifikat','Semua sertifikat Anda dari semua LSP.',['Pengingat masa berlaku','Lampirkan ke pendaftaran skema lanjutan','Bagikan tautan verifikasi']],
+  kelas:['Kelas saya','Kelas persiapan & bimtek yang Anda ikuti.',['Video & materi','Kuis','Sertifikat pelatihan']],
+  profil:['Profil & dokumen','Profil global yang dipakai di semua LSP.',['KTP, ijazah, pas foto, CV','Persetujuan berbagi data per LSP','Hapus akun (UU PDP)']],
+  kalender:['Kalender gabungan','Jadwal Anda dari semua LSP dalam satu tampilan.',['Warna per LSP','Tandai tanggal tidak tersedia','Ekspor ke Google Calendar']],
+  pra:['Tinjau pra-asesmen','APL.01 dan APL.02 peserta yang ditugaskan kepada Anda.',['Lihat bukti','Rekomendasi lanjut / tidak','Minta bukti tambahan']],
+  asesmen:['Asesmen','Isi formulir FR.IA dan FR.AK selama uji.',['Mode offline','Unggah foto/video bukti','Tanda tangan elektronik']],
+  pleno:['Pleno','Berkas yang diplenokan kepada Anda.',['Sistem menolak jika Anda asesornya','Keputusan K/BK','TTE berita acara']],
+  riwayat:['Riwayat & logbook','Rekap asesmen dari semua LSP tempat Anda bertugas.',['Unduh logbook untuk RCC MET','Filter per tahun','Hanya terlihat oleh Anda']],
+  honor:['Honor','Honor dari tiap LSP, terpisah per LSP.',['Slip honor','Rekap PPh 21','Status pembayaran']],
+  daftar:['Pendaftaran','Verifikasi berkas pemohon.',['Terima / tolak / minta perbaikan','Cek kelengkapan otomatis','Pendaftaran massal mitra']],
+  jadwalA:['Jadwal & penugasan','Buat jadwal dan tugaskan asesor.',['Saran asesor otomatis','Cek bentrok & konflik kepentingan','Rasio asesor : asesi']],
+  asesmenA:['Asesmen','Pantau asesmen berjalan.',['Paperless, paper-based, SJJ','Rekaman SJJ','Proctoring']],
+  plenoA:['Pleno & sertifikat','Keputusan dan penerbitan sertifikat.',['Validasi independensi pleno','Cetak di blanko BNSP','Sertifikat digital ber-QR']],
+  master:['Skema, asesor, TUK','Data master LSP.',['Skema & MUK berversi','Undang asesor via NIK','Verifikasi TUK']],
+  alumni:['Database alumni','Arsip rekaman asesmen per alumni.',['Pencarian & filter','Peta sebaran','Sertifikat akan kedaluwarsa']],
+  mutu:['Sistem manajemen mutu','Pedoman BNSP 201.',['Audit internal & CAPA','Kaji ulang manajemen','Analisis ketidakberpihakan']],
+  keuangan:['Keuangan','Tagihan, pembayaran, dan honor.',['Rekonsiliasi otomatis','Honor asesor & PPh 21','Laporan pendapatan']],
+  crm:['CRM','Lead, mitra, dan kampanye.',['Pipeline Kanban','Follow-up otomatis','Broadcast WA dengan opt-in']],
+  laporan:['Laporan BNSP','Laporan otomatis sesuai format BNSP.',['Generate BAPS','Pengajuan blanko','Ekspor Excel/PDF']],
+  setting:['Profil LSP & pengaturan','Halaman profil di portal, branding dokumen, dan pengguna.',['Halaman profil LSP','Template surat & sertifikat','Akun & hak akses']],
+  pemohon:['Pemohon','Pemohon yang mendaftar di TUK ini.',['Verifikasi berkas','Daftar hadir QR','Riwayat']],
+  jadwalT:['Jadwal TUK','Jadwal uji di TUK ini.',['Usulan jadwal ke LSP','Kapasitas ruang','Bentrok ruang']],
+  sarpras:['Sarana & prasarana','Inventaris alat per skema.',['Checklist verifikasi','Foto ber-geotag','Masa berlaku verifikasi']],
+  chat:['Group chat','Chat per jadwal asesmen.',['Asesor, asesi, TUK','Lampiran berkas','Arsip otomatis']],
+  alumniT:['Alumni TUK','Alumni yang diuji di TUK ini.',['Hanya data TUK ini','Ekspor','Pencarian']],
+  lspList:['LSP klien','Daftar LSP yang berlangganan.',['Onboarding LSP baru','Penangguhan','Kuota']],
+  paket:['Paket & tagihan','Paket langganan & feature flag.',['Basic / Pro / Enterprise','Tagihan otomatis','Trial 14 hari']],
+  pustaka:['Pustaka SKKNI','Unit kompetensi global untuk diimpor LSP.',['Impor ke skema','Versi SKKNI','Pencarian kode unit']],
+  support:['Tiket support','Tiket dari LSP.',['SLA per paket','Prioritas','Riwayat']],
+  audit:['Log akses support','Akses "masuk sebagai" yang diizinkan LSP.',['Izin Admin LSP','Batas waktu','Terlihat oleh LSP']]
+};
+function kpi(ico,warna,val,label,sub=''){return `<div class="card kpi"><span class="k-ico" style="background:${GRAD[warna]};box-shadow:0 10px 20px -8px var(--s-${warna})">${ic(ico)}</span><div style="min-width:0"><b>${val}</b><span class="muted" style="font-size:.84rem">${label}</span>${sub?`<div style="font-size:.75rem;margin-top:.15rem">${sub}</div>`:''}</div></div>`}
+const TRACK_L = '<div class="track-l"><span>Daftar</span><span>Berkas</span><span>Bayar</span><span>Pra</span><span>Uji</span><span>Pleno</span><span>Sertifikat</span></div>';
+const track = n => `<div class="track">${[0,1,2,3,4,5,6].map(i=>`<div class="${i<n?'d':i===n?'n':''}"></div>`).join('')}</div>`+TRACK_L;
+
+function dAsesi(){
+  const per=[{s:'Junior Web Developer',lsp:'LSP Teknologi Digital Nusantara',w:'blue',n:3,st:['info','Pra-asesmen'],ket:'Asesor Budi Santoso meninjau APL.02. Jadwal uji Sab, 24 Okt 2026.',btn:['Lihat kartu peserta','blue']},{s:'Digital Marketing',lsp:'LSP Teknologi Digital Nusantara',w:'purple',n:2,st:['warn','Menunggu bayar'],ket:'Bayar sebelum Kam, 15 Okt 2026 pukul 23.59 WIB.',btn:['Bayar Rp850.000','orange']},{s:'Barista',lsp:'LSP Pariwisata Bahari Indonesia',w:'orange',n:1,st:['bad','Berkas kurang'],ket:'LSP meminta pas foto latar merah yang lebih jelas.',btn:['Unggah ulang','pink']}];
+  const ctx=S.lspCtx;const list=per.filter(p=>ctx==='all'||p.lsp===ctx);
+  return `<div class="spread"><div><p class="eyebrow">Jumat, 9 Oktober 2026</p><h2>Halo, Rina</h2></div><button class="btn purple" data-app-pub="cari">${ic('search')}Daftar skema baru</button></div>
+  <div class="grid g4">${kpi('doc','blue','3','Permohonan aktif')}${kpi('cal','teal','1','Jadwal uji minggu depan')}${kpi('wallet','orange','1','Tagihan belum dibayar')}${kpi('cert','green','2','Sertifikat dimiliki')}</div>
+  <div class="layout-2">
+    <div class="stack">
+      <div class="spread"><h3>Status permohonan</h3><span class="chip plain">Dari ${ctx==='all'?'semua LSP':ctx}</span></div>
+      ${list.map(p=>`<div class="card"><div class="spread"><div class="row" style="gap:.7rem;min-width:0"><span class="dot" style="width:12px;height:12px;background:${GRAD[p.w]}"></span><div style="min-width:0"><h3>${p.s}</h3><p class="muted" style="font-size:.84rem">${p.lsp}</p></div></div><span class="chip ${p.st[0]}">${p.st[1]}</span></div>${track(p.n)}<div class="spread" style="margin-top:.9rem"><p class="muted" style="font-size:.88rem;flex:1 1 240px">${p.ket}</p><button class="btn sm ${p.btn[1]}" data-toast="${p.btn[0]} (purwarupa)">${p.btn[0]}</button></div></div>`).join('')||'<div class="card empty"><h3>Tidak ada permohonan di LSP ini</h3></div>'}
+    </div>
+    <div class="stack">
+      <h3>Dompet sertifikat</h3>
+      <div class="cert-card" style="background:var(--g-teal);--s:var(--s-teal)"><p class="eyebrow" style="color:rgba(255,255,255,.85)">LSP Manajemen Profesional</p><h3 style="margin-top:.3rem">Pengelola Administrasi Perkantoran</h3><p class="mono" style="opacity:.9;margin-top:.5rem">62090 1120 3 0004411 2023</p><div class="spread" style="margin-top:.8rem"><span class="chip" style="background:rgba(255,255,255,.22);color:#fff">Habis 3 Feb 2027</span><button class="btn sm white" data-toast="Perpanjangan dibuka">Perpanjang</button></div></div>
+      <div class="cert-card" style="background:var(--g-blue);--s:var(--s-blue)"><p class="eyebrow" style="color:rgba(255,255,255,.85)">LSP Teknologi Digital Nusantara</p><h3 style="margin-top:.3rem">Operator Komputer Muda</h3><p class="mono" style="opacity:.9;margin-top:.5rem">62090 2433 1 0009876 2025</p><div class="spread" style="margin-top:.8rem"><span class="chip" style="background:rgba(255,255,255,.22);color:#fff">Berlaku s.d. Jun 2028</span><button class="btn sm glass" data-toast="Tautan verifikasi disalin">${ic('qr')}Bagikan</button></div></div>
+      <div class="alert warn">${ic('bell')}<span>Sertifikat Administrasi Perkantoran habis dalam 117 hari. Daftar RCC sekarang agar tidak terputus.</span></div>
+    </div>
+  </div>`;
+}
+function dAsesor(){
+  const L={'LSP Teknologi Digital Nusantara':'#1d4ed8','LSP Konstruksi Mandiri':'#0d9488','LSP Manajemen Profesional':'#059669'};
+  const ev=[['Sab 10 Okt',[['08.00','Uji JWD · 6 asesi','LSP Teknologi Digital Nusantara','TUK Sewaktu Kuningan']]],['Sen 12 Okt',[['13.00','Pleno Administrasi Perkantoran · 8 berkas','LSP Manajemen Profesional','Daring']]],['Rab 14 Okt',[['09.00','Rapat teknis asesor JWD','LSP Teknologi Digital Nusantara','Daring'],['14.00','Verifikasi TUK SMK 5','LSP Konstruksi Mandiri','Surabaya']]],['Sab 17 Okt',[['08.00','Uji Teknisi Listrik · 5 asesi','LSP Konstruksi Mandiri','TUK SMK Negeri 5 Surabaya']]]].map(d=>[d[0],d[1].filter(e=>S.lspCtx==='all'||e[2]===S.lspCtx)]).filter(d=>d[1].length);
+  return `<div class="spread"><div><p class="eyebrow">Jumat, 9 Oktober 2026</p><h2>Selamat pagi, Pak Budi</h2></div><span class="chip ok">${ic('check')}Sertifikat MET berlaku s.d. Agu 2027</span></div>
+  <div class="grid g4">${kpi('cal','blue','4','Jadwal 7 hari ke depan')}${kpi('doc','orange','7','APL.02 menunggu tinjauan')}${kpi('shield','purple','8','Berkas pleno')}${kpi('chart','green','63','Asesmen tahun ini','<span class="muted">dari 3 LSP</span>')}</div>
+  <div class="layout-2">
+    <div class="card"><div class="spread" style="margin-bottom:.4rem"><h3>Kalender gabungan</h3><div class="row" style="gap:.6rem;font-size:.75rem">${Object.entries(L).map(([n,c])=>`<span class="row" style="gap:.3rem"><span class="dot" style="background:${c}"></span>${n.replace('LSP ','')}</span>`).join('')}</div></div>
+      ${ev.map(d=>`<div class="day"><b style="font-size:.85rem">${d[0]}</b><div>${d[1].map(e=>`<div class="ev" style="--c:${L[e[2]]}"><div class="spread"><b style="font-size:.9rem">${e[1]}</b><span class="mono muted">${e[0]}</span></div><span class="muted" style="font-size:.8rem">${e[2]} · ${e[3]}</span></div>`).join('')}</div></div>`).join('')||'<p class="muted">Tidak ada jadwal di LSP ini.</p>'}
+    </div>
+    <div class="stack">
+      <div class="card"><h3>Tinjau pra-asesmen</h3><p class="muted" style="font-size:.82rem">Uji JWD, Sab 10 Okt · hanya peserta yang ditugaskan kepada Anda</p>
+        <div class="stack" style="gap:.6rem;margin-top:.8rem">${[['Rina Kartika Sari','9/9 unit Ya'],['Fajar Nugroho','7/9 unit Ya'],['Sinta Maharani','9/9 unit Ya']].map(r=>`<div class="spread" style="border-bottom:1px solid var(--line);padding-bottom:.6rem"><div><b style="font-size:.9rem">${r[0]}</b><p class="muted" style="font-size:.78rem">APL.02 · ${r[1]}</p></div><div class="row" style="gap:.4rem"><button class="btn sm green" data-toast="Direkomendasikan lanjut">Lanjut</button><button class="btn sm orange" data-toast="Permintaan bukti terkirim">Minta bukti</button></div></div>`).join('')}</div>
+      </div>
+      <div class="alert info">${ic('shield')}<span>Anda hanya melihat asesi pada jadwal yang ditugaskan. Data LSP lain dan asesor lain tidak tampil.</span></div>
+    </div>
+  </div>`;
+}
+function dAdmin(){
+  return `<div class="spread"><div><p class="eyebrow">LSP Teknologi Digital Nusantara · Oktober 2026</p><h2>Dashboard LSP</h2></div><div class="row"><button class="btn teal" data-toast="Jadwal baru dibuat (purwarupa)">${ic('cal')}Buat jadwal</button><button class="btn pink" data-toast="Laporan BNSP dibuat">${ic('chart')}Laporan BNSP</button></div></div>
+  <div class="grid g4">${kpi('users','blue','214','Pendaftar bulan ini','<span class="chip ok">+18% dari Sep</span>')}${kpi('check','teal','37','Asesmen berjalan')}${kpi('shield','purple','52','Menunggu pleno')}${kpi('cert','orange','129','Sertifikat habis ≤ 90 hari','<span class="chip warn">Peluang RCC</span>')}</div>
+  <div class="layout-2">
+    <div class="card"><div class="spread" style="margin-bottom:.6rem"><h3>Pendaftaran perlu verifikasi</h3><span class="chip warn">12 menunggu</span></div>
+      <div class="table-wrap"><table><thead><tr><th>Pemohon</th><th>Skema</th><th>Berkas</th><th>Bayar</th><th>Aksi</th></tr></thead><tbody>
+      ${[['Rina Kartika Sari','Junior Web Developer','ok','Lengkap','ok','Lunas'],['Hendra Wijaya','Analis Data Junior','warn','Ijazah buram','ok','Lunas'],['PT Data Prima (25 org)','Junior Web Developer','ok','Lengkap','info','Kolektif'],['Maya Anggraini','Digital Marketing','ok','Lengkap','warn','Belum']].map(r=>`<tr><td><b>${r[0]}</b></td><td class="muted">${r[1]}</td><td><span class="chip ${r[2]}">${r[3]}</span></td><td><span class="chip ${r[4]}">${r[5]}</span></td><td><div class="row" style="gap:.35rem;flex-wrap:nowrap"><button class="btn sm green" data-toast="Permohonan diterima">Terima</button><button class="btn sm orange" data-toast="Permintaan perbaikan dikirim">Perbaiki</button></div></td></tr>`).join('')}
+      </tbody></table></div>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>Funnel bulan ini</h3><div class="funnel" style="margin-top:.8rem">${[['Lead',420,'blue'],['Daftar',214,'purple'],['Bayar',176,'orange'],['Diuji',131,'teal'],['Kompeten',118,'green']].map(f=>`<div class="row" style="gap:.6rem;flex-wrap:nowrap"><span class="muted" style="width:68px;font-size:.8rem;flex:none">${f[0]}</span><div style="flex:1;min-width:0"><div class="bar" style="width:${Math.round(f[1]/420*100)}%;background:${GRAD[f[2]]}"><span class="num">${f[1]}</span></div></div></div>`).join('')}</div></div>
+      <div class="stack" style="gap:.6rem">
+        <div class="alert bad">${ic('bell')}<span><b>Sertifikat MET 3 asesor</b> habis dalam 30 hari. Asesor tidak bisa ditugaskan setelah tanggal itu.</span></div>
+        <div class="alert warn">${ic('shield')}<span><b>Surveilans BNSP</b> 18 Nov 2026. Checklist kesiapan 82% lengkap.</span></div>
+        <div class="alert info">${ic('build')}<span><b>TUK SMK 7 Jakarta</b> verifikasi berakhir 30 Okt 2026.</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="card"><div class="spread" style="margin-bottom:.6rem"><h3>Jadwal minggu ini</h3><button class="btn sm purple" data-go-app="jadwalA">Kelola jadwal</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Skema</th><th>TUK</th><th>Asesor</th><th>Peserta</th><th>Status</th></tr></thead><tbody>
+    ${[['Sab 10 Okt','Junior Web Developer','TUK Sewaktu Kuningan','Budi Santoso, Lina M.','12/20','ok','Siap'],['Sab 10 Okt','Analis Data Junior','Daring (SJJ)','Yogi Pradana','8/10','warn','Link meeting belum dibuat'],['Min 11 Okt','Digital Marketing','Daring (SJJ)','—','6/10','bad','Asesor belum ditugaskan']].map(r=>`<tr><td class="num"><b>${r[0]}</b></td><td>${r[1]}</td><td class="muted">${r[2]}</td><td>${r[3]}</td><td class="num">${r[4]}</td><td><span class="chip ${r[5]}">${r[6]}</span></td></tr>`).join('')}
+    </tbody></table></div>
+  </div>`;
+}
+function dTuk(){
+  return `<div class="spread"><div><p class="eyebrow">LSP Teknologi Digital Nusantara</p><h2>TUK Sewaktu Kuningan</h2></div><button class="btn orange" data-toast="Usulan jadwal dikirim ke Admin LSP">${ic('cal')}Usulkan jadwal</button></div>
+  <div class="grid g4">${kpi('users','blue','34','Pemohon di TUK ini')}${kpi('cal','teal','3','Jadwal bulan ini')}${kpi('build','purple','96%','Sarana siap')}${kpi('shield','green','Mar 2027','Verifikasi berlaku s.d.')}</div>
+  <div class="card"><h3>Pemohon jadwal Sab, 10 Okt</h3><div class="table-wrap" style="margin-top:.6rem"><table><thead><tr><th>Nama</th><th>Skema</th><th>Kehadiran</th><th></th></tr></thead><tbody>${[['Rina Kartika Sari','Junior Web Developer','ok','Terkonfirmasi'],['Fajar Nugroho','Junior Web Developer','warn','Belum konfirmasi'],['Sinta Maharani','Junior Web Developer','ok','Terkonfirmasi']].map(r=>`<tr><td><b>${r[0]}</b></td><td class="muted">${r[1]}</td><td><span class="chip ${r[2]}">${r[3]}</span></td><td><button class="btn sm teal" data-toast="Pengingat terkirim via WhatsApp">Ingatkan</button></td></tr>`).join('')}</tbody></table></div></div>
+  <div class="alert info">${ic('shield')}<span>Admin TUK hanya melihat data TUK ini. Data TUK lain dan data asesor tidak tampil.</span></div>`;
+}
+function dSuper(){
+  return `<div class="spread"><div><p class="eyebrow">Platform</p><h2>Ringkasan platform</h2></div><button class="btn green" data-toast="Undangan onboarding dikirim">${ic('build')}Tambah LSP klien</button></div>
+  <div class="grid g4">${kpi('build','blue','168','LSP aktif')}${kpi('money','green','Rp412 jt','MRR')}${kpi('chat','orange','14','Tiket terbuka')}${kpi('bell','red','6','Sinyal churn')}</div>
+  <div class="card"><div class="spread" style="margin-bottom:.6rem"><h3>LSP klien</h3><span class="chip plain">Data agregat, tanpa data pribadi asesi</span></div><div class="table-wrap"><table><thead><tr><th>LSP</th><th>Paket</th><th>Asesi/tahun</th><th>Storage</th><th>Status</th></tr></thead><tbody>
+  ${[['LSP Teknologi Digital Nusantara','Pro','3.912 / 5.000','64%','ok','Aktif'],['LSP Pariwisata Bahari Indonesia','Basic','980 / 1.000','91%','warn','Kuota hampir habis'],['LSP Konstruksi Mandiri','Pro','1.204 / 5.000','22%','ok','Aktif'],['LSP Kesehatan Nusa Husada','Basic','112 / 1.000','8%','bad','Aktivitas turun 60%'],['LSP Politeknik Negeri Maritim','Trial','40 / 200','3%','info','Trial s.d. 20 Okt']].map(r=>`<tr><td><b>${r[0]}</b></td><td><span class="chip plain">${r[1]}</span></td><td class="num">${r[2]}</td><td class="num">${r[3]}</td><td><span class="chip ${r[4]}">${r[5]}</span></td></tr>`).join('')}
+  </tbody></table></div></div>
+  <div class="alert warn">${ic('shield')}<span>Super Admin tidak bisa membuka data operasional LSP. Akses support hanya lewat "masuk sebagai" dengan izin Admin LSP dan tercatat di log.</span></div>`;
+}
+function modul(k){
+  const m=MODUL[k]||['Modul','',[]];
+  return `<div><p class="eyebrow">Purwarupa</p><h2>${m[0]}</h2></div><div class="card empty"><span class="logo-mark" style="width:60px;height:60px;margin:0 auto 1rem;color:#fff">${ic('doc','ico" style="width:28px;height:28px')}</span><h3>${m[1]}</h3><p class="muted" style="margin-top:.4rem">Layar rinci modul ini dibuat pada tahap desain berikutnya. Fitur yang direncanakan:</p><ul>${m[2].map(f=>`<li>${f}</li>`).join('')}</ul><div style="margin-top:1.2rem"><button class="btn" data-go-app="dashboard">Kembali ke beranda</button></div></div>`;
+}
+function app(){
+  const r=S.role,m=MENU[r];
+  const dash={asesi:dAsesi,asesor:dAsesor,admin:dAdmin,tuk:dTuk,super:dSuper}[r];
+  const multi=(r==='asesi'||r==='asesor');
+  const lspOpts=r==='asesi'?['LSP Teknologi Digital Nusantara','LSP Pariwisata Bahari Indonesia']:['LSP Teknologi Digital Nusantara','LSP Konstruksi Mandiri','LSP Manajemen Profesional'];
+  const navItems=m.items.map(it=>it[0]==='g'?`<div class="grp">${it[1]}</div>`:`<button data-go-app="${it[0]}" class="${S.appPage===it[0]?'on':''}">${ic(it[2])}${it[1]}</button>`).join('');
+  return `<div class="app">
+    <aside class="side">
+      <button class="logo" data-logout="1"><span class="logo-mark">${ic('shield')}</span>PortalLSP</button>
+      <div class="tenant"><span style="opacity:.75">${multi?'Akun Anda aktif di':'Masuk ke'}</span><b>${multi?lspOpts.length+' LSP':r==='super'?'Platform':r==='tuk'?'TUK Sewaktu Kuningan':'LSP Teknologi Digital Nusantara'}</b></div>
+      <nav aria-label="Menu aplikasi">${navItems}</nav>
+      <button class="btn glass sm" data-logout="1" style="margin-top:auto">${ic('logout')}Keluar ke portal</button>
+    </aside>
+    <div class="main">
+      <div class="apptop">
+        ${multi?`<label class="row" style="gap:.4rem;font-size:.82rem;font-weight:600" for="ctx"><span class="muted">Tampilkan</span><select id="ctx"><option value="all">Semua LSP</option>${lspOpts.map(l=>`<option ${S.lspCtx===l?'selected':''}>${l}</option>`).join('')}</select></label>`:`<span class="chip info">${m.ctx}</span>`}
+        <div class="row" style="margin-left:auto;gap:.6rem"><button class="bell" aria-label="Notifikasi" data-toast="3 notifikasi baru">${ic('bell')}<i>3</i></button><span class="avatar">${m.inisial}</span><div style="line-height:1.2"><b style="font-size:.86rem">${m.nama}</b><div class="muted" style="font-size:.74rem">${m.ctx}</div></div></div>
+      </div>
+      <div class="menu-mobile">${m.items.filter(i=>i[0]!=='g').map(it=>`<button data-go-app="${it[0]}" class="${S.appPage===it[0]?'on':''}">${it[1]}</button>`).join('')}<button data-logout="1">Keluar</button></div>
+      <div class="content">${S.appPage==='dashboard'?dash():modul(S.appPage)}</div>
+    </div>
+  </div>`;
+}
+
+/* ===================== Render & event ===================== */
+function render(){
+  $('#root').innerHTML = S.role==='publik' ? publik() : app();
+  document.querySelectorAll('.demo button').forEach(b=>b.classList.toggle('on',b.dataset.role===S.role));
+  document.body.style.paddingBottom='90px';
+}
+function setRole(r){S.role=r;S.appPage='dashboard';S.lspCtx='all';if(r==='publik')S.page='beranda';render();window.scrollTo(0,0)}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button,[data-skema]');if(!t)return;
+  const d=t.dataset;
+  if(d.role){setRole(d.role);return}
+  if(t.id==='menuBtn'){S.navOpen=!S.navOpen;render();return}
+  if(d.login){setRole(d.login);return}
+  if(d.logout){setRole('publik');return}
+  if(d.appPub){S.role='publik';go(d.appPub);return}
+  if(d.goApp){goApp(d.goApp);return}
+  if(d.filter){S.filter=d.filter;if(S.page!=='cari')go('cari');else render();return}
+  if(d.skema){go('detail',{skema:d.skema,step:0,jadwal:0});return}
+  if(d.step){S.step=Math.max(0,Math.min(4,S.step+Number(d.step)));render();return}
+  if(t.id==='bayar'){toast('Pembayaran berhasil. Permohonan masuk ke LSP.');setTimeout(()=>setRole('asesi'),900);return}
+  if(d.go){go(d.go,d.verif?{verif:true}:{});return}
+  if(d.toast){toast(d.toast)}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('article[data-skema]'))e.target.click()});
+document.addEventListener('change',e=>{
+  if(e.target.name==='jd'){S.jadwal=Number(e.target.value);render()}
+  if(e.target.id==='ctx'){S.lspCtx=e.target.value;render()}
+});
+document.addEventListener('input',e=>{if(e.target.id==='cq'){S.q=e.target.value;const pos=e.target.selectionStart;render();const n=$('#cq');n.focus();n.setSelectionRange(pos,pos)}});
+document.addEventListener('submit',e=>{
+  e.preventDefault();
+  if(e.target.id==='heroSearch'){S.q=$('#hq').value;S.filter='Semua';go('cari')}
+  if(e.target.id==='verifForm'){S.verif=true;render();toast('Sertifikat ditemukan')}
+});
+render();
+</script>
+
+</body>
+</html>
