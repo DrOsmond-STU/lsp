@@ -58,18 +58,19 @@ const PERM_DEFS = [
     'profile.own'           => 'Mengelola profil & dokumen sendiri',
     'notif.log'             => 'Melihat log pengiriman notifikasi',
     'ai.use'                => 'Memakai asisten AI',
+    'blog.manage'           => 'Mengelola artikel blog (CMS)',
 ];
 
 /** Admin Platform tidak dicantumkan di sini: ia selalu memegang SEMUA hak akses (lihat role_perm_map). */
 const ROLE_PERMS = [
     'admin_lsp'      => ['lsp.dashboard', 'registration.verify', 'schedule.manage', 'assessment.monitor', 'decision.manage',
                          'master.manage', 'alumni.view', 'listing.manage', 'quality.manage', 'finance.manage', 'crm.manage',
-                         'report.bnsp', 'settings.manage', 'user.manage', 'rbac.view', 'notif.log', 'ai.use',
+                         'report.bnsp', 'settings.manage', 'user.manage', 'rbac.view', 'notif.log', 'ai.use', 'blog.manage',
                          // Admin LSP membuka semua data LSP-nya, termasuk semua TUK di bawah LSP itu.
                          'tuk.dashboard', 'tuk.applicants', 'tuk.schedule', 'tuk.facility', 'tuk.chat', 'tuk.alumni'],
     'manajer_mutu'   => ['lsp.dashboard', 'quality.manage', 'alumni.view', 'report.bnsp', 'decision.manage', 'ai.use'],
     'keuangan'       => ['lsp.dashboard', 'finance.manage', 'ai.use'],
-    'marketing'      => ['lsp.dashboard', 'listing.manage', 'crm.manage', 'ai.use'],
+    'marketing'      => ['lsp.dashboard', 'listing.manage', 'crm.manage', 'blog.manage', 'ai.use'],
     'admin_tuk'      => ['tuk.dashboard', 'tuk.applicants', 'tuk.schedule', 'tuk.facility', 'tuk.chat', 'tuk.alumni', 'ai.use'],
     'asesor'         => ['asesor.dashboard', 'preassessment.review', 'assessment.conduct', 'pleno.participate', 'asesor.history', 'asesor.honor', 'ai.use'],
     'asesi'          => ['asesi.dashboard', 'application.own', 'payment.own', 'certificate.own', 'class.own', 'profile.own', 'ai.use'],

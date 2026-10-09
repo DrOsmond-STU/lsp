@@ -127,6 +127,10 @@ function migrations(): array
             // Proses sertifikasi lengkap: skema, jadwal, permohonan, tagihan, sertifikat, kelas, CRM, mutu, TUK, SKKNI, tiket.
             migrate_domain();
         },
+        7 => function (): void {
+            // CMS blog: artikel platform dan LSP, moderasi Admin Platform, halaman blog publik.
+            migrate_blog();
+        },
     ];
 }
 

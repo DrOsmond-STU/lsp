@@ -40,6 +40,9 @@ app/
 - **TUK:** dashboard, pemohon, jadwal, sarana-prasarana, group chat per jadwal, alumni TUK (Admin TUK hanya TUK-nya).
 - **Admin Platform:** LSP klien (onboarding/nonaktif), paket & kuota, pustaka SKKNI, tiket support, log audit + semua menu LSP.
 - **Publik:** katalog skema, jadwal, direktori LSP, pelatihan, verifikasi sertifikat (`/?cek=KODE`).
+- **Blog (CMS):** Admin LSP/Marketing menulis artikel LSP-nya (Markdown sederhana, pratinjau, sampul JPG/PNG, draf/terbit/terjadwal);
+  Admin Platform menulis atas nama platform/LSP mana pun dan bisa menurunkan/memulihkan artikel. Publik: menu Blog, pencarian,
+  kategori, tautan langsung `/?artikel=SLUG`. Teks di-escape sebelum format diterapkan, jadi HTML dari penulis tidak dijalankan.
 - Dokumen diunggah ke `storage/uploads` (di luar docroot), dicek dari isi berkas (PDF/JPG/PNG, maks 2 MB), dan hanya
   bisa dibuka pemilik, staf LSP tempat ia mendaftar, asesor yang ditugaskan, atau Admin Platform (tercatat di audit).
 - Pembayaran masih simulasi (belum terhubung payment gateway).
@@ -73,6 +76,8 @@ node tests/register.test.mjs          # 29 uji pendaftaran asesi
 node tests/notify-ai.test.mjs         # 47 uji notifikasi & asisten AI (server tiruan di port 8098)
 node tests/platform.test.mjs          # 23 uji akses penuh Admin Platform + isolasi Admin LSP
 node tests/flow.test.mjs              # 108 uji alur sertifikasi ujung-ke-ujung + isolasi
+node tests/blog.test.mjs              # 83 uji CMS blog: akses, isolasi, terjadwal, moderasi, sampul, API publik
 NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs   # uji browser (Playwright): daftar asesi s.d. sertifikat
 NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs   # uji browser: klik semua menu tiap peran
+NODE_PATH=$(npm root -g) node tests/ui/blog.cjs         # uji browser: CMS blog s.d. halaman artikel publik
 ```

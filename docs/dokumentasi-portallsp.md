@@ -17,17 +17,18 @@ Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran peng
 5. [Alur sertifikasi](#5-alur-sertifikasi)
 6. [Menu dan fitur per peran](#6-menu-dan-fitur-per-peran)
 7. [Portal publik](#7-portal-publik)
-8. [Notifikasi (aplikasi, email, WhatsApp)](#8-notifikasi-aplikasi-email-whatsapp)
-9. [Asisten AI](#9-asisten-ai)
-10. [Keamanan](#10-keamanan)
-11. [Model data](#11-model-data)
-12. [Daftar endpoint API](#12-daftar-endpoint-api)
-13. [Konfigurasi](#13-konfigurasi)
-14. [Instalasi, deploy, dan cron](#14-instalasi-deploy-dan-cron)
-15. [Pengujian](#15-pengujian)
-16. [Data dan akun demo](#16-data-dan-akun-demo)
-17. [Batasan dan langkah berikutnya](#17-batasan-dan-langkah-berikutnya)
-18. [Panduan singkat pemakaian](#18-panduan-singkat-pemakaian)
+8. [Blog (CMS)](#8-blog-cms)
+9. [Notifikasi (aplikasi, email, WhatsApp)](#9-notifikasi-aplikasi-email-whatsapp)
+10. [Asisten AI](#10-asisten-ai)
+11. [Keamanan](#11-keamanan)
+12. [Model data](#12-model-data)
+13. [Daftar endpoint API](#13-daftar-endpoint-api)
+14. [Konfigurasi](#14-konfigurasi)
+15. [Instalasi, deploy, dan cron](#15-instalasi-deploy-dan-cron)
+16. [Pengujian](#16-pengujian)
+17. [Data dan akun demo](#17-data-dan-akun-demo)
+18. [Batasan dan langkah berikutnya](#18-batasan-dan-langkah-berikutnya)
+19. [Panduan singkat pemakaian](#19-panduan-singkat-pemakaian)
 
 ---
 
@@ -35,12 +36,12 @@ Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran peng
 
 PortalLSP adalah platform multi-LSP (Lembaga Sertifikasi Profesi) untuk mengelola sertifikasi kompetensi dari awal sampai akhir:
 
-- **Publik:** mencari skema, jadwal uji, direktori LSP, kelas pelatihan, dan memverifikasi sertifikat.
+- **Publik:** mencari skema, jadwal uji, direktori LSP, kelas pelatihan, membaca blog, dan memverifikasi sertifikat.
 - **Asesi:** mendaftar mandiri, mengunggah dokumen, mengisi asesmen mandiri (APL.02), membayar, mengikuti uji, menerima sertifikat digital, dan mengikuti kelas.
-- **LSP:** memverifikasi pendaftaran, mengatur jadwal dan asesor, memantau asesmen, menggelar pleno, menerbitkan sertifikat, serta mengelola master data, keuangan, CRM, mutu, laporan BNSP, etalase, dan pengguna.
+- **LSP:** memverifikasi pendaftaran, mengatur jadwal dan asesor, memantau asesmen, menggelar pleno, menerbitkan sertifikat, serta mengelola master data, keuangan, CRM, mutu, laporan BNSP, etalase, blog, dan pengguna.
 - **TUK:** melihat pemohon dan jadwal, mengelola sarana-prasarana, membuka group chat asesmen, dan melihat alumni.
 - **Asesor:** melihat kalender gabungan lintas LSP, meninjau pra-asesmen, mengisi hasil asesmen per unit, mengikuti pleno, membuka riwayat/logbook, dan melihat honor.
-- **Admin Platform:** mengelola LSP klien, paket, pustaka SKKNI, kurasi listing, tiket support, dan audit. Admin Platform juga bisa membuka **semua** menu LSP untuk semua LSP.
+- **Admin Platform:** mengelola LSP klien, paket, pustaka SKKNI, kurasi listing, blog platform (termasuk moderasi artikel LSP), tiket support, dan audit. Admin Platform juga bisa membuka **semua** menu LSP untuk semua LSP.
 
 Pendukung lintas fitur: notifikasi (aplikasi, email, WhatsApp) dan asisten AI.
 
@@ -67,8 +68,8 @@ app/
   public/                  # docroot web
     index.html             # kerangka SPA
     app.js                 # inti SPA: router, login, menu, halaman dasar
-    fitur.js               # semua halaman fitur (dimuat app.js sebelum render pertama)
-    fitur.css              # gaya tambahan (panel AI, notifikasi, list-detail)
+    fitur.js               # semua halaman fitur, termasuk CMS & blog publik (dimuat app.js sebelum render pertama)
+    fitur.css              # gaya tambahan (panel AI, notifikasi, list-detail, blog)
     api.php                # satu pintu masuk API: api.php?r=<rute>
     .htaccess              # header keamanan, HTTPS
   src/                     # di luar docroot
@@ -83,6 +84,7 @@ app/
     ai.php                 # proxy asisten AI
     domain.php             # proses sertifikasi (permohonan, dokumen, asesor, pleno, chat)
     lsp_ops.php            # operasi staf LSP, TUK, platform, dan API publik
+    blog.php               # CMS blog: artikel, moderasi, sampul, API blog publik (migrasi 7)
     migrations.php         # migrasi berversi + seed demo dasar
     schema_domain.php      # tabel domain sertifikasi + seed data demo
   storage/                 # di luar docroot: database, sesi, unggahan, log, cadangan
@@ -124,7 +126,7 @@ app/
 
 Peran internal LSP (`admin_lsp`, `manajer_mutu`, `keuangan`, `marketing`, `admin_tuk`) hanya boleh punya **satu** keanggotaan. Asesor dan asesi boleh terdaftar di banyak LSP dan berpindah konteks lewat pemilih LSP di aplikasi.
 
-### Hak akses (38)
+### Hak akses (39)
 
 | Kelompok | Kode hak akses |
 |---|---|
@@ -133,17 +135,17 @@ Peran internal LSP (`admin_lsp`, `manajer_mutu`, `keuangan`, `marketing`, `admin
 | TUK | `tuk.dashboard`, `tuk.applicants`, `tuk.schedule`, `tuk.facility`, `tuk.chat`, `tuk.alumni` |
 | Asesor | `asesor.dashboard`, `preassessment.review`, `assessment.conduct`, `pleno.participate`, `asesor.history`, `asesor.honor` |
 | Asesi | `asesi.dashboard`, `application.own`, `payment.own`, `certificate.own`, `class.own`, `profile.own` |
-| Umum | `notif.log`, `ai.use` |
+| Umum | `notif.log`, `ai.use`, `blog.manage` |
 
 ### Matriks peran → hak akses
 
 | Peran | Hak akses |
 |---|---|
-| Admin Platform | Semua (38) |
-| Admin LSP | Semua hak LSP, `rbac.view`, `notif.log`, `ai.use`, dan semua hak TUK |
+| Admin Platform | Semua (39) |
+| Admin LSP | Semua hak LSP, `rbac.view`, `notif.log`, `ai.use`, `blog.manage`, dan semua hak TUK |
 | Manajer Mutu | `lsp.dashboard`, `quality.manage`, `alumni.view`, `report.bnsp`, `decision.manage`, `ai.use` |
 | Keuangan | `lsp.dashboard`, `finance.manage`, `ai.use` |
-| Marketing | `lsp.dashboard`, `listing.manage`, `crm.manage`, `ai.use` |
+| Marketing | `lsp.dashboard`, `listing.manage`, `crm.manage`, `blog.manage`, `ai.use` |
 | Admin TUK | Semua hak TUK, `ai.use` |
 | Asesor | Semua hak asesor, `ai.use` |
 | Asesi | Semua hak asesi, `ai.use` |
@@ -275,6 +277,7 @@ Aturan yang ditegakkan server:
 | Data | Skema, Asesor, TUK | Master skema dan unit kompetensi (format `KODE \| Judul` per baris), asesor, TUK |
 | | Database Alumni | Pemegang sertifikat LSP |
 | Manajemen | Etalase & Pelatihan | Listing skema/kelas ke portal publik (wajib disetujui Admin Platform) |
+| | Blog (CMS) | Menulis, menjadwalkan, dan mengelola artikel blog LSP (lihat bagian 8) |
 | | Mutu (Pedoman 201) | Audit internal, kaji ulang manajemen, tindakan perbaikan |
 | | Keuangan | Daftar tagihan, konfirmasi pelunasan manual |
 | | CRM | Kanban prospek (baru → dihubungi → proposal → menang/kalah) |
@@ -285,7 +288,7 @@ Aturan yang ditegakkan server:
 | | Tiket Support | Membuat dan memantau tiket ke tim platform |
 | TUK | Dashboard TUK, Pemohon, Jadwal TUK, Sarana & Prasarana, Group Chat, Alumni TUK | Semua TUK milik LSP ini |
 
-Staf non-admin hanya melihat menu yang sesuai haknya. Contoh: Keuangan hanya melihat Dashboard dan Keuangan, sedangkan Marketing melihat Dashboard, Etalase, dan CRM.
+Staf non-admin hanya melihat menu yang sesuai haknya. Contoh: Keuangan hanya melihat Dashboard dan Keuangan, sedangkan Marketing melihat Dashboard, Etalase, Blog (CMS), dan CRM.
 
 ### Admin TUK
 
@@ -304,6 +307,7 @@ Staf non-admin hanya melihat menu yang sesuai haknya. Contoh: Keuangan hanya mel
 |---|---|
 | Ringkasan Platform | KPI semua LSP |
 | Persetujuan Listing | Kurasi listing (setujui / minta revisi / tolak) dengan checklist |
+| Blog (CMS) | Artikel platform dan semua LSP; menulis atas nama platform/LSP mana pun; menurunkan dan memulihkan artikel |
 | LSP Klien | Onboarding LSP baru (sekaligus membuat Admin LSP), aktif/nonaktif |
 | Paket & Tagihan | Paket langganan dan kuota per LSP |
 | Pustaka SKKNI | Daftar unit kompetensi acuan |
@@ -324,12 +328,70 @@ Bisa diakses tanpa login:
 - **Jadwal uji:** jadwal mendatang semua LSP beserta sisa kuota.
 - **Direktori LSP:** profil, skema, TUK.
 - **Pelatihan:** kelas yang tayang.
+- **Blog:** artikel dari platform dan LSP, dengan pencarian, filter kategori, dan tautan langsung `/?artikel=SLUG` (lihat bagian 8). Beranda menampilkan 3 artikel terbaru.
 - **Verifikasi sertifikat:** buka `/?cek=KODE` atau isi formulir verifikasi. Dibatasi 30 permintaan per 10 menit per IP.
 - **Pendaftaran asesi mandiri** dengan verifikasi email (`/?verifikasi=TOKEN`).
 
 ---
 
-## 8. Notifikasi (aplikasi, email, WhatsApp)
+## 8. Blog (CMS)
+
+CMS blog dipakai untuk menerbitkan artikel: tips persiapan uji, regulasi BNSP, pengumuman jadwal, dan kisah alumni. Artikel tampil di menu **Blog** portal publik dan di beranda.
+
+### Siapa yang bisa menulis
+
+| Peran | Cakupan |
+|---|---|
+| Admin Platform | Semua artikel. Bisa menulis atas nama **PortalLSP** (platform) atau atas nama LSP mana pun, serta menurunkan/memulihkan artikel. |
+| Admin LSP, Marketing LSP | Hanya artikel LSP-nya. Artikel LSP lain dan artikel platform dibalas 404. |
+| Peran lain | Tidak punya akses (403) |
+
+Hak aksesnya adalah `blog.manage`. Admin LSP bisa memberi peran Marketing kepada staf yang mengelola konten.
+
+### Fitur editor
+
+- **Judul, kategori, tag** (maks. 8, dipisah koma), **ringkasan** (maks. 300 karakter), dan **slug URL**. Slug dibuat otomatis dari judul dan selalu unik; bisa diubah manual.
+- **Kategori:** Berita, Tips Sertifikasi, Regulasi, Pengumuman, Kisah Alumni, Pelatihan.
+- **Isi artikel** ditulis dengan Markdown sederhana. Toolbar menyediakan tombol tebal, miring, subjudul, daftar, kutipan, dan tautan, serta tombol **Pratinjau**.
+
+  | Tulis | Hasil |
+  |---|---|
+  | `## Subjudul` / `### Sub-subjudul` | Subjudul |
+  | `**tebal**`, `_miring_`, `` `kode` `` | Format teks |
+  | `- poin` / `1. poin` | Daftar berpoin / bernomor |
+  | `> kutipan` | Kutipan |
+  | `[teks](https://alamat)` | Tautan (dibuka di tab baru, `rel="nofollow"`) |
+  | `---` | Garis pemisah |
+
+- **Status:** *Draf* atau *Terbitkan*. Bila waktu terbit diisi tanggal mendatang, artikel berstatus **Terjadwal** dan otomatis tayang pada waktunya (tanpa cron).
+- **Gambar sampul:** JPG/PNG maks. 2 MB, rasio 16:9 disarankan. Tanpa sampul, kartu artikel memakai warna kategori.
+- **Statistik:** jumlah pembaca per artikel (dihitung sekali per sesi pengunjung) dan total pembaca.
+
+### Moderasi
+
+- Artikel LSP langsung tayang tanpa antrean persetujuan, agar pengumuman jadwal tidak tertunda.
+- Admin Platform dapat **menurunkan** artikel yang melanggar ketentuan (mis. klaim "pasti lulus"). Alasan wajib diisi dan dikirim sebagai notifikasi ke staf blog LSP tersebut.
+- Artikel yang diturunkan hanya bisa ditayangkan kembali oleh Admin Platform (**Pulihkan**). LSP tetap bisa memperbaiki isinya.
+
+### Halaman publik
+
+- `Blog`: artikel utama terbaru, kartu artikel, pencarian (judul, ringkasan, tag), filter kategori, dan halaman (12 artikel per halaman).
+- Halaman artikel: penerbit, penulis, tanggal, perkiraan waktu baca, jumlah pembaca, isi, tag (klik untuk mencari), tombol bagikan (salin tautan, WhatsApp), ajakan mencari skema, dan 3 artikel terkait.
+- Tautan langsung `https://lsp.semestateknologiutama.com/?artikel=SLUG`. Pengunjung yang sudah login tetap diarahkan ke artikel, bukan ke dashboard.
+
+### Keamanan
+
+- Isi artikel disimpan sebagai teks. Semua teks di-escape di browser **sebelum** format Markdown diterapkan, sehingga HTML/skrip yang diketik penulis tampil sebagai teks biasa dan tidak dijalankan.
+- Tautan hanya boleh `http(s)://` atau alamat relatif. `javascript:` dan sejenisnya tidak pernah menjadi tautan.
+- Sampul dicek dari isi berkas (magic bytes), disimpan di luar docroot dengan nama acak, dan disajikan dengan `nosniff` + CSP `sandbox`.
+  - Sampul artikel yang sudah terbit bersifat publik (cache 1 hari).
+  - Sampul draf hanya bisa dilihat pengelola artikel itu.
+- Publik hanya melihat artikel berstatus terbit yang waktu terbitnya sudah lewat, dari LSP yang aktif.
+- Semua tindakan (buat, ubah, hapus, sampul, turunkan, pulihkan) tercatat di log audit.
+
+---
+
+## 9. Notifikasi (aplikasi, email, WhatsApp)
 
 Setiap peristiwa penting membuat notifikasi di kotak masuk aplikasi (ikon lonceng), lalu diantrekan ke email/WhatsApp sesuai pengaturan pengguna (menu **Notifikasi** di profil).
 
@@ -347,6 +409,7 @@ Setiap peristiwa penting membuat notifikasi di kotak masuk aplikasi (ikon loncen
 | Akun dibuat, akses aktif/nonaktif, LSP baru aktif | Pengguna terkait |
 | Password diganti | Selalu dikirim ke email (tidak bisa dimatikan) |
 | Tiket support baru / dibalas | Admin Platform / pembuat tiket |
+| Artikel blog diturunkan / dipulihkan | Staf LSP dengan `blog.manage` |
 
 Aturan pengiriman:
 
@@ -357,7 +420,7 @@ Aturan pengiriman:
 
 ---
 
-## 9. Asisten AI
+## 10. Asisten AI
 
 - Tombol asisten tersedia di semua peran yang punya `ai.use`.
 - Panggilan ke API Claude dilakukan dari server. Kunci API hanya ada di `config.php`. Bila kunci kosong, fitur nonaktif.
@@ -372,7 +435,7 @@ Aturan pengiriman:
 
 ---
 
-## 10. Keamanan
+## 11. Keamanan
 
 | Area | Penerapan |
 |---|---|
@@ -393,7 +456,7 @@ Aturan pengiriman:
 
 ---
 
-## 11. Model data
+## 12. Model data
 
 ### Tabel inti (akun dan akses)
 
@@ -434,10 +497,11 @@ Aturan pengiriman:
 | `tiket`, `tiket_balasan` | Tiket support |
 | `notifications`, `notification_settings`, `notification_outbox` | Notifikasi, preferensi, dan antrean kirim |
 | `ai_usage` | Pemakaian token asisten AI |
+| `blog_posts` | Artikel blog: penerbit (LSP/platform), slug, isi, kategori, tag, sampul, status, waktu terbit, catatan moderasi, jumlah pembaca |
 
 ---
 
-## 12. Daftar endpoint API
+## 13. Daftar endpoint API
 
 Semua endpoint: `api.php?r=<rute>`.
 
@@ -536,6 +600,16 @@ Semua endpoint: `api.php?r=<rute>`.
 | `tuk/sarpras` | `tuk.facility` |
 | `tuk/alumni` | `tuk.alumni` |
 
+### Blog (CMS)
+
+| Rute | Hak | Fungsi |
+|---|---|---|
+| `blog` (GET) | `blog.manage` | Daftar artikel dalam cakupan (platform: semua, `&lsp=ID` untuk satu LSP) |
+| `blog` (POST) | `blog.manage` | Buat (tanpa `id`) atau ubah artikel |
+| `blog/hapus` | `blog.manage` | Hapus artikel beserta sampulnya |
+| `blog/cover` (multipart) | `blog.manage` | Unggah sampul (`id`, `file`) atau hapus (`hapus=1`) |
+| `blog/moderasi` | `lsp.manage` | `aksi=turunkan` (dengan `catatan`) atau `aksi=pulihkan` |
+
 ### Publik (tanpa login)
 
 | Rute | Fungsi |
@@ -545,10 +619,13 @@ Semua endpoint: `api.php?r=<rute>`.
 | `pub/jadwal` | Jadwal mendatang |
 | `pub/lsp` | Direktori LSP |
 | `pub/verify` | Verifikasi sertifikat (dibatasi per IP) |
+| `pub/blog` | Daftar artikel terbit (`q`, `kategori`, `lsp`, `page`) + jumlah per kategori |
+| `pub/blog/post` | Satu artikel (`slug`) + artikel terkait; menambah hitungan pembaca |
+| `pub/blog/cover` | Gambar sampul (`id`) |
 
 ---
 
-## 13. Konfigurasi
+## 14. Konfigurasi
 
 File `app/config.php` (di luar docroot, **tidak di-commit**) berisi array berikut. Contoh lengkapnya ada di `config.example.php`.
 
@@ -574,7 +651,7 @@ File `app/config.php` (di luar docroot, **tidak di-commit**) berisi array beriku
 
 ---
 
-## 14. Instalasi, deploy, dan cron
+## 15. Instalasi, deploy, dan cron
 
 ### Instalasi baru
 
@@ -606,6 +683,7 @@ Riwayat versi di produksi:
 | v4 | Admin Platform akses penuh semua menu dan semua LSP |
 | v5 | Admin LSP akses penuh semua data LSP-nya (termasuk TUK), isolasi antar-LSP |
 | v6 | Semua menu dan fitur berfungsi: proses sertifikasi lengkap, portal publik dengan data nyata, data demo. Dideploy 9 Okt 2026, smoke test lulus. |
+| v7 | CMS blog (migrasi 7): menu Blog (CMS), halaman Blog publik, moderasi Admin Platform, 6 artikel contoh. |
 
 ### Rollback
 
@@ -615,7 +693,7 @@ Perubahan skema database tidak dibatalkan otomatis. Bila perlu, pulihkan dari ca
 
 ---
 
-## 15. Pengujian
+## 16. Pengujian
 
 Uji lokal:
 
@@ -629,20 +707,24 @@ node tests/register.test.mjs        # 29 uji: pendaftaran asesi mandiri
 node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server tiruan port 8098)
 node tests/platform.test.mjs        # 23 uji: akses penuh Admin Platform + isolasi Admin LSP
 node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
+node tests/blog.test.mjs            # 83 uji: CMS blog (akses, isolasi, terjadwal, moderasi, sampul, API publik)
 
 NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # uji browser: daftar asesi s.d. sertifikat terverifikasi
 NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs  # uji browser: buka semua menu untuk 7 peran
+NODE_PATH=$(npm root -g) node tests/ui/blog.cjs        # uji browser: tulis, pratinjau, terbitkan, sampul, baca, moderasi
 ```
+
+Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php` lalu hapus `storage/test.sqlite`). Suite berbagi data (mis. NIK contoh) dan batas login per IP, sehingga menjalankan semuanya berturut-turut pada satu database bisa memicu kegagalan palsu. `tests/ui/alur-asesi.cjs` membuat jadwal "hari ini", jadi jalankan dengan `TZ=Asia/Jakarta`.
 
 Hasil terakhir:
 
-- Semua 256 uji API lulus pada database baru.
+- Semua 339 uji API lulus pada database baru (termasuk 83 uji blog), plus 24 uji browser blog.
 - Uji browser membuka semua menu di 7 peran tanpa error JavaScript dan tanpa halaman kosong/placeholder.
 - Tidak ada scroll horizontal pada lebar layar ponsel 390 px.
 
 ---
 
-## 16. Data dan akun demo
+## 17. Data dan akun demo
 
 Server produksi saat ini berisi data demo agar semua menu bisa dicoba.
 
@@ -686,6 +768,8 @@ Setiap skema punya unit SKKNI dan jadwal di masa lalu dan mendatang.
 
 Password akun demo **tidak** dicantumkan di dokumen ini. Password ada di berkas kredensial terpisah yang sudah dikirim ke pemilik.
 
+**Blog:** 6 artikel contoh. Dua dari platform, empat dari LSP: tiga TDN (satu terjadwal, satu draf) dan satu PBI.
+
 Akun contoh tambahan (asesor Lina Marlina dan 6 asesi `@contoh.portallsp.id`) tidak punya password dan tidak bisa dipakai login. Akun-akun ini hanya mengisi data.
 
 Contoh verifikasi sertifikat: buka `https://lsp.semestateknologiutama.com/?cek=TDN7K3P9QX`.
@@ -694,7 +778,7 @@ Contoh verifikasi sertifikat: buka `https://lsp.semestateknologiutama.com/?cek=T
 
 ---
 
-## 17. Batasan dan langkah berikutnya
+## 18. Batasan dan langkah berikutnya
 
 | Hal | Kondisi saat ini | Usulan |
 |---|---|---|
@@ -711,7 +795,7 @@ Contoh verifikasi sertifikat: buka `https://lsp.semestateknologiutama.com/?cek=T
 
 ---
 
-## 18. Panduan singkat pemakaian
+## 19. Panduan singkat pemakaian
 
 ### Asesi
 
@@ -730,6 +814,7 @@ Contoh verifikasi sertifikat: buka `https://lsp.semestateknologiutama.com/?cek=T
 4. **Pleno & Sertifikat:** putuskan K/BK. Sertifikat terbit otomatis.
 5. **Skema, Asesor, TUK:** kelola master data.
 6. **Etalase:** tambah listing → ajukan ke Admin Platform.
+7. **Blog (CMS):** Tulis artikel → isi judul, kategori, isi (pakai Pratinjau) → pilih *Terbitkan* (atau isi waktu terbit untuk menjadwalkan) → Simpan → unggah gambar sampul.
 
 ### Asesor
 
@@ -742,4 +827,5 @@ Contoh verifikasi sertifikat: buka `https://lsp.semestateknologiutama.com/?cek=T
 
 1. **LSP Klien:** onboarding LSP baru beserta Admin LSP-nya.
 2. **Persetujuan Listing:** tinjau dan tayangkan listing.
-3. Pilih LSP di pemilih konteks untuk membuka data satu LSP, atau "Semua LSP" untuk melihat semuanya.
+3. **Blog (CMS):** tulis artikel atas nama platform atau LSP; tombol **Turunkan** (dengan alasan) untuk artikel bermasalah, **Pulihkan** setelah diperbaiki.
+4. Pilih LSP di pemilih konteks untuk membuka data satu LSP, atau "Semua LSP" untuk melihat semuanya.

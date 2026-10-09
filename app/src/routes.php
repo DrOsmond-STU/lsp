@@ -56,6 +56,9 @@ function dispatch(string $route): void
         'platform/dashboard' => 'r_platform_dashboard', 'platform/lsp' => 'r_platform_lsp', 'platform/lsp/status' => 'r_platform_lsp_status',
         'platform/paket' => 'r_platform_paket', 'skkni' => 'r_skkni', 'tiket' => 'r_tiket', 'tiket/balas' => 'r_tiket_balas', 'audit' => 'r_audit',
         'pub/catalog' => 'r_pub_catalog', 'pub/skema' => 'r_pub_skema', 'pub/jadwal' => 'r_pub_jadwal', 'pub/lsp' => 'r_pub_lsp', 'pub/verify' => 'r_pub_verify',
+        // CMS blog
+        'blog' => 'r_blog', 'blog/hapus' => 'r_blog_hapus', 'blog/moderasi' => 'r_blog_moderasi', 'blog/cover' => 'r_blog_cover',
+        'pub/blog' => 'r_pub_blog', 'pub/blog/post' => 'r_pub_blog_post', 'pub/blog/cover' => 'r_pub_blog_cover',
     ];
     if (!isset($routes[$route])) {
         fail('Alamat API tidak ditemukan.', 404);

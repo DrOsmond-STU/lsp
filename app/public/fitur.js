@@ -900,6 +900,7 @@ function pBeranda() {
       <p style="opacity:.9;font-size:.9rem;margin-top:.4rem">Masukkan nomor sertifikat atau kode verifikasi.</p>
       <form class="search" id="cekHome" style="margin-top:1rem"><input id="cek-home" placeholder="Nomor atau kode, mis. TDN7K3P9QX" aria-label="Nomor sertifikat"><button class="btn green" type="submit">${ic('check')}Cek</button></form></div>
   </div></section>
+  ${blogHome()}
   <section class="block" style="padding-top:0"><div class="wrap"><div class="sec-head"><div><p class="eyebrow">Alur sertifikasi</p><h2>Empat langkah sampai sertifikat terbit</h2></div></div>
     <div class="steps">${[['blue', 'Pilih skema & jadwal', 'Bandingkan skema dari semua LSP, lalu pilih TUK dan tanggal uji.'], ['purple', 'Isi APL & unggah berkas', 'Isi asesmen mandiri FR.APL.02. Berkas di profil dipakai ulang untuk skema berikutnya.'], ['orange', 'Bayar & ikuti asesmen', 'Bayar setelah berkas diverifikasi, ikuti pra-asesmen dan uji di TUK atau jarak jauh.'], ['green', 'Sertifikat terbit', 'Setelah pleno, sertifikat digital ber-tautan verifikasi masuk ke dompet Anda.']].map(([w, t, d], i) => `<div class="card"><span class="step-n" style="background:${GRAD[w]}">${i + 1}</span><h3>${t}</h3><p class="muted" style="font-size:.88rem;margin-top:.3rem">${d}</p></div>`).join('')}</div></div></section>
   <section class="block" style="padding-top:0"><div class="wrap"><div class="cta"><div style="max-width:60ch"><p class="eyebrow" style="color:rgba(255,255,255,.8)">Untuk Lembaga Sertifikasi Profesi</p><h2 style="margin-top:.35rem">Kelola asesmen, mutu, dan sertifikat LSP Anda tanpa tumpukan berkas</h2><p style="opacity:.9;margin-top:.5rem">Pendaftaran online, jadwal & penugasan asesor, pleno, sertifikat digital, laporan BNSP, CRM, dan modul mutu dalam satu sistem.</p></div>
@@ -1012,3 +1013,256 @@ const PAGES = {
 const _modulPlaceholder = modul;
 modul = function (k) { return PAGES[k] ? PAGES[k]() : _modulPlaceholder(k); };
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('article[data-x]')) e.target.click(); });
+
+/* ===================== CMS blog ===================== */
+ICON.pen = '<path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25Zm17.7-10.2a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"/>';
+MENU.admin.splice(MENU.admin.findIndex(it => it[0] === 'etalase') + 1, 0, ['blog', 'Blog (CMS)', 'pen', 'blog.manage']);
+MENU.super.splice(MENU.super.findIndex(it => it[0] === 'approval') + 1, 0, ['blog', 'Blog (CMS)', 'pen', 'blog.manage']);
+PUB_NAV.splice(PUB_NAV.findIndex(it => it[0] === 'untuk'), 0, ['blog', 'Blog']);
+const TITLE0 = document.title;
+const BST = {draf: ['plain', 'Draf'], terbit: ['ok', 'Terbit'], terjadwal: ['info', 'Terjadwal'], diturunkan: ['bad', 'Diturunkan']};
+const KAT_W = ['blue', 'green', 'purple', 'orange', 'pink', 'teal'];
+
+/* Markdown sederhana. Masukan SUDAH di-escape (semua teks dari server di-escape oleh api(); pratinjau memakai esc()). */
+function mdInline(s) {
+  return s
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<i>$2</i>')
+    .replace(/(^|[\s(])_([^_\s][^_]*)_/g, '$1<i>$2</i>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/(?!\/)[^\s)]*)\)/g, '<a href="$2" target="_blank" rel="noopener nofollow ugc">$1</a>');
+}
+function md(src) {
+  const lines = String(src || '').replace(/\r/g, '').split('\n');
+  let html = '', para = [], list = null;
+  const flushP = () => { if (para.length) { html += `<p>${mdInline(para.join(' '))}</p>`; para = []; } };
+  const flushL = () => { if (list) { html += `<${list.t}>${list.items.map(i => `<li>${mdInline(i)}</li>`).join('')}</${list.t}>`; list = null; } };
+  for (const raw of lines) {
+    const l = raw.trim();
+    let m;
+    if (!l) { flushP(); flushL(); continue; }
+    if ((m = l.match(/^(#{1,3})\s+(.+)$/))) { flushP(); flushL(); const h = m[1].length === 3 ? 'h3' : 'h2'; html += `<${h}>${mdInline(m[2])}</${h}>`; continue; }
+    if ((m = l.match(/^&gt;\s?(.*)$/))) { flushP(); flushL(); html += `<blockquote>${mdInline(m[1])}</blockquote>`; continue; }
+    if (/^(-{3,}|\*{3,})$/.test(l)) { flushP(); flushL(); html += '<hr>'; continue; }
+    if ((m = l.match(/^[-*]\s+(.+)$/))) { flushP(); if (!list || list.t !== 'ul') { flushL(); list = {t: 'ul', items: []}; } list.items.push(m[1]); continue; }
+    if ((m = l.match(/^\d+[.)]\s+(.+)$/))) { flushP(); if (!list || list.t !== 'ol') { flushL(); list = {t: 'ol', items: []}; } list.items.push(m[1]); continue; }
+    flushL(); para.push(l);
+  }
+  flushP(); flushL();
+  return html;
+}
+const toLocalDT = s => s ? String(s).replace(' ', 'T').slice(0, 16) : '';
+
+/* ---------- Halaman pengelola (Admin Platform, Admin LSP, Marketing) ---------- */
+PAGE_LOAD.blog = () => g('blog');
+function blogEditor(D, p) {
+  const isNew = !p.id;
+  const penerbit = isPlatform() && isNew
+    ? fld('Penerbit', sel('lsp_id', [[0, 'PortalLSP (platform)']].concat(S.lsps.filter(l => l.status === 'aktif').map(l => [l.id, l.nama])), S.lspFilter || 0))
+    : fld('Penerbit', `<input value="${isNew ? ctxName() : p.penerbit}" disabled>`);
+  const tool = [['bold', '<b>B</b>', 'Tebal'], ['italic', '<i>I</i>', 'Miring'], ['h2', 'H2', 'Subjudul'], ['ul', '• Daftar', 'Daftar berpoin'], ['ol', '1. Daftar', 'Daftar bernomor'], ['quote', '❝ Kutipan', 'Kutipan'], ['link', 'Tautan', 'Tautan']];
+  return `<div class="card stack" id="editor" style="border:2px solid var(--brand-b)">
+    <div class="spread"><h3>${isNew ? 'Tulis artikel baru' : 'Ubah artikel'}</h3>${p.status_view ? `<span class="chip ${BST[p.status_view][0]}">${BST[p.status_view][1]}</span>` : ''}</div>
+    ${p.status === 'diturunkan' ? `<p class="alert bad">${ic('shield')}<span>Diturunkan oleh Admin Platform: ${p.catatan_moderasi || '—'}. ${isPlatform() ? 'Pulihkan dari tabel di bawah bila sudah diperbaiki.' : 'Perbaiki isinya, lalu minta Admin Platform menayangkannya kembali lewat Tiket Support.'}</span></p>` : ''}
+    ${form('blog', `${p.id ? hid('id', p.id) : ''}
+      <div class="grid g2">
+        ${fld('Judul', inp('judul', p.judul, 'required maxlength="150" placeholder="Mis. 5 Tips Lulus Uji Kompetensi"'), true)}
+        ${penerbit}
+        ${fld('Kategori', sel('kategori', D.kategori, p.kategori || D.kategori[0]))}
+        ${fld('Tag <span class="muted">(pisahkan dengan koma, maks. 8)</span>', inp('tags', (p.tags || []).join(', '), 'maxlength="200" placeholder="sertifikasi, tips"'))}
+        ${fld('Slug URL <span class="muted">(opsional, otomatis dari judul)</span>', inp('slug', p.slug || '', 'maxlength="90" placeholder="5-tips-lulus-uji-kompetensi"'))}
+      </div>
+      ${fld('Ringkasan <span class="muted">(tampil di daftar artikel, maks. 300 karakter)</span>', txa('ringkasan', p.ringkasan, 'rows="2" maxlength="300"'))}
+      <div class="f"><span>Isi artikel</span>
+        <div class="row" style="gap:.35rem;margin:.35rem 0">${tool.map(([k, l, t]) => `<button type="button" class="btn ghost sm" data-x="mdIns" data-m="${k}" title="${t}" aria-label="${t}">${l}</button>`).join('')}
+          <button type="button" class="btn sm purple" data-x="blogPreview" style="margin-left:auto">${ic('search')}Pratinjau</button></div>
+        ${txa('konten', p.konten, 'id="blog-konten" rows="16" maxlength="50000" required style="font-family:ui-monospace,Menlo,monospace;font-size:.88rem;line-height:1.55"')}
+        <p class="muted" style="font-size:.78rem;margin-top:.3rem">Format: <span class="mono">## Subjudul</span>, <span class="mono">**tebal**</span>, <span class="mono">_miring_</span>, <span class="mono">- daftar</span>, <span class="mono">1. daftar</span>, <span class="mono">&gt; kutipan</span>, <span class="mono">[teks](https://alamat)</span>. Baris kosong memisahkan paragraf.</p>
+        <div id="blog-preview" class="card prose" hidden style="margin-top:.6rem;background:var(--bg)"></div>
+      </div>
+      <div class="grid g2">
+        ${fld('Status', sel('status', [['draf', 'Simpan sebagai draf'], ['terbit', 'Terbitkan']], p.status === 'draf' || !p.status ? 'draf' : 'terbit'))}
+        ${fld('Waktu terbit <span class="muted">(kosongkan = sekarang; isi tanggal mendatang untuk menjadwalkan)</span>', `<input type="datetime-local" name="terbit_at" value="${toLocalDT(p.terbit_at)}">`)}
+      </div>`, {after: 'blogSaved', cancel: true, submit: 'Simpan artikel', ok: 'Artikel disimpan.'})}
+    ${p.id ? `<div class="stack" style="gap:.6rem;border-top:1px solid var(--line);padding-top:1rem"><h3>Gambar sampul</h3>
+      ${p.cover ? `<img src="${p.cover}" alt="Gambar sampul" class="blog-cover" style="max-width:420px;border-radius:14px">` : '<p class="muted">Belum ada gambar sampul. Tanpa gambar, kartu artikel memakai warna kategori.</p>'}
+      <div class="row"><input type="file" id="blog-cover-file" accept="image/png,image/jpeg" style="max-width:280px"><button class="btn sm" data-x="blogCover" data-id="${p.id}">${ic('send')}Unggah</button>${p.cover ? `<button class="btn sm ghost" data-x="blogCoverDel" data-id="${p.id}">Hapus gambar</button>` : ''}</div>
+      <p class="muted" style="font-size:.78rem">JPG atau PNG, maks. 2 MB. Rasio 16:9 disarankan (mis. 1200×675 piksel).</p></div>`
+    : '<p class="muted" style="font-size:.85rem">Simpan artikel dulu untuk menambahkan gambar sampul.</p>'}
+  </div>`;
+}
+function pBlog() {
+  const D = S.d.blog;
+  const head = phead(isPlatform() ? 'Platform · ' + ctxName() : ctxName(), 'Blog (CMS)', `<button class="btn" data-edit="new">${ic('pen')}Tulis artikel</button>`);
+  if (!D) return head + loading();
+  const items = D.items, cnt = k => items.filter(p => p.status_view === k).length;
+  const t = curTab('blog', 'semua');
+  const list = t === 'semua' ? items : items.filter(p => p.status_view === t);
+  const editing = S.edit === 'new' ? {} : (S.edit ? items.find(p => String(p.id) === S.edit) : null);
+  return `${head}
+  <div class="alert info">${ic('shield')}<span>${D.moderator ? 'Anda bisa menulis atas nama platform atau LSP mana pun, dan menurunkan artikel yang melanggar ketentuan.' : 'Artikel LSP Anda langsung tayang di halaman Blog publik. Admin Platform dapat menurunkan artikel yang melanggar ketentuan (mis. klaim "pasti lulus").'}</span></div>
+  <div class="grid g4">${kpi('check', 'green', cnt('terbit'), 'Terbit')}${kpi('cal', 'blue', cnt('terjadwal'), 'Terjadwal')}${kpi('pen', 'orange', cnt('draf'), 'Draf')}${kpi('chart', 'purple', items.reduce((a, p) => a + p.dibaca, 0).toLocaleString('id-ID'), 'Total dibaca')}</div>
+  ${editing ? blogEditor(D, editing) : ''}
+  <div class="card">${tabs('blog', [['semua', 'Semua', items.length], ['terbit', 'Terbit', cnt('terbit')], ['terjadwal', 'Terjadwal', cnt('terjadwal')], ['draf', 'Draf', cnt('draf')], ['diturunkan', 'Diturunkan', cnt('diturunkan')]])}
+    <div style="margin-top:.8rem">${table(['Artikel', ...(isPlatform() ? ['Penerbit'] : []), 'Status', 'Terbit', 'Dibaca', 'Aksi'], list.map(p => tr([
+      `<b>${p.judul}</b><div class="muted" style="font-size:.76rem">${p.kategori} · /${p.slug}${p.penulis ? ' · ' + p.penulis : ''}</div>`,
+      ...(isPlatform() ? [`<span class="chip ${p.lsp_id ? 'plain' : 'info'}">${p.penerbit}</span>`] : []),
+      `<span class="chip ${BST[p.status_view][0]}">${BST[p.status_view][1]}</span>${p.status === 'diturunkan' && p.catatan_moderasi ? `<div class="muted" style="font-size:.74rem;max-width:220px;margin-top:.2rem">${p.catatan_moderasi}</div>` : ''}`,
+      `<span class="num">${p.terbit_at ? fmtWaktu(p.terbit_at) : '—'}</span>`,
+      `<span class="num">${p.dibaca.toLocaleString('id-ID')}</span>`,
+      `<div class="row" style="gap:.35rem;flex-wrap:nowrap"><button class="btn sm" data-edit="${p.id}">Ubah</button>
+        ${p.status_view === 'terbit' ? `<a class="btn sm ghost" href="./?artikel=${p.slug}" target="_blank" rel="noopener">Lihat</a>` : ''}
+        ${D.moderator && p.status !== 'diturunkan' && p.status_view !== 'draf' ? `<button class="btn sm orange" data-x="blogTurunkan" data-id="${p.id}">Turunkan</button>` : ''}
+        ${D.moderator && p.status === 'diturunkan' ? btnAct('blog/moderasi', {id: p.id, aksi: 'pulihkan'}, 'Pulihkan', 'sm green', 'data-ok="Artikel tayang kembali."') : ''}
+        ${btnAct('blog/hapus', {id: p.id}, 'Hapus', 'sm red', 'data-confirm="Hapus artikel ini? Tindakan ini tidak bisa dibatalkan." data-ok="Artikel dihapus."')}</div>`,
+    ])), t === 'semua' ? 'Belum ada artikel. Klik "Tulis artikel" untuk mulai.' : 'Tidak ada artikel dengan status ini.')}</div></div>`;
+}
+PAGES.blog = pBlog;
+const clearBlogPub = () => { for (const k in PUB) if (k.startsWith('blog') || k.startsWith('artikel')) delete PUB[k]; };
+AFTER.blogSaved = async r => {
+  clearBlogPub();
+  if (r.catatan) toast(r.catatan);
+  await reloadPage();
+  if (r.baru) { S.edit = String(r.id); render(); toast('Artikel disimpan. Tambahkan gambar sampul bila perlu.'); }
+};
+async function blogUpload(fd) {
+  const res = await fetch('api.php?r=blog/cover', {method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': CSRF, Accept: 'application/json'}, body: fd});
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.error || 'Gagal memproses gambar.');
+  clearBlogPub();
+}
+Object.assign(X, {
+  mdIns(t) {
+    const ta = document.getElementById('blog-konten'); if (!ta) return;
+    const a = ta.selectionStart, b = ta.selectionEnd, v = ta.value, s = v.slice(a, b);
+    const lineStart = v.lastIndexOf('\n', a - 1) + 1;
+    const wrap = {bold: ['**', '**', 'teks tebal'], italic: ['_', '_', 'teks miring'], link: ['[', '](https://)', 'teks tautan']}[t.dataset.m];
+    const prefix = {h2: '## ', ul: '- ', ol: '1. ', quote: '> '}[t.dataset.m];
+    if (wrap) { const ins = wrap[0] + (s || wrap[2]) + wrap[1]; ta.setRangeText(ins, a, b, 'end'); }
+    else if (prefix) ta.setRangeText(prefix, lineStart, lineStart, 'end');
+    ta.focus();
+  },
+  blogPreview() {
+    const ta = document.getElementById('blog-konten'), pv = document.getElementById('blog-preview');
+    if (!ta || !pv) return;
+    if (!pv.hidden) { pv.hidden = true; return; }
+    pv.innerHTML = md(esc(ta.value)) || '<p class="muted">Belum ada isi.</p>'; pv.hidden = false;
+  },
+  async blogCover(t) {
+    const input = document.getElementById('blog-cover-file');
+    if (!input || !input.files[0]) { toast('Pilih gambar dulu.'); return; }
+    if (input.files[0].size > 2097152) { toast('Ukuran gambar maksimal 2 MB.'); return; }
+    const fd = new FormData(); fd.append('id', t.dataset.id); fd.append('file', input.files[0]);
+    t.disabled = true;
+    try { await blogUpload(fd); toast('Gambar sampul diunggah.'); await reloadPage(); }
+    catch (x) { toast(x.message); t.disabled = false; }
+  },
+  async blogCoverDel(t) {
+    if (!confirm('Hapus gambar sampul artikel ini?')) return;
+    const fd = new FormData(); fd.append('id', t.dataset.id); fd.append('hapus', '1');
+    try { await blogUpload(fd); toast('Gambar sampul dihapus.'); await reloadPage(); } catch (x) { toast(x.message); }
+  },
+  async blogTurunkan(t) {
+    const c = prompt('Alasan menurunkan artikel (dikirim ke LSP penerbit):');
+    if (c === null) return;
+    try { await api('blog/moderasi', {id: Number(t.dataset.id), aksi: 'turunkan', catatan: c.trim()}); clearBlogPub(); toast('Artikel diturunkan dan LSP diberi tahu.'); await reloadPage(); }
+    catch (x) { toast(x.message); }
+  },
+  /* Publik */
+  blogOpen(t) { go('blog', {blogSlug: t.dataset.slug}); },
+  blogBack() { go('blog', {blogSlug: null}); },
+  blogKat(t) { S.blogKat = t.dataset.k || ''; S.blogPage = 1; render(); },
+  blogPage(t) { S.blogPage = Number(t.dataset.p); render(); window.scrollTo(0, 0); },
+  blogTag(t) { S.blogQ = unesc(t.dataset.tag); S.blogKat = ''; S.blogPage = 1; go('blog', {blogSlug: null}); },
+  blogReset() { S.blogQ = ''; S.blogKat = ''; S.blogPage = 1; render(); },
+  async blogShare(t) { const url = location.origin + location.pathname + '?artikel=' + t.dataset.slug; try { await navigator.clipboard.writeText(url); toast('Tautan artikel disalin.'); } catch (e) { prompt('Salin tautan ini:', url); } },
+});
+
+/* ---------- Halaman publik ---------- */
+const katGrad = k => GRAD[KAT_W[Math.max(0, ['Berita', 'Tips Sertifikasi', 'Regulasi', 'Pengumuman', 'Kisah Alumni', 'Pelatihan'].indexOf(k)) % KAT_W.length]];
+function blogCard(p) {
+  return `<article class="card blog-card" data-x="blogOpen" data-slug="${p.slug}" tabindex="0" role="link" aria-label="${p.judul}">
+    ${p.cover ? `<img src="${p.cover}" alt="" loading="lazy" class="blog-cover">` : `<div class="blog-cover ph" style="background:${katGrad(p.kategori)}">${ic('pen', 'ico big')}</div>`}
+    <div class="bc"><span class="chip info">${p.kategori}</span><h3>${p.judul}</h3>${p.ringkasan ? `<p class="muted">${p.ringkasan}</p>` : ''}
+      <div class="muted meta">${p.penerbit} · ${fmtTgl(p.terbit_at)} · ${p.menit_baca} menit baca</div></div></article>`;
+}
+function blogHome() {
+  const b = lazy('blog-home', 'pub/blog');
+  if (b && !b.error && !(b.items || []).length) return '';
+  return `<section class="block" style="padding-top:0"><div class="wrap"><div class="sec-head"><div><p class="eyebrow">Blog</p><h2>Artikel & kabar terbaru</h2></div><button class="btn sm purple" data-go="blog">Semua artikel</button></div>
+    <div class="grid g3">${b ? (b.items || []).slice(0, 3).map(blogCard).join('') : '<p class="muted">Memuat…</p>'}</div></div></section>`;
+}
+function pBlogPub() {
+  if (S.blogSlug) return pArtikel();
+  const qs = new URLSearchParams();
+  if (S.blogQ) qs.set('q', S.blogQ);
+  if (S.blogKat) qs.set('kategori', unesc(S.blogKat));
+  if ((S.blogPage || 1) > 1) qs.set('page', S.blogPage);
+  const key = 'blog?' + qs, b = lazy(key, 'pub/blog' + (String(qs) ? '?' + qs : ''));
+  const items = b && b.items || [], pages = b && b.total ? Math.ceil(b.total / b.per_page) : 1, page = b ? b.page : 1;
+  const filtered = S.blogQ || S.blogKat;
+  const first = !filtered && page === 1 ? items[0] : null;
+  const rest = first ? items.slice(1) : items;
+  return `<section class="block"><div class="wrap stack" style="gap:1.4rem">
+    <div><p class="eyebrow">Blog PortalLSP</p><h2>Wawasan sertifikasi kompetensi</h2><p class="muted" style="margin-top:.3rem">Tips persiapan uji, regulasi BNSP, pengumuman jadwal, dan kisah alumni dari LSP di PortalLSP.</p></div>
+    <form class="search" id="blogSearch" role="search" style="max-width:560px"><input id="blog-q" value="${esc(S.blogQ || '')}" placeholder="Cari artikel, mis. tips uji, barista" aria-label="Cari artikel"><button class="btn" type="submit">${ic('search')}Cari</button></form>
+    <div class="tabs"><button class="fchip ${!S.blogKat ? 'on' : ''}" data-x="blogKat" data-k="">Semua</button>${(b && b.kategori || []).filter(k => k.n).map(k => `<button class="fchip ${S.blogKat === k.nama ? 'on' : ''}" data-x="blogKat" data-k="${k.nama}">${k.nama} <span class="num">(${k.n})</span></button>`).join('')}</div>
+    ${pubErr(b)}
+    ${filtered && b ? `<p class="muted">${b.total} artikel${S.blogQ ? ` untuk "<b>${esc(S.blogQ)}</b>"` : ''}${S.blogKat ? ` di kategori <b>${S.blogKat}</b>` : ''}. <button class="btn sm ghost" data-x="blogReset">Hapus filter</button></p>` : ''}
+    ${!b ? '<p class="muted">Memuat…</p>' : !items.length ? `<div class="card empty"><h3>Belum ada artikel</h3><p class="muted">${filtered ? 'Coba kata kunci atau kategori lain.' : 'Artikel akan tampil di sini setelah diterbitkan.'}</p></div>` : ''}
+    ${first ? `<article class="card blog-card blog-feat" data-x="blogOpen" data-slug="${first.slug}" tabindex="0" role="link" aria-label="${first.judul}">
+      ${first.cover ? `<img src="${first.cover}" alt="" class="blog-cover">` : `<div class="blog-cover ph" style="background:${katGrad(first.kategori)}">${ic('pen', 'ico big')}</div>`}
+      <div class="bc"><span class="chip info">${first.kategori}</span><h2>${first.judul}</h2>${first.ringkasan ? `<p class="muted" style="font-size:1rem">${first.ringkasan}</p>` : ''}
+        <div class="muted meta">${first.penerbit} · ${first.penulis} · ${fmtTgl(first.terbit_at)} · ${first.menit_baca} menit baca</div><span class="btn sm purple" style="align-self:flex-start;margin-top:.4rem">Baca artikel</span></div></article>` : ''}
+    ${rest.length ? `<div class="grid g3">${rest.map(blogCard).join('')}</div>` : ''}
+    ${pages > 1 ? `<div class="row" style="justify-content:center">${page > 1 ? `<button class="btn ghost sm" data-x="blogPage" data-p="${page - 1}">← Sebelumnya</button>` : ''}<span class="muted">Halaman ${page} dari ${pages}</span>${page < pages ? `<button class="btn ghost sm" data-x="blogPage" data-p="${page + 1}">Berikutnya →</button>` : ''}</div>` : ''}
+  </div></section>`;
+}
+function pArtikel() {
+  const d = lazy('artikel:' + S.blogSlug, 'pub/blog/post?slug=' + encodeURIComponent(S.blogSlug));
+  const back = `<button class="btn ghost sm" data-x="blogBack">← Semua artikel</button>`;
+  if (!d) return `<section class="block"><div class="wrap">${back}<p class="muted" style="margin-top:1rem">Memuat…</p></div></section>`;
+  if (d.error) return `<section class="block"><div class="wrap stack">${back}<div class="card empty"><h3>Artikel tidak ditemukan</h3><p class="muted">${esc(d.error)}</p></div></div></section>`;
+  const p = d.post;
+  document.title = unesc(p.judul) + ' · ' + TITLE0;
+  const shareText = encodeURIComponent(unesc(p.judul) + ' ' + location.origin + location.pathname + '?artikel=' + p.slug);
+  return `<section class="block"><div class="wrap"><article class="blog-article stack" style="gap:1.1rem">
+    <div>${back}</div>
+    <div class="stack" style="gap:.6rem"><div class="row"><span class="chip info">${p.kategori}</span><span class="chip plain">${p.penerbit}</span></div>
+      <h1 class="blog-title">${p.judul}</h1>
+      ${p.ringkasan ? `<p class="lead muted">${p.ringkasan}</p>` : ''}
+      <p class="muted" style="font-size:.88rem">Oleh <b>${p.penulis}</b> · ${fmtTgl(p.terbit_at)} · ${p.menit_baca} menit baca · ${p.dibaca.toLocaleString('id-ID')} kali dibaca</p></div>
+    ${p.cover ? `<img src="${p.cover}" alt="" class="blog-cover" style="border-radius:var(--r-lg)">` : ''}
+    <div class="prose">${md(p.konten)}</div>
+    ${p.tags.length ? `<div class="row" style="gap:.4rem">${p.tags.map(tg => `<button class="fchip" data-x="blogTag" data-tag="${tg}">#${tg}</button>`).join('')}</div>` : ''}
+    <div class="row" style="border-top:1px solid var(--line);padding-top:1rem"><span class="muted">Bagikan:</span><button class="btn sm ghost" data-x="blogShare" data-slug="${p.slug}">${ic('send')}Salin tautan</button><a class="btn sm green" href="https://wa.me/?text=${shareText}" target="_blank" rel="noopener">${ic('chat')}WhatsApp</a></div>
+    <div class="cta" style="padding:1.4rem"><div><h3 style="color:#fff">Siap mengikuti uji kompetensi?</h3><p style="opacity:.9;margin-top:.3rem">Bandingkan skema dari berbagai LSP dan daftar online.</p></div><button class="btn white" data-go="cari">${ic('search')}Cari skema</button></div>
+  </article>
+  ${d.terkait.length ? `<div class="stack" style="gap:.8rem;margin-top:2rem"><h2>Artikel terkait</h2><div class="grid g3">${d.terkait.map(blogCard).join('')}</div></div>` : ''}
+  </div></section>`;
+}
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'blogSearch') return;
+  e.preventDefault();
+  S.blogQ = (document.getElementById('blog-q') || {}).value.trim(); S.blogPage = 1; render();
+});
+
+/* Navigasi publik: tambahkan halaman Blog dan tautan langsung ?artikel=slug. */
+const _go = go;
+go = function (page, extra = {}) { if (page === 'blog' && !('blogSlug' in extra)) extra = Object.assign({}, extra, {blogSlug: null}); _go(page, extra); };
+const PUB_PAGES = () => ({beranda: pBeranda, cari: pCari, detail: pDetail, jadwal: pJadwal, lsp: pLsp, lms: pLms, verif: pVerif, untuk: pUntuk, login: pLogin, daftar: pDaftar, blog: pBlogPub});
+publik = function () {
+  document.title = TITLE0;
+  return topbar() + (PUB_PAGES()[S.page] || pBeranda)() + `<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Purwarupa UI/UX · nama produk sementara</span></span><span class="row" style="gap:1rem"><button class="btn ghost sm" data-go="blog">Blog</button><span class="muted">Terdaftar PSE · Server di Indonesia</span></span></div></footer>`;
+};
+(function () {
+  const a = new URLSearchParams(location.search).get('artikel');
+  if (a) { S.page = 'blog'; S.blogSlug = a.slice(0, 190); S.stayPublic = true; history.replaceState(null, '', location.pathname); }
+})();
+const _enterApp = enterApp;
+enterApp = async function () {
+  // Pengunjung yang sudah login tetap di artikel bila membuka tautan ?artikel=… (sekali, saat halaman dimuat).
+  if (S.stayPublic && S.page === 'blog') { S.stayPublic = false; render(); return; }
+  S.stayPublic = false; document.title = TITLE0;
+  return _enterApp();
+};
