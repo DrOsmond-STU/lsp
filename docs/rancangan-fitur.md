@@ -14,6 +14,8 @@ Legenda:
 Satu aplikasi dipakai oleh banyak LSP. Setiap LSP adalah **tenant**. Aturan dasarnya:
 
 > **Setiap user terikat ke satu LSP. User hanya bisa membuka data LSP miliknya sendiri dan tidak bisa melihat data LSP lain, termasuk lewat URL, API, file, laporan, maupun pencarian.**
+>
+> **Pengecualian: Asesor** boleh terdaftar di lebih dari satu LSP dengan **satu akun**, tetapi **hanya bisa melihat data uji kompetensi yang ia tangani sendiri** di masing-masing LSP (lihat bagian 0.8).
 
 ### 0.1 Hierarki data
 
@@ -22,7 +24,7 @@ Platform (Super Admin)
  └── LSP  (tenant, lsp_id)
       ├── User LSP: Admin LSP, Manajer Mutu, Komite, Pleno, Keuangan
       ├── TUK ── Admin TUK            (hanya TUK miliknya, di dalam LSP-nya)
-      ├── Asesor                      (hanya jadwal/asesi yang ditugaskan kepadanya)
+      ├── Asesor (bisa di banyak LSP) (hanya uji kompetensi yang ditugaskan kepadanya)
       ├── Asesi                       (hanya data dirinya sendiri)
       ├── Mitra/Sponsor               (hanya peserta yang ia daftarkan)
       └── Skema, MUK, Jadwal, Asesmen, Sertifikat, Dokumen, Keuangan, Mutu ...
@@ -45,19 +47,19 @@ Isolasi berlapis: **antar-LSP** (wajib, mutlak), lalu **di dalam LSP** per role 
 
 ### 0.3 Aturan kepemilikan data
 
-1. **Setiap tabel bisnis wajib punya kolom `lsp_id`** (NOT NULL + foreign key ke `lsp`): user, TUK, asesor, asesi, skema, MUK, bank soal, jadwal, asesmen, formulir FR, pleno, sertifikat, banding, keluhan, dokumen mutu, tagihan, notifikasi, log audit.
-2. **Setiap user punya satu `lsp_id`** (kecuali Super Admin Platform). `lsp_id` user **diambil dari sesi login, tidak pernah dari input/form/URL**.
+1. **Setiap tabel bisnis wajib punya kolom `lsp_id`** (NOT NULL + foreign key ke `lsp`): keanggotaan user, TUK, keanggotaan asesor, asesi, skema, MUK, bank soal, jadwal, asesmen, formulir FR, pleno, sertifikat, banding, keluhan, dokumen mutu, tagihan, notifikasi, log audit.
+2. **Akun dan keanggotaan dipisah**: tabel `akun` (identitas login) dan tabel `keanggotaan` (`akun_id`, `lsp_id`, `role`, status). Admin LSP, Manajer, Pleno, Keuangan, Admin TUK, Asesi, Mitra **hanya boleh punya satu keanggotaan**. **Asesor boleh punya banyak keanggotaan** (satu per LSP). Konteks LSP aktif **diambil dari sesi login, tidak pernah dari input/form/URL**.
 3. **Keunikan data bersifat per LSP**: email, nomor registrasi, nomor sertifikat, kode skema, kode TUK, dsb. unik di dalam `(lsp_id, ...)`, bukan global.
-4. **Asesor/asesi yang terdaftar di 2 LSP = 2 akun terpisah** (satu per LSP, login melalui subdomain masing-masing). Data, riwayat, dan dokumennya tidak tercampur. *(Alternatif nanti: satu identitas login dengan pilihan LSP saat masuk, tetapi data tetap terpisah per LSP.)*
+4. **Asesor yang bekerja di beberapa LSP = satu akun, banyak keanggotaan.** Data operasional (penugasan, rekaman asesmen, honor) tetap milik masing-masing LSP. **Asesi** untuk saat ini tetap satu akun per LSP (bisa memakai pola keanggotaan yang sama di tahap berikutnya bila dibutuhkan).
 5. Data LSP tidak pernah dihapus permanen secara langsung: LSP yang berhenti langganan → **ditangguhkan → ekspor data untuk LSP → dihapus** sesuai kebijakan retensi (UU PDP).
 
 ### 0.4 Penegakan isolasi (wajib berlapis, bukan hanya di tampilan)
 
 | Lapisan | Mekanisme |
 |---|---|
-| **Login & sesi** | LSP dikenali dari subdomain. Login hanya berhasil jika `user.lsp_id` = LSP subdomain tersebut. Token/sesi menyimpan `lsp_id`. |
+| **Login & sesi** | User LSP: LSP dikenali dari subdomain, login hanya berhasil jika akun punya keanggotaan aktif di LSP tersebut; sesi menyimpan `lsp_id`. Asesor: login sekali, sesi menyimpan **daftar LSP tempat ia aktif** + daftar penugasannya (bagian 0.8). |
 | **Aplikasi (backend)** | Middleware tenant + *global scope* otomatis `WHERE lsp_id = :lsp_id_sesi` di semua query. Developer tidak perlu (dan tidak boleh) menulis filter manual. |
-| **Database** | **PostgreSQL Row-Level Security (RLS)** di setiap tabel: koneksi men-set `app.current_lsp_id`, dan DB menolak baris LSP lain walaupun ada bug di kode aplikasi. |
+| **Database** | **PostgreSQL Row-Level Security (RLS)** di setiap tabel: koneksi men-set `app.current_lsp_id` (user LSP) atau `app.current_asesor_id` (asesor), dan DB menolak baris di luar haknya walaupun ada bug di kode aplikasi. Untuk asesor, kebijakan RLS berbasis **tabel penugasan**, bukan sekadar `lsp_id`. |
 | **Penyimpanan file** | Folder/bucket terpisah per LSP (`/lsp/{lsp_id}/...`), akses file hanya lewat *signed URL* berumur pendek yang dibuat setelah cek kepemilikan. Tidak ada URL file publik permanen. |
 | **ID data** | Pakai UUID (bukan angka urut) agar ID tidak bisa ditebak. Akses ke ID milik LSP lain dibalas **404 Not Found** (bukan 403), sehingga keberadaan data tidak bocor. |
 | **Proses latar belakang** | Antrean job (notifikasi, generate PDF, laporan BNSP, impor Excel) selalu membawa `lsp_id` dan menjalankan query dalam konteks LSP tersebut. |
@@ -79,14 +81,65 @@ Isolasi berlapis: **antar-LSP** (wajib, mutlak), lalu **di dalam LSP** per role 
 ### 0.7 Pengujian isolasi (wajib sebelum rilis)
 
 - Test otomatis untuk **setiap endpoint**: user LSP A mencoba membaca/mengubah/menghapus data LSP B → harus 404.
+- Test asesor: asesor yang anggota LSP A & B mencoba membuka asesmen yang **tidak ditugaskan kepadanya** (di LSP A, LSP B, maupun LSP C) → harus 404.
+- Test LSP A tidak bisa melihat penugasan, honor, atau riwayat asesor tersebut di LSP B.
 - Test unggah/unduh file lintas LSP, test ekspor laporan, test job antrean.
 - Penetration test pihak ketiga sebelum go-live dan setiap tahun.
+
+### 0.8 Asesor di banyak LSP
+
+Satu asesor bisa bekerja untuk beberapa LSP. Ia memakai **satu akun**, tetapi **hanya bisa melihat data uji kompetensi yang ia tangani sendiri**.
+
+**Struktur data**
+
+| Tabel | Isi | Pemilik |
+|---|---|---|
+| `akun` | Email, nomor HP, password, 2FA | Asesor |
+| `profil_asesor` (global) | NIK, nama, foto, **No. Reg MET**, sertifikat asesor BNSP & masa berlakunya, sertifikat kompetensi, pendidikan, pengalaman, CV | Asesor (diisi sekali, dipakai di semua LSP) |
+| `keanggotaan_asesor` (per LSP) | `lsp_id`, nomor/SK penugasan dari LSP, skema yang boleh diujikan di LSP itu, status (diundang / aktif / nonaktif), **status verifikasi oleh LSP**, rekening & NPWP untuk honor LSP itu, kontrak | LSP |
+| `penugasan` (per LSP) | `lsp_id`, `asesor_id`, jadwal asesmen, peran (asesor utama / anggota / pleno / validator) | LSP |
+
+**Yang BISA dilihat asesor**
+
+- Daftar LSP tempat ia aktif, dan **kalender gabungan** semua jadwalnya dari seluruh LSP tersebut.
+- Untuk setiap **jadwal yang ditugaskan kepadanya**: data asesi pada jadwal itu, berkas persyaratan & APL, skema & MUK yang dipakai, formulir FR yang ia isi, bukti asesmen, rekaman SJJ, group chat jadwal tersebut.
+- **Riwayat** asesmen yang pernah ia tangani (hanya baca setelah keputusan pleno).
+- Honor miliknya sendiri di masing-masing LSP.
+- Jika ditugaskan sebagai **pleno**: hanya berkas asesmen yang diplenokan kepadanya, dan **sistem menolak** jika ia juga asesor pada asesmen tersebut.
+
+**Yang TIDAK BISA dilihat asesor**
+
+- Asesmen, asesi, dan jadwal yang **tidak ditugaskan kepadanya**, walaupun di LSP yang sama.
+- Data asesor lain, data keuangan LSP, dokumen mutu, laporan, dan dashboard LSP.
+- Apa pun dari LSP yang keanggotaannya sudah **nonaktif** (riwayat yang ia buat tetap tersimpan di LSP itu).
+
+**Yang bisa dilihat LSP tentang asesor**
+
+- Profil global asesor (karena dibutuhkan untuk verifikasi kelayakan) dan data keanggotaan di LSP-nya sendiri.
+- **Tidak bisa** melihat penugasan, honor, asesi, atau riwayat asesor di LSP lain.
+- Saat menjadwalkan, sistem hanya memberi tahu **"asesor tidak tersedia pada tanggal ini"** jika bentrok dengan jadwal di LSP lain, tanpa menyebut nama LSP atau detail jadwalnya.
+
+**Alur bergabung ke LSP**
+
+1. Admin LSP mengundang asesor dengan **NIK + email/No. Reg MET yang persis sama** (tidak ada fitur menjelajah/mencari semua asesor di platform, demi privasi).
+2. Jika asesor belum punya akun → ia mendaftar dan mengisi profil global. Jika sudah punya → profil yang ada dipakai.
+3. Asesor **menyetujui** undangan (persetujuan berbagi profil dengan LSP tersebut, sesuai UU PDP).
+4. LSP **memverifikasi** dokumen asesor dan menentukan skema yang boleh ia ujikan → keanggotaan aktif.
+5. Jika profil global berubah (mis. sertifikat MET diperpanjang), **semua LSP tempat ia aktif mendapat notifikasi** untuk verifikasi ulang.
+
+**Aturan akses (ringkas)**
+
+```
+asesor boleh membuka data X  ⇔
+    keanggotaan_asesor(asesor, X.lsp_id).status = aktif
+AND ada penugasan(asesor, X.jadwal_id)
+```
 
 ---
 
 ## 1. Peran pengguna (role)
 
-Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform* dan *Publik*.
+Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform*, *Publik*, dan **Asesor** (bisa di banyak LSP, lihat bagian 0.8).
 
 | Role | Keterangan | Status |
 |---|---|---|
@@ -97,7 +150,7 @@ Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform* dan 
 | Komite Ketidakberpihakan | Analisis risiko ketidakberpihakan | 🆕 |
 | Tim Pleno / Pengambil Keputusan | Keputusan sertifikasi (harus pihak yang tidak menguji) | ✅ |
 | Admin TUK | Operasional TUK | ✅ |
-| Asesor | Pelaksana asesmen | ✅ |
+| Asesor | Pelaksana asesmen; satu akun bisa aktif di banyak LSP, hanya melihat uji kompetensi yang ditugaskan kepadanya | ✅ (multi-LSP 🆕) |
 | Asesi | Peserta uji | ✅ |
 | Keuangan | Tagihan, pembayaran, honor asesor | 🆕 |
 | Mitra / Sponsor (Pemda, BUMN, perusahaan, kampus) | Mendaftarkan peserta massal dan memantau hasilnya | 🆕 |
