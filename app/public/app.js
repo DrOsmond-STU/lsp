@@ -385,7 +385,7 @@ const track = n => `<div class="track">${[0,1,2,3,4,5,6].map(i=>`<div class="${i
 function dAsesi(){
   const per=[{s:'Junior Web Developer',lsp:'LSP Teknologi Digital Nusantara',w:'blue',n:3,st:['info','Pra-asesmen'],ket:'Asesor Budi Santoso meninjau APL.02. Jadwal uji Sab, 24 Okt 2026.',btn:['Lihat kartu peserta','blue']},{s:'Digital Marketing',lsp:'LSP Teknologi Digital Nusantara',w:'purple',n:2,st:['warn','Menunggu bayar'],ket:'Bayar sebelum Kam, 15 Okt 2026 pukul 23.59 WIB.',btn:['Bayar Rp850.000','orange']},{s:'Barista',lsp:'LSP Pariwisata Bahari Indonesia',w:'orange',n:1,st:['bad','Berkas kurang'],ket:'LSP meminta pas foto latar merah yang lebih jelas.',btn:['Unggah ulang','pink']}];
   const ctx=S.lspCtx;const list=per.filter(p=>ctx==='all'||p.lsp===ctx);
-  return `<div class="spread"><div><p class="eyebrow">Jumat, 9 Oktober 2026</p><h2>Halo, ${ME.user.nama.split(' ')[0]}</h2></div><button class="btn purple" data-app-pub="cari">${ic('search')}Daftar skema baru</button></div>
+  return `<div class="spread"><div><p class="eyebrow">Jumat, 9 Oktober 2026</p><h2>Halo, ${ME.user.nama.split(' ')[0]}</h2></div><button class="btn purple" data-go-public="cari">${ic('search')}Daftar skema baru</button></div>
   <div class="grid g4">${kpi('doc','blue','3','Permohonan aktif')}${kpi('cal','teal','1','Jadwal uji minggu depan')}${kpi('wallet','orange','1','Tagihan belum dibayar')}${kpi('cert','green','2','Sertifikat dimiliki')}</div>
   <div class="layout-2">
     <div class="stack">
