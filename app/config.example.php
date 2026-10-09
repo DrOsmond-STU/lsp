@@ -10,6 +10,8 @@ return [
     'idle_timeout' => 1800,      // 30 menit tanpa aktivitas
     'absolute_timeout' => 28800, // maksimal 8 jam per sesi
     'cookie_secure' => true,     // wajib true di produksi (HTTPS)
+    'app_url' => 'https://lsp.example.id',          // dipakai untuk tautan di email
+    'mail_from' => 'no-reply@lsp.example.id',
     // Hash akun demo (password_hash). Kosongkan di produksi.
     'seed_password_hashes' => [],
 ];

@@ -15,5 +15,7 @@ $cfg = [
     'absolute_timeout' => 28800,
     'cookie_secure' => false,
     'seed_password_hashes' => $hashes,
+    'app_url' => 'http://127.0.0.1:8099',
+    'mail_log' => $dir . '/storage/mail.log',
 ];
 file_put_contents($dir . '/config.php', "<?php\nreturn " . var_export($cfg, true) . ";\n");

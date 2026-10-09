@@ -78,7 +78,8 @@ let CSRF = '';
 let CATALOG = [];       // listing tayang dari server
 const S = {role:'publik', page:'beranda', skema:'jwd', filter:'Semua', q:'', jadwal:0, step:0, appPage:'dashboard', lspCtx:'all',
   navOpen:false, verif:false, etab:'semua', form:null, pick:null, busy:false, loginErr:'', loginEmail:'', pwErr:'', userForm:false, userErr:'', formErr:'',
-  listings:[], reviews:[], reviewStats:{approved_month:0,rejected_month:0}, users:[], assignable:[], rbac:null, loading:false};
+  listings:[], reviews:[], reviewStats:{approved_month:0,rejected_month:0}, users:[], assignable:[], rbac:null, loading:false,
+  profile:null, regErr:'', regDraft:null};
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /* Semua teks dari server di-escape sekali saat diterima, sehingga aman dipakai di template HTML. */
@@ -119,12 +120,14 @@ async function loadListings(){ if(can('listing.manage')) S.listings=(await api('
 async function loadReviews(){ if(can('listing.review')){ const d=await api('reviews'); S.reviews=d.items; S.reviewStats=d.stats; } }
 async function loadUsers(){ if(can('user.manage')){ const d=await api('users'); S.users=d.items; S.assignable=d.assignable_roles; } }
 async function loadRbac(){ if(can('rbac.view')) S.rbac=await api('rbac'); }
+async function loadProfile(){ if(can('profile.own')) S.profile=await api('profile'); }
 async function loadForPage(p){
   try{
     if(p==='etalase'||p==='dashboard') await loadListings();
     if(p==='approval'||p==='dashboard') await loadReviews();
     if(p==='users'){ await loadUsers(); await loadRbac(); }
     if(p==='rbac') await loadRbac();
+    if(p==='dashboard'||p==='profil') await loadProfile();
   }catch(e){ toast(e.message); }
 }
 
@@ -148,7 +151,7 @@ function topbar(){
   return `<div class="topbar" role="banner"><div class="wrap" style="position:relative">
     <button class="logo" data-go="beranda"><span class="logo-mark">${ic('shield')}</span>PortalLSP</button>
     <nav class="nav ${S.navOpen?'open':''}" aria-label="Menu utama">${PUB_NAV.map(([k,l])=>`<button data-go="${k}" class="${S.page===k||(k==='cari'&&S.page==='detail')?'on':''}">${l}</button>`).join('')}</nav>
-    <div class="row auth">${ME?`<button class="btn sm" data-enter="1">${ic('home')}Dashboard</button>`:`<button class="btn ghost sm" data-go="login">Masuk</button><button class="btn sm" data-toast="Pendaftaran akun asesi mandiri dibuat pada tahap berikutnya.">Daftar</button>`}</div>
+    <div class="row auth">${ME?`<button class="btn sm" data-enter="1">${ic('home')}Dashboard</button>`:`<button class="btn ghost sm" data-go="login">Masuk</button><button class="btn sm" data-go="daftar">Daftar</button>`}</div>
     <button class="btn ghost sm menu-btn" id="menuBtn" aria-label="Buka menu">${ic('menu')}</button>
   </div></div>`;
 }
@@ -337,7 +340,7 @@ function pUntuk(){
   <div class="plans">${plans.map((p,i)=>`<div class="card plan ${i===1?'feat':''}"><div class="spread"><h3>${p[0]}</h3>${i===1?'<span class="chip info">Paling dipilih</span>':''}</div><p style="margin-top:.6rem"><span class="price" style="font-size:1.6rem">${p[1]}</span><span class="muted">${p[2]}</span></p><ul>${p[4].map(f=>`<li>${f}</li>`).join('')}</ul><button class="btn ${p[3]}" style="width:100%;margin-top:1.1rem" data-toast="Permintaan demo terkirim (purwarupa)">${i===2?'Hubungi sales':'Coba gratis 14 hari'}</button></div>`).join('')}</div></div></section>`;
 }
 function publik(){
-  const pages={beranda:pBeranda,cari:pCari,detail:pDetail,jadwal:pJadwal,lsp:pLsp,lms:pLms,verif:pVerif,untuk:pUntuk,login:pLogin};
+  const pages={beranda:pBeranda,cari:pCari,detail:pDetail,jadwal:pJadwal,lsp:pLsp,lms:pLms,verif:pVerif,untuk:pUntuk,login:pLogin,daftar:pDaftar};
   return topbar()+(pages[S.page]||pBeranda)()+`<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Purwarupa UI/UX · nama produk sementara</span></span><span class="muted">Terdaftar PSE · Server di Indonesia</span></div></footer>`;
 }
 
@@ -383,6 +386,7 @@ const TRACK_L = '<div class="track-l"><span>Daftar</span><span>Berkas</span><spa
 const track = n => `<div class="track">${[0,1,2,3,4,5,6].map(i=>`<div class="${i<n?'d':i===n?'n':''}"></div>`).join('')}</div>`+TRACK_L;
 
 function dAsesi(){
+  if(!ME.memberships.some(m=>m.lsp_id)) return dAsesiBaru();
   const per=[{s:'Junior Web Developer',lsp:'LSP Teknologi Digital Nusantara',w:'blue',n:3,st:['info','Pra-asesmen'],ket:'Asesor Budi Santoso meninjau APL.02. Jadwal uji Sab, 24 Okt 2026.',btn:['Lihat kartu peserta','blue']},{s:'Digital Marketing',lsp:'LSP Teknologi Digital Nusantara',w:'purple',n:2,st:['warn','Menunggu bayar'],ket:'Bayar sebelum Kam, 15 Okt 2026 pukul 23.59 WIB.',btn:['Bayar Rp850.000','orange']},{s:'Barista',lsp:'LSP Pariwisata Bahari Indonesia',w:'orange',n:1,st:['bad','Berkas kurang'],ket:'LSP meminta pas foto latar merah yang lebih jelas.',btn:['Unggah ulang','pink']}];
   const ctx=S.lspCtx;const list=per.filter(p=>ctx==='all'||p.lsp===ctx);
   return `<div class="spread"><div><p class="eyebrow">Jumat, 9 Oktober 2026</p><h2>Halo, ${ME.user.nama.split(' ')[0]}</h2></div><button class="btn purple" data-go-public="cari">${ic('search')}Daftar skema baru</button></div>
@@ -467,8 +471,66 @@ function pLogin(){
       <label class="f">Password<input id="lg-pass" type="password" autocomplete="current-password" required maxlength="128"></label>
       <button class="btn lg" type="submit" ${S.busy?'disabled':''}>${S.busy?'Memeriksa…':'Masuk'}</button>
       <button type="button" class="btn ghost sm" data-toast="Hubungi Admin LSP Anda untuk mengatur ulang password.">Lupa password?</button>
+      <p class="muted" style="font-size:.88rem;text-align:center">Belum punya akun? <button type="button" class="btn sm purple" data-go="daftar">Daftar sebagai asesi</button></p>
       <p class="muted" style="font-size:.8rem">Setelah 5 kali gagal, login dikunci 15 menit. Sesi berakhir otomatis setelah 30 menit tidak aktif.</p>
     </form></div></section>`;
+}
+function pDaftar(){
+  const d=S.regDraft||{};
+  const today=new Date(); const maxDob=new Date(today.getFullYear()-15,today.getMonth(),today.getDate()).toISOString().slice(0,10);
+  return `<section class="block"><div class="wrap" style="max-width:720px">
+    <form class="card stack" id="daftarForm" novalidate autocomplete="on">
+      <div><p class="eyebrow">Pendaftaran asesi mandiri</p><h2>Buat akun asesi</h2><p class="muted" style="margin-top:.3rem">Satu akun untuk mendaftar uji kompetensi di LSP mana pun. Data diri Anda baru dibagikan ke LSP saat Anda mendaftar skema di LSP tersebut.</p></div>
+      ${S.regErr?`<p class="alert bad" role="alert">${esc(S.regErr)}</p>`:''}
+      <p class="eyebrow">Data diri sesuai KTP</p>
+      <div class="grid g2">
+        <label class="f" style="grid-column:1/-1">Nama lengkap<input id="rg-nama" autocomplete="name" required maxlength="120" value="${esc(d.nama??'')}"></label>
+        <label class="f">NIK (16 digit)<input id="rg-nik" class="mono" inputmode="numeric" autocomplete="off" required minlength="16" maxlength="16" pattern="[0-9]{16}" value="${esc(d.nik??'')}"></label>
+        <label class="f">Tanggal lahir<input id="rg-tgl" type="date" autocomplete="bday" required max="${maxDob}" value="${esc(d.tanggal_lahir??'')}"></label>
+        <fieldset class="f" style="border:0;padding:0;margin:0;grid-column:1/-1"><legend style="font-size:.82rem;font-weight:600;color:var(--muted);margin-bottom:.35rem">Jenis kelamin</legend>
+          <div class="row">${[['L','Laki-laki'],['P','Perempuan']].map(([v,l])=>`<label class="row" style="gap:.4rem;font-weight:600"><input type="radio" name="rg-jk" value="${v}" ${d.jenis_kelamin===v?'checked':''} style="width:auto">${l}</label>`).join('')}</div>
+        </fieldset>
+      </div>
+      <p class="eyebrow">Kontak</p>
+      <div class="grid g2">
+        <label class="f">Email<input id="rg-email" type="email" autocomplete="email" required maxlength="190" value="${esc(d.email??'')}"></label>
+        <label class="f">No. HP / WhatsApp<input id="rg-hp" type="tel" inputmode="tel" autocomplete="tel" required maxlength="20" placeholder="08xxxxxxxxxx" value="${esc(d.no_hp??'')}"></label>
+      </div>
+      <p class="eyebrow">Keamanan</p>
+      <div class="grid g2">
+        <label class="f">Password<input id="rg-pass" type="password" autocomplete="new-password" required minlength="10" maxlength="128"></label>
+        <label class="f">Ulangi password<input id="rg-pass2" type="password" autocomplete="new-password" required></label>
+      </div>
+      <p class="muted" style="font-size:.82rem">Minimal 10 karakter, berisi huruf dan angka, dan tidak memuat nama email Anda.</p>
+      <div aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden"><label>Website<input id="rg-website" tabindex="-1" autocomplete="off"></label></div>
+      <label class="row" style="gap:.55rem;align-items:flex-start;font-size:.9rem;flex-wrap:nowrap"><input type="checkbox" id="rg-privacy" ${d.consent_privacy?'checked':''} style="width:auto;margin-top:.25rem"><span>Saya menyetujui syarat penggunaan dan kebijakan privasi. Data diri saya disimpan oleh PortalLSP dan hanya dibagikan ke LSP yang saya pilih saat mendaftar skema. <b>(wajib)</b></span></label>
+      <label class="row" style="gap:.55rem;align-items:flex-start;font-size:.9rem;flex-wrap:nowrap"><input type="checkbox" id="rg-marketing" ${d.consent_marketing?'checked':''} style="width:auto;margin-top:.25rem"><span>Saya mau menerima info jadwal uji dan promo lewat email/WhatsApp. Bisa berhenti kapan saja. (opsional)</span></label>
+      <div class="spread"><button type="button" class="btn ghost" data-go="login">Sudah punya akun? Masuk</button><button class="btn lg green" type="submit" ${S.busy?'disabled':''}>${S.busy?'Mendaftarkan…':'Buat akun'}</button></div>
+    </form></div></section>`;
+}
+function verifyBanner(){
+  if(!ME||ME.user.email_verified) return '';
+  return `<div class="alert warn">${ic('bell')}<span style="flex:1">Email <b>${ME.user.email}</b> belum diverifikasi. Buka tautan yang kami kirim ke email Anda.${ME.active&&ME.active.role==='asesi'?' Verifikasi diperlukan sebelum mendaftar uji kompetensi.':''}</span><button class="btn sm orange" data-resend="1">Kirim ulang</button></div>`;
+}
+function pProfil(){
+  const p=S.profile;
+  if(!p) return '<div class="card"><p class="muted">Memuat profil…</p></div>';
+  const rows=[['Nama lengkap',p.nama],['NIK',p.nik?`<span class="mono">${p.nik}</span>`:'—'],['Tanggal lahir',p.tanggal_lahir?fmtTgl(p.tanggal_lahir):'—'],['Jenis kelamin',p.jenis_kelamin==='L'?'Laki-laki':p.jenis_kelamin==='P'?'Perempuan':'—'],['Email',p.email+(p.email_verified?' <span class="chip ok">Terverifikasi</span>':' <span class="chip warn">Belum diverifikasi</span>')],['No. HP',p.no_hp||'—'],['Info & promo',p.consent_marketing?'Bersedia menerima':'Tidak bersedia']];
+  return `<div><p class="eyebrow">Profil global</p><h2>Profil & Dokumen</h2></div>
+  <div class="alert info">${ic('shield')}<span>Profil ini dipakai ulang di semua LSP. NIK disimpan terenkripsi dan selalu ditampilkan tersamar.</span></div>
+  <div class="card"><div class="grid g2" style="font-size:.95rem">${rows.map(r=>`<div><p class="eyebrow">${r[0]}</p><div style="margin-top:.2rem">${r[1]}</div></div>`).join('')}</div></div>
+  <div class="card"><h3>Dokumen pribadi</h3><p class="muted" style="margin-top:.3rem">Unggah KTP, ijazah, pas foto, dan CV sekali saja, lalu pakai ulang saat mendaftar skema. (Tahap berikutnya.)</p></div>`;
+}
+function dAsesiBaru(){
+  const p=S.profile||{};
+  const steps=[['Akun dibuat',true],['Email terverifikasi',!!p.email_verified],['Lengkapi dokumen pribadi',false],['Daftar skema pertama',false]];
+  return `<div class="spread"><div><p class="eyebrow">Selamat datang</p><h2>Halo, ${ME.user.nama.split(' ')[0]}</h2></div><button class="btn purple" data-go-public="cari">${ic('search')}Cari skema</button></div>
+  <div class="layout-2">
+    <div class="card stack"><h3>Langkah berikutnya</h3>
+      ${steps.map((s,i)=>`<div class="row" style="gap:.7rem"><span class="step-n" style="margin:0;width:32px;height:32px;background:${s[1]?'var(--g-green)':'var(--surface-2)'};color:${s[1]?'#fff':'var(--muted)'}">${s[1]?ic('check'):i+1}</span><b style="${s[1]?'':'color:var(--muted)'}">${s[0]}</b></div>`).join('')}
+    </div>
+    <div class="card stack"><h3>Belum ada permohonan</h3><p class="muted">Cari skema dari semua LSP, pilih jadwal dan TUK, lalu daftar. Data Anda baru dibagikan ke LSP yang Anda pilih.</p><button class="btn" data-go-public="cari">${ic('search')}Mulai cari skema</button></div>
+  </div>`;
 }
 function pChangePassword(forced){
   return `<div class="wrap" style="max-width:520px;padding-block:2.5rem">
@@ -521,7 +583,7 @@ function pEtalase(){
         <label class="f">Kota<input id="lf-kota" maxlength="100" value="${esc(fd.kota??'Jakarta')}"></label>
       </div>
       <label class="f">Deskripsi<textarea id="lf-desc" rows="3" maxlength="2000">${esc(fd.deskripsi??(isSkema?'Uji kompetensi analis data junior. TUK Sewaktu Kuningan atau daring.':'Kelas persiapan 4 sesi. Tidak wajib untuk mendaftar uji kompetensi.'))}</textarea></label>
-      ${S.form==='pelatihan'?`<label class="row" style="gap:.5rem;font-size:.88rem"><input type="checkbox" id="lf-ack" checked style="width:auto">Saya menyatakan kelas ini bukan syarat wajib uji, dan instruktur tidak akan menjadi asesor pesertanya.</label>`:''}
+      ${S.form==='pelatihan'?`<label class="row" style="gap:.5rem;font-size:.88rem;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="lf-ack" checked style="width:auto">Saya menyatakan kelas ini bukan syarat wajib uji, dan instruktur tidak akan menjadi asesor pesertanya.</label>`:''}
       <div class="row" style="justify-content:flex-end"><button type="button" class="btn ghost" data-savedraft="1" ${S.busy?'disabled':''}>Simpan draf</button><button type="submit" class="btn green" ${S.busy?'disabled':''}>${ic('check')}Ajukan persetujuan</button></div>
     </form>`:'';
   return `<div class="spread"><div><p class="eyebrow">${ME.active.lsp_nama}</p><h2>Etalase & Pelatihan</h2></div><div class="row"><button class="btn" data-newform="skema">${ic('cert')}Tambah skema</button><button class="btn purple" data-newform="pelatihan">${ic('book')}Tambah pelatihan</button></div></div>
@@ -605,10 +667,10 @@ function app(){
   const otherCtx=ME.memberships.length>1 && !multi;
   const lspOpts=ME.memberships.map(m=>m.lsp_nama).filter(Boolean);
   const p=S.appPage;
-  const pages={etalase:pEtalase,approval:pApproval,users:pUsers,rbac:pRbac};
+  const pages={etalase:pEtalase,approval:pApproval,users:pUsers,rbac:pRbac,profil:pProfil};
   const content=p==='password'?pChangePassword(false):!allowedPage(p)?pDenied():p==='dashboard'?dash():pages[p]?pages[p]():modul(p);
   const navItems=menu.map(it=>it[0]==='g'?`<div class="grp">${it[1]}</div>`:`<button data-go-app="${it[0]}" class="${p===it[0]?'on':''}">${ic(it[2])}${it[1]}${it[0]==='approval'&&S.reviews.length?`<span class="navbadge">${S.reviews.length}</span>`:''}</button>`).join('');
-  const ctxLabel=ME.active.lsp_nama?(ME.active.tuk_nama?ME.active.tuk_nama:ME.active.lsp_nama):'Platform';
+  const ctxLabel=ME.active.lsp_nama?(ME.active.tuk_nama?ME.active.tuk_nama:ME.active.lsp_nama):(ME.active.role==='asesi'?'Akun asesi pribadi':'Platform');
   return `<div class="app">
     <aside class="side">
       <button class="logo" data-go-public="beranda"><span class="logo-mark">${ic('shield')}</span>PortalLSP</button>
@@ -624,7 +686,7 @@ function app(){
         <div class="row" style="margin-left:auto;gap:.6rem"><span class="avatar">${ME.user.nama.split(' ').map(w=>w[0]).join('').slice(0,2)}</span><div style="line-height:1.2"><b style="font-size:.86rem">${ME.user.nama}</b><div class="muted" style="font-size:.74rem">${ME.active.role_nama}${ME.active.lsp_nama?' · '+ME.active.lsp_nama:''}</div></div><button class="btn ghost sm" data-logout="1" aria-label="Keluar">${ic('logout')}</button></div>
       </div>
       <div class="menu-mobile">${menu.filter(i=>i[0]!=='g').map(it=>`<button data-go-app="${it[0]}" class="${p===it[0]?'on':''}">${it[1]}</button>`).join('')}<button data-go-app="password">Ganti password</button><button data-logout="1">Keluar</button></div>
-      <div class="content">${content}</div>
+      <div class="content">${verifyBanner()}${content}</div>
     </div>
   </div>`;
 }
@@ -687,6 +749,7 @@ document.addEventListener('click',async e=>{
       return}
     if(d.userform!==undefined){S.userForm=d.userform==='1';S.userErr='';S.userDraft=null;render();return}
     if(d.ustatus){busy(true);try{await api('users/status',{membership_id:Number(d.ustatus),status:d.to});toast(d.to==='aktif'?'Akses pengguna diaktifkan.':'Akses pengguna dinonaktifkan.');await loadUsers();}finally{busy(false)}return}
+    if(d.resend){busy(true);try{await api('auth/resend-verification',{});toast('Email verifikasi dikirim ulang. Periksa kotak masuk dan folder spam.');}finally{busy(false)}return}
     if(d.toast){toast(d.toast)}
   }catch(err){ toast(err.message); render(); }
 });
@@ -732,6 +795,17 @@ document.addEventListener('submit',async e=>{
     try{ applyMe(await api('auth/password',{current:cur,new:nw})); S.busy=false; S.appPage='dashboard'; await loadForPage('dashboard'); render(); toast('Password berhasil diganti.'); }
     catch(err){ S.pwErr=err.message; busy(false); }
   }
+  if(id==='daftarForm'){
+    const jk=document.querySelector('input[name="rg-jk"]:checked');
+    const payload={nama:$('#rg-nama').value.trim(),nik:$('#rg-nik').value.replace(/\s+/g,''),tanggal_lahir:$('#rg-tgl').value,jenis_kelamin:jk?jk.value:'',
+      email:$('#rg-email').value.trim(),no_hp:$('#rg-hp').value.trim(),password:$('#rg-pass').value,consent_privacy:$('#rg-privacy').checked,consent_marketing:$('#rg-marketing').checked,website:$('#rg-website').value};
+    const draft={...payload}; delete draft.password; delete draft.website; S.regDraft=draft;
+    const err=!payload.nama?'Isi nama lengkap.':!/^\d{16}$/.test(payload.nik)?'NIK harus 16 digit angka.':!payload.tanggal_lahir?'Isi tanggal lahir.':!payload.jenis_kelamin?'Pilih jenis kelamin.':!payload.email?'Isi email.':!payload.no_hp?'Isi nomor HP.':payload.password.length<10?'Password minimal 10 karakter.':payload.password!==$('#rg-pass2').value?'Ulangi password dengan benar.':!payload.consent_privacy?'Setujui syarat dan kebijakan privasi untuk mendaftar.':'';
+    if(err){S.regErr=err;render();window.scrollTo(0,0);return}
+    S.regErr=''; busy(true);
+    try{ applyMe(await api('auth/register',payload)); S.busy=false; S.regDraft=null; await enterApp(); toast('Akun dibuat. Kami mengirim tautan verifikasi ke '+ME.user.email+'.'); }
+    catch(err2){ S.regErr=err2.message; busy(false); window.scrollTo(0,0); }
+  }
   if(id==='userForm'){
     const payload={nama:$('#uf-nama').value,email:$('#uf-email').value,role:$('#uf-role').value,password:$('#uf-pass').value};
     busy(true);
@@ -747,6 +821,12 @@ document.addEventListener('submit',async e=>{
   try{
     const d=await loadMe();
     await loadCatalog();
+    const token=new URLSearchParams(location.search).get('verifikasi');
+    if(token){
+      history.replaceState(null,'',location.pathname);
+      try{ applyMe(await api('auth/verify',{token})); toast('Email berhasil diverifikasi. Terima kasih.'); }
+      catch(e){ toast(e.message); }
+    }
     if(ME){ await enterApp(); }
     else { if(d.expired) { S.loginErr='Sesi Anda berakhir. Silakan masuk lagi.'; } render(); }
   }catch(e){ toast(e.message); render(); }

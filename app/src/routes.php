@@ -23,6 +23,10 @@ function dispatch(string $route): void
         'users' => 'r_users',
         'users/status' => 'r_user_status',
         'rbac' => 'r_rbac',
+        'auth/register' => 'do_register',
+        'auth/verify' => 'do_verify_email',
+        'auth/resend-verification' => 'do_resend_verification',
+        'profile' => 'r_profile',
     ];
     if (!isset($routes[$route])) {
         fail('Alamat API tidak ditemukan.', 404);

@@ -66,6 +66,24 @@ function migrations(): array
             seed_rbac();
             seed_demo();
         },
+        2 => function (): void {
+            $d = ddl();
+            $pk = $d['pk'];
+            $fk = $d['fk'];
+            $e = $d['end'];
+            db()->exec('ALTER TABLE users ADD COLUMN email_verified_at DATETIME NULL');
+            db()->exec("CREATE TABLE asesi_profiles (user_id $fk NOT NULL PRIMARY KEY, nik_enc VARCHAR(255) NOT NULL,
+                nik_hash VARCHAR(64) NOT NULL UNIQUE, tanggal_lahir DATE NOT NULL, jenis_kelamin VARCHAR(1) NOT NULL,
+                no_hp VARCHAR(20) NOT NULL, consent_privacy_at DATETIME NOT NULL, consent_marketing SMALLINT NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id))$e");
+            db()->exec("CREATE TABLE email_verifications (id $pk, user_id $fk NOT NULL, token_hash VARCHAR(64) NOT NULL,
+                expires_at DATETIME NOT NULL, used_at DATETIME NULL, created_at DATETIME NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id))$e");
+            db()->exec('CREATE INDEX idx_email_verif_token ON email_verifications (token_hash)');
+            db()->exec('CREATE INDEX idx_audit_action_ip ON audit_logs (action, ip, created_at)');
+            // Akun demo dianggap sudah terverifikasi.
+            q('UPDATE users SET email_verified_at = created_at');
+        },
     ];
 }
 

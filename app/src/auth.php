@@ -65,7 +65,7 @@ function current_user(): ?array
     if (isset($GLOBALS['__lsp_user']) && (int)$GLOBALS['__lsp_user']['id'] === $uid) {
         return $GLOBALS['__lsp_user'];
     }
-    $row = q('SELECT id, email, nama, status, must_change_password FROM users WHERE id = ?', [$uid])->fetch();
+    $row = q('SELECT id, email, nama, status, must_change_password, email_verified_at FROM users WHERE id = ?', [$uid])->fetch();
     if (!$row || $row['status'] !== 'aktif') {
         clear_session();
         return null;
@@ -141,6 +141,7 @@ function me_payload(): array
         'nama' => $u['nama'],
         'email' => $u['email'],
         'must_change_password' => (int)$u['must_change_password'] === 1,
+        'email_verified' => !empty($u['email_verified_at']),
     ];
     $out['memberships'] = array_map('membership_public', memberships((int)$u['id']));
     $out['active'] = $act ? membership_public($act) : null;
