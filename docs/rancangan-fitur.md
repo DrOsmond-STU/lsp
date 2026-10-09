@@ -41,7 +41,7 @@ Isolasi berlapis: **antar-LSP** (wajib, mutlak), lalu **di dalam LSP** per role 
 | Identitas | Nama LSP, singkatan, jenis LSP (P1 / P2 / P3), NPWP, alamat, provinsi/kota, telepon, email, website |
 | Lisensi BNSP | Nomor SK lisensi, tanggal terbit, **masa berlaku** (dengan pengingat), ruang lingkup skema, file SK |
 | Organisasi | Ketua/Direktur, Manajer Sertifikasi, Manajer Mutu, Manajer Administrasi, struktur organisasi |
-| Branding | Logo, warna, **subdomain** (mis. `lsp-abc.aplikasi.id`), custom domain (opsional), kop surat, template sertifikat |
+| Branding | Logo, warna, **slug halaman profil** (mis. `aplikasi.id/lsp/lsp-abc`), kop surat, template sertifikat |
 | Pengesahan | Spesimen tanda tangan & stempel (untuk dokumen & sertifikat), nomor urut dokumen/sertifikat per LSP |
 | Keuangan | Rekening bank, akun payment gateway milik LSP |
 | Langganan | Paket, status (trial / aktif / ditangguhkan / berhenti), masa langganan, kuota (jumlah asesi, storage, user) |
@@ -61,7 +61,7 @@ Isolasi berlapis: **antar-LSP** (wajib, mutlak), lalu **di dalam LSP** per role 
 
 | Lapisan | Mekanisme |
 |---|---|
-| **Login & sesi** | User LSP: LSP dikenali dari subdomain, login hanya berhasil jika akun punya keanggotaan aktif di LSP tersebut; sesi menyimpan `lsp_id`. Asesor & Asesi: login sekali (dari subdomain LSP mana pun atau portal pusat), sesi menyimpan **daftar LSP tempat ia aktif**; akses per data tetap dicek ke penugasan (asesor) atau kepemilikan (asesi). |
+| **Login & sesi** | **Satu pintu login di portal pusat** (tidak ada subdomain per LSP). User LSP (satu keanggotaan): setelah login langsung masuk ke LSP-nya, sesi menyimpan `lsp_id`. Asesor & Asesi: sesi menyimpan **daftar LSP tempat ia aktif**; dashboard menampilkan data gabungan miliknya, dan akses per data tetap dicek ke penugasan (asesor) atau kepemilikan (asesi). Pindah konteks LSP selalu divalidasi ulang di server. |
 | **Aplikasi (backend)** | Middleware tenant + *global scope* otomatis `WHERE lsp_id = :lsp_id_sesi` di semua query. Developer tidak perlu (dan tidak boleh) menulis filter manual. |
 | **Database** | **PostgreSQL Row-Level Security (RLS)** di setiap tabel: koneksi men-set `app.current_lsp_id` (user LSP) `app.current_asesor_id` (asesor), atau `app.current_asesi_id` (asesi), dan DB menolak baris di luar haknya walaupun ada bug di kode aplikasi. Untuk asesor, kebijakan RLS berbasis **tabel penugasan**; untuk asesi, berbasis **pemilik permohonan**, bukan sekadar `lsp_id`. |
 | **Penyimpanan file** | Folder/bucket terpisah per LSP (`/lsp/{lsp_id}/...`), akses file hanya lewat *signed URL* berumur pendek yang dibuat setelah cek kepemilikan. Tidak ada URL file publik permanen. |
@@ -69,7 +69,7 @@ Isolasi berlapis: **antar-LSP** (wajib, mutlak), lalu **di dalam LSP** per role 
 | **Proses latar belakang** | Antrean job (notifikasi, generate PDF, laporan BNSP, impor Excel) selalu membawa `lsp_id` dan menjalankan query dalam konteks LSP tersebut. |
 | **Cache & pencarian** | Kunci cache dan indeks pencarian diberi prefiks/filter `lsp_id`. |
 | **Laporan & ekspor** | Semua dashboard, ekspor Excel/PDF, dan laporan BNSP hanya berisi data LSP sesi. |
-| **Notifikasi** | Email/WA dikirim atas nama LSP masing-masing; tautan di dalamnya mengarah ke subdomain LSP tersebut. |
+| **Notifikasi** | Email/WA dikirim atas nama LSP masing-masing; tautan di dalamnya mengarah ke portal pusat (halaman yang relevan). |
 
 ### 0.5 Super Admin Platform
 
@@ -175,7 +175,7 @@ Satu asesi bisa mengikuti uji kompetensi di beberapa LSP. Ia memakai **satu akun
 
 **Alur pendaftaran**
 
-1. Asesi membuka situs/subdomain LSP → klik daftar.
+1. Asesi membuka portal pusat → mencari skema → memilih LSP & jadwal → klik daftar.
 2. Jika NIK/email sudah terdaftar → diminta login. Jika belum → buat akun & isi profil global.
 3. Asesi **menyetujui berbagi profil** dengan LSP tersebut (UU PDP) → keanggotaan dibuat.
 4. Asesi memilih skema, mengisi APL.01/APL.02, memilih berkas dari profil atau unggah baru → **berkas dibekukan sebagai snapshot** di folder LSP tersebut.
@@ -303,7 +303,7 @@ Admin TUK memakai web yang sama dengan Admin LSP, tetapi menunya terbatas dan **
 | **Validasi bentrok jadwal** asesor/TUK/ruang | 🆕 | P1 |
 | **Rasio asesor : asesi** sesuai ketentuan, sistem menolak jika terlampaui | 🆕 | P1 |
 | Sinkronisasi ke Google Calendar / Outlook (file .ics) | 🆕 | P3 |
-| **Jadwal uji terbuka & pilih jadwal sendiri**: asesi memilih jadwal yang tersedia saat mendaftar (tampil juga di website LSP) | 🆕 | P1 |
+| **Jadwal uji terbuka & pilih jadwal sendiri**: asesi memilih jadwal yang tersedia saat mendaftar (tampil juga di portal pusat & halaman profil LSP) | 🆕 | P1 |
 | **Kuota peserta per jadwal** + daftar tunggu (waiting list) otomatis naik bila ada yang batal | 🆕 | P2 |
 | **Reschedule & pembatalan** oleh asesi/LSP dengan aturan batas waktu, tercatat riwayatnya | 🆕 | P1 |
 | **Kartu peserta uji** (PDF/QR) untuk check-in di TUK | 🆕 | P1 |
@@ -457,7 +457,7 @@ NAS hanya menyebut sistemnya "dapat digunakan sebagai CRM" ✅, tanpa rincian. D
 
 | Fitur | Status | Prioritas |
 |---|---|---|
-| Form minat di website LSP / landing page per skema → otomatis masuk sebagai lead | 🆕 | P1 |
+| Form minat di **halaman profil LSP / halaman skema di portal** → otomatis masuk sebagai lead LSP tersebut (lead dari pencarian umum tidak dibagikan ke LSP mana pun tanpa persetujuan) | 🆕 | P1 |
 | **QR code event** (job fair, seminar, kampus): scan → isi data singkat → masuk lead | 🆕 | P2 |
 | Tombol WhatsApp → percakapan tercatat ke kontak | 🆕 | P2 |
 | **Pelacakan sumber** (UTM: Instagram, Google, event, referral, mitra) untuk mengukur kanal paling efektif | 🆕 | P2 |
@@ -550,8 +550,8 @@ Untuk pengelola aplikasi menjual langganan ke LSP:
 
 | Fitur | Status | Prioritas |
 |---|---|---|
-| Website LSP (halaman depan: beranda, profil, skema, jadwal, verifikasi sertifikat), lihat 15.1 | ✅ | P1 (dasar) / P2 (page builder) |
-| E-commerce: katalog skema → pilih jadwal → keranjang → bayar, lihat 15.1 | ✅ | P1 (katalog + checkout) / P2 (promo, bundling) |
+| ~~Website per LSP~~ → **diganti halaman profil LSP di portal pusat** (keputusan: tidak membuat website terpisah per LSP), lihat 15.1 | ✅ (diganti) | P1 |
+| E-commerce = **marketplace skema lintas LSP** di portal pusat: cari skema → pilih LSP & jadwal → bayar, lihat 15.1 | ✅ | P1 (katalog + checkout) / P2 (promo, bundling) |
 | LMS Bimtek, lihat 15.1 | ✅ | P3 |
 | Kerja sama B2B (Pemda, BUMN, kampus) | ✅ | P3 |
 | **Portal mitra/korporat**: daftar karyawan massal, lihat progres & hasil, unduh sertifikat | 🆕 | P2 |
@@ -559,39 +559,47 @@ Untuk pengelola aplikasi menjual langganan ke LSP:
 | **Job board / talent pool** pemegang sertifikat (dengan persetujuan asesi) | 🆕 | P3 |
 | **API publik & webhook** untuk integrasi HRIS/LMS mitra | 🆕 | P3 |
 
-### 15.1 Halaman depan publik: Website, E-commerce & LMS
+### 15.1 Halaman depan publik: Portal, E-commerce & LMS
 
-Ada **dua tingkat halaman depan**:
+**Keputusan: tidak ada website terpisah per LSP.** Hanya ada **satu portal pusat** (contoh `aplikasi.id`) sebagai halaman depan untuk semua orang. Setiap LSP cukup punya **halaman profil** di dalam portal.
 
-| Tingkat | Alamat (contoh) | Untuk siapa | Isi |
-|---|---|---|---|
-| **Portal pusat (platform)** | `aplikasi.id` | Calon LSP klien & masyarakat umum | Profil produk, harga paket, demo, **direktori LSP & pencarian skema lintas LSP** (hanya data publik yang LSP setujui tampil), verifikasi sertifikat, login |
-| **Website tiap LSP** | `lsp-abc.aplikasi.id` atau domain sendiri `lsp-abc.or.id` | Calon asesi, mitra, publik | Website lengkap LSP dengan branding LSP sendiri: beranda, e-commerce skema, LMS, login |
+Keuntungannya:
+- Lebih sederhana dibangun & dirawat (satu website, satu SEO, satu login).
+- Asesi bisa **membandingkan dan mencari skema dari semua LSP** di satu tempat (marketplace), cocok dengan asesi yang bisa mendaftar di banyak LSP.
+- LSP yang sudah punya website sendiri cukup memasang **tautan / tombol "Daftar Uji"** yang mengarah ke halaman profilnya di portal.
 
-#### Menu website LSP (sebelum login)
+#### Menu portal pusat (sebelum login)
 
 ```
-[Logo LSP]  Beranda | Profil | Skema Sertifikasi | Jadwal Uji | Pelatihan (LMS) | Verifikasi Sertifikat | Berita | Kontak    [Masuk] [Daftar]
+[Logo Aplikasi]  Beranda | Cari Skema | Jadwal Uji | Daftar LSP | Pelatihan (LMS) | Verifikasi Sertifikat | Info & Berita | Untuk LSP    [Masuk] [Daftar]
 ```
 
 | Menu | Isi | Prioritas |
 |---|---|---|
-| **Beranda** | Banner, keunggulan LSP, skema populer, jadwal terdekat, statistik (jumlah asesi, skema, TUK), testimoni, logo mitra | P1 |
-| **Profil** | Tentang LSP, visi-misi, struktur organisasi, nomor lisensi BNSP, daftar TUK (peta), daftar asesor (opsional, data terbatas) | P1 |
-| **Skema Sertifikasi** (e-commerce) | Katalog skema: unit kompetensi, persyaratan, biaya, jenjang; filter bidang/harga/lokasi; tombol **Daftar Sekarang** | P1 |
-| **Jadwal Uji** | Kalender jadwal terbuka per skema & TUK, sisa kuota, tombol daftar | P1 |
-| **Pelatihan (LMS)** | Katalog kelas bimtek/persiapan uji, gratis/berbayar | P3 |
+| **Beranda** | Pencarian skema, skema populer, jadwal terdekat, statistik (jumlah LSP, skema, asesi), testimoni, logo mitra | P1 |
+| **Cari Skema** (e-commerce) | Katalog skema **dari semua LSP**: filter bidang, jenjang KKNI, lokasi TUK, harga, metode (tatap muka / SJJ), tanggal; detail skema (unit, persyaratan, biaya, LSP penyelenggara); tombol **Daftar Sekarang** | P1 |
+| **Jadwal Uji** | Kalender jadwal terbuka semua LSP, sisa kuota, filter lokasi | P1 |
+| **Daftar LSP** | Direktori LSP; **halaman profil tiap LSP** (`aplikasi.id/lsp/lsp-abc`): logo, tentang, nomor lisensi BNSP & masa berlaku, skema yang dilisensikan, daftar TUK (peta), jadwal, kontak/form minat | P1 |
+| **Pelatihan (LMS)** | Katalog kelas bimtek/persiapan uji | P3 |
 | **Verifikasi Sertifikat** | Cek nomor / scan QR | P1 |
-| **Berita / Galeri / Pengumuman** | Artikel, foto kegiatan, pengumuman | P2 |
-| **Kontak** | Alamat, peta, WA, form minat (masuk ke CRM sebagai lead) | P1 |
+| **Info & Berita** | Artikel, panduan sertifikasi, FAQ | P2 |
+| **Untuk LSP** | Informasi produk, harga paket langganan, permintaan demo (masuk CRM platform) | P1 |
 | **Masuk / Daftar** | Satu pintu login untuk semua role; setelah login diarahkan ke dashboard sesuai role | P1 |
 
-Website dikelola Admin LSP lewat **CMS sederhana** (ubah banner, teks, berita, galeri, warna). *Page builder* drag-and-drop di P2. Halaman otomatis SEO-friendly (judul, deskripsi, sitemap) agar skema LSP muncul di Google.
+**Halaman profil LSP** diisi Admin LSP dari menu Pengaturan (logo, deskripsi, banner, kontak, galeri singkat). Bukan CMS website penuh.
+
+#### Aturan marketplace (karena satu portal untuk banyak LSP)
+
+- **Hanya skema yang aktif & berlisensi** (masuk ruang lingkup lisensi BNSP yang masih berlaku) yang boleh tampil. LSP yang lisensinya habis otomatis disembunyikan.
+- **Urutan hasil pencarian netral**: berdasarkan relevansi, jarak, tanggal, atau harga. Jika kelak ada iklan/"skema unggulan" berbayar, wajib diberi label **Sponsor**.
+- LSP bisa memilih skema/jadwal mana yang tampil publik dan mana yang tertutup (mis. khusus program mitra/korporat).
+- **Pembayaran langsung masuk ke rekening/akun payment gateway milik LSP** (sub-merchant per LSP), bukan ditampung platform, supaya tidak ada risiko dana mengendap & urusan pajak tetap di LSP. Platform hanya menagih biaya langganan.
+- Ulasan & rating hanya dari asesi yang benar-benar pernah diuji di LSP/TUK tersebut.
 
 #### E-commerce (alur beli skema)
 
 ```
-Katalog skema → Detail skema → Pilih jadwal & TUK → Keranjang → Login/Daftar → Isi APL.01/02 & unggah berkas → Bayar (VA/QRIS/e-wallet) → Masuk pipeline asesmen
+Cari skema (semua LSP) → Detail skema → Pilih LSP, jadwal & TUK → Keranjang → Login/Daftar → Isi APL.01/02 & unggah berkas → Bayar (VA/QRIS/e-wallet) → Masuk pipeline asesmen
 ```
 
 | Fitur | Prioritas |
@@ -627,7 +635,7 @@ E-commerce ini **bukan modul terpisah**: begitu dibayar, pesanan otomatis menjad
 |---|---|
 | Asesi | Dashboard (status semua permohonan di semua LSP), Daftar Skema, Jadwal Saya, Pembayaran, Kelas Saya (LMS), Dompet Sertifikat, Profil & Dokumen |
 | Asesor | Kalender gabungan, Penugasan, Pra-asesmen, Asesmen (MUK/FR), Pleno, Riwayat, Logbook, Honor |
-| Admin LSP | Dashboard, Pendaftaran, Jadwal, Asesmen, Pleno & Sertifikat, Data Master, Mutu, Keuangan, CRM, Website/CMS, Laporan, Pengaturan |
+| Admin LSP | Dashboard, Pendaftaran, Jadwal, Asesmen, Pleno & Sertifikat, Data Master, Mutu, Keuangan, CRM, Halaman Profil LSP, Laporan, Pengaturan |
 | Admin TUK | Dashboard TUK, Pemohon, Jadwal, Sarana-prasarana, Chat |
 | Mitra | Program/kuota, Peserta, Progres & hasil, Tagihan |
 
@@ -640,7 +648,7 @@ Deck NAS menyebut "*untuk paket Basic*", artinya fitur dibedakan per paket. Apli
 | Fitur | Status | Prioritas |
 |---|---|---|
 | **Paket langganan** (contoh: Basic / Pro / Enterprise) dengan batas kuota (asesi per tahun, storage, jumlah TUK, jumlah user) | ✅ (tersirat) | P1 |
-| **Feature flag per paket**: modul (mis. SJJ, CRM lanjutan, modul mutu, website, e-commerce, LMS) bisa dinyalakan/dimatikan per LSP sesuai paket | 🆕 | P1 |
+| **Feature flag per paket**: modul (mis. SJJ, CRM lanjutan, modul mutu, LMS, tampil di marketplace) bisa dinyalakan/dimatikan per LSP sesuai paket | 🆕 | P1 |
 | Upgrade/downgrade paket, masa trial, tagihan langganan otomatis | 🆕 | P2 |
 | **Tim support** dengan jam layanan per paket (mis. Basic 08.00–17.00 WIB setiap hari; paket lebih tinggi bisa 24 jam / prioritas) | ✅ | P1 (operasional) |
 | SLA respons tiket support per paket, tercatat di helpdesk | 🆕 | P2 |
@@ -658,7 +666,7 @@ Deck NAS menyebut "*untuk paket Basic*", artinya fitur dibedakan per paket. Apli
 | **RBAC** granular per role & per TUK | 🆕 | P1 |
 | **2FA** untuk admin, asesor, pleno | 🆕 | P1 |
 | Enkripsi data sensitif (NIK, dokumen identitas) | 🆕 | P1 |
-| **Multi-tenant + white-label** (subdomain/custom domain & logo per LSP) | 🆕 | P1 |
+| **Multi-tenant** dengan branding per LSP pada dokumen, sertifikat, email & halaman profil (tanpa subdomain/website terpisah) | 🆕 | P1 |
 | Disaster recovery plan, uji restore backup berkala | 🆕 | P2 |
 | Status page & SLA uptime | 🆕 | P3 |
 | Login alternatif: **OTP WhatsApp/email**, login dengan Google; lupa password mandiri | 🆕 | P1 |
@@ -685,11 +693,11 @@ Deck NAS menyebut "*untuk paket Basic*", artinya fitur dibedakan per paket. Apli
 
 ## 18. Usulan tahapan rilis
 
-**Fase 1 — MVP (±3–4 bulan)**: **multi-LSP (tenant) dengan isolasi data berlapis (bagian 0)** & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, **CRM dasar** (kontak, lead, follow-up pendaftar belum selesai, pengingat re-sertifikasi), **migrasi data dari Excel**, **persuratan otomatis** (surat tugas, SK pleno, BAPS), **website LSP dasar + katalog skema & checkout (e-commerce dasar)**, jadwal terbuka + kartu peserta, cetak sertifikat di blanko, paket langganan & feature flag, audit trail, kepatuhan PDP.
+**Fase 1 — MVP (±3–4 bulan)**: **multi-LSP (tenant) dengan isolasi data berlapis (bagian 0)** & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, **CRM dasar** (kontak, lead, follow-up pendaftar belum selesai, pengingat re-sertifikasi), **migrasi data dari Excel**, **persuratan otomatis** (surat tugas, SK pleno, BAPS), **portal pusat + halaman profil LSP + cari skema & checkout (marketplace dasar)**, jadwal terbuka + kartu peserta, cetak sertifikat di blanko, paket langganan & feature flag, audit trail, kepatuhan PDP.
 
 **Fase 2 — Mutu & skala (±3 bulan)**: SJJ dengan proctoring, mode offline asesor, modul mutu (audit internal, CAPA, kaji ulang manajemen, ketidakberpihakan), keuangan & honor asesor, surveilans & RCC, portal mitra, **CRM lanjutan** (pipeline B2B + penawaran, kampanye broadcast, survei NPS, laporan funnel), helpdesk, dashboard analitik lanjutan, jalur RPL, logbook asesor, pustaka SKKNI global, refund & waiting list, tindak lanjut temuan BNSP.
 
-**Fase 3 — Ekosistem**: website LSP builder, e-commerce, LMS bimtek, tracer study, talent pool, API publik, fitur AI, **CRM omnichannel, workflow otomatis & referral**.
+**Fase 3 — Ekosistem**: e-commerce lanjutan (rating, iklan bertanda Sponsor), LMS bimtek, tracer study, talent pool, API publik, fitur AI, **CRM omnichannel, workflow otomatis & referral**.
 
 ## 19. Usulan teknologi (garis besar)
 
@@ -764,7 +772,7 @@ Semua fitur di slide "Fitur Sistem" dan "Ekosistem NAS" sudah tercakup.
 | Kerja sama B2B BUMN, Perusahaan Swasta, Kampus | 14.3, 15 |
 | Event calon asesi (Job Fair, Seminar) | 14.2 |
 | Proses Uji Kompetensi (APL01 – Generate BAPS) | 4–8 |
-| Website LSP | 15, 15.1 |
+| Website LSP (diganti halaman profil LSP di portal pusat) | 15, 15.1 |
 | E-Commerce | 15, 15.1 |
 | LMS Bimtek | 15, 15.1 |
 | Calon Asesi | 14.2 |
