@@ -466,10 +466,10 @@ function dAdmin(){
   </div>`;
 }
 function dTuk(){
-  return `<div class="spread"><div><p class="eyebrow">${ME.active.lsp_nama}</p><h2>${ME.active.tuk_nama||'TUK'}</h2></div><button class="btn orange" data-toast="Usulan jadwal dikirim ke Admin LSP">${ic('cal')}Usulkan jadwal</button></div>
+  return `<div class="spread"><div><p class="eyebrow">${ctxName()}</p><h2>${ME.active.tuk_nama||'Semua TUK'}</h2></div><button class="btn orange" data-toast="Usulan jadwal dikirim ke Admin LSP">${ic('cal')}Usulkan jadwal</button></div>
   <div class="grid g4">${kpi('users','blue','34','Pemohon di TUK ini')}${kpi('cal','teal','3','Jadwal bulan ini')}${kpi('build','purple','96%','Sarana siap')}${kpi('shield','green','Mar 2027','Verifikasi berlaku s.d.')}</div>
   <div class="card"><h3>Pemohon jadwal Sab, 10 Okt</h3><div class="table-wrap" style="margin-top:.6rem"><table><thead><tr><th>Nama</th><th>Skema</th><th>Kehadiran</th><th></th></tr></thead><tbody>${[['Rina Kartika Sari','Junior Web Developer','ok','Terkonfirmasi'],['Fajar Nugroho','Junior Web Developer','warn','Belum konfirmasi'],['Sinta Maharani','Junior Web Developer','ok','Terkonfirmasi']].map(r=>`<tr><td><b>${r[0]}</b></td><td class="muted">${r[1]}</td><td><span class="chip ${r[2]}">${r[3]}</span></td><td><button class="btn sm teal" data-toast="Pengingat terkirim via WhatsApp">Ingatkan</button></td></tr>`).join('')}</tbody></table></div></div>
-  <div class="alert info">${ic('shield')}<span>Admin TUK hanya melihat data TUK ini. Data TUK lain dan data asesor tidak tampil.</span></div>`;
+  <div class="alert info">${ic('shield')}<span>${ME.active.role==='admin_tuk'?'Admin TUK hanya melihat data TUK ini. Data TUK lain dan data asesor tidak tampil.':'Menampilkan semua TUK di '+ctxName()+'.'}</span></div>`;
 }
 function dSuper(){
   return `<div class="spread"><div><p class="eyebrow">Platform</p><h2>Ringkasan platform</h2></div><button class="btn green" data-toast="Undangan onboarding dikirim">${ic('build')}Tambah LSP klien</button></div>
@@ -574,14 +574,13 @@ function pDenied(){
 const MENU = {
   asesi:[['dashboard','Beranda','home','asesi.dashboard'],['skema','Daftar Skema Baru','search','application.own'],['jadwal','Jadwal Saya','cal','application.own'],['bayar','Pembayaran','wallet','payment.own'],['sertifikat','Dompet Sertifikat','cert','certificate.own'],['kelas','Kelas Saya','book','class.own'],['profil','Profil & Dokumen','users','profile.own']],
   asesor:[['dashboard','Beranda','home','asesor.dashboard'],['kalender','Kalender Gabungan','cal','asesor.dashboard'],['pra','Tinjau Pra-Asesmen','doc','preassessment.review'],['asesmen','Asesmen (MUK/FR)','check','assessment.conduct'],['pleno','Pleno','shield','pleno.participate'],['riwayat','Riwayat & Logbook','book','asesor.history'],['honor','Honor','money','asesor.honor']],
-  admin:[['g','Operasional'],['dashboard','Dashboard','home','lsp.dashboard'],['daftar','Pendaftaran','doc','registration.verify'],['jadwalA','Jadwal & Penugasan','cal','schedule.manage'],['asesmenA','Asesmen','check','assessment.monitor'],['plenoA','Pleno & Sertifikat','cert','decision.manage'],['g','Data'],['master','Skema, Asesor, TUK','build','master.manage'],['alumni','Database Alumni','users','alumni.view'],['g','Manajemen'],['etalase','Etalase & Pelatihan','wallet','listing.manage'],['mutu','Mutu (Pedoman 201)','shield','quality.manage'],['keuangan','Keuangan','money','finance.manage'],['crm','CRM','chat','crm.manage'],['laporan','Laporan BNSP','chart','report.bnsp'],['users','Pengguna & Hak Akses','users','user.manage'],['notiflog','Log Notifikasi','bell','notif.log'],['setting','Profil LSP & Pengaturan','gear','settings.manage']],
+  admin:[['g','Operasional'],['dashboard','Dashboard','home','lsp.dashboard'],['daftar','Pendaftaran','doc','registration.verify'],['jadwalA','Jadwal & Penugasan','cal','schedule.manage'],['asesmenA','Asesmen','check','assessment.monitor'],['plenoA','Pleno & Sertifikat','cert','decision.manage'],['g','Data'],['master','Skema, Asesor, TUK','build','master.manage'],['alumni','Database Alumni','users','alumni.view'],['g','Manajemen'],['etalase','Etalase & Pelatihan','wallet','listing.manage'],['mutu','Mutu (Pedoman 201)','shield','quality.manage'],['keuangan','Keuangan','money','finance.manage'],['crm','CRM','chat','crm.manage'],['laporan','Laporan BNSP','chart','report.bnsp'],['users','Pengguna & Hak Akses','users','user.manage'],['notiflog','Log Notifikasi','bell','notif.log'],['setting','Profil LSP & Pengaturan','gear','settings.manage'],['g','TUK'],['dashTuk','Dashboard TUK','home','tuk.dashboard'],['pemohon','Pemohon','doc','tuk.applicants'],['jadwalT','Jadwal TUK','cal','tuk.schedule'],['sarpras','Sarana & Prasarana','build','tuk.facility'],['chat','Group Chat','chat','tuk.chat'],['alumniT','Alumni TUK','users','tuk.alumni']],
   tuk:[['dashboard','Dashboard TUK','home','tuk.dashboard'],['pemohon','Pemohon','doc','tuk.applicants'],['jadwalT','Jadwal','cal','tuk.schedule'],['sarpras','Sarana & Prasarana','build','tuk.facility'],['chat','Group Chat','chat','tuk.chat'],['alumniT','Alumni TUK','users','tuk.alumni']],
   super:[['g','Platform'],['dashboard','Ringkasan Platform','home','platform.dashboard'],['approval','Persetujuan Listing','check','listing.review'],['lspList','LSP Klien','build','lsp.manage'],['paket','Paket & Tagihan','money','lsp.manage'],['pustaka','Pustaka SKKNI','book','lsp.manage'],['support','Tiket Support','chat','lsp.manage'],['audit','Log Akses Support','shield','lsp.manage'],['rbac','Peran & Hak Akses','gear','rbac.view'],['notiflog','Log Notifikasi','bell','notif.log']]
 };
-/* Admin Platform: semua menu platform + semua menu Admin LSP + semua menu TUK, untuk semua LSP. */
+/* Admin Platform: semua menu platform + semua menu Admin LSP (termasuk TUK), untuk semua LSP. */
 MENU.super = MENU.super.concat(
-  MENU.admin.map(it=>it[0]==='dashboard'?['dashLsp','Dashboard LSP','chart',it[3]]:it).filter(it=>it[0]!=='notiflog').map(it=>it[0]==='g'?['g',it[1]+' LSP']:it),
-  [['g','TUK']], MENU.tuk.filter(it=>it[0]!=='dashboard'));
+  MENU.admin.map(it=>it[0]==='dashboard'?['dashLsp','Dashboard LSP','chart',it[3]]:it).filter(it=>it[0]!=='notiflog').map(it=>it[0]==='g'&&it[1]!=='TUK'?['g',it[1]+' LSP']:it));
 function visibleMenu(){
   const items=(MENU[S.role]||[]).filter(it=>it[0]==='g'||can(it[3]));
   return items.filter((it,i)=>it[0]!=='g'||(items[i+1]&&items[i+1][0]!=='g'));
@@ -693,7 +692,7 @@ function app(){
   const otherCtx=ME.memberships.length>1 && !multi;
   const lspOpts=ME.memberships.map(m=>m.lsp_nama).filter(Boolean);
   const p=S.appPage;
-  const pages={etalase:pEtalase,approval:pApproval,users:pUsers,rbac:pRbac,profil:pProfil,notif:pNotif,notiflog:pNotifLog,lspList:pLspList,dashLsp:dAdmin};
+  const pages={etalase:pEtalase,approval:pApproval,users:pUsers,rbac:pRbac,profil:pProfil,notif:pNotif,notiflog:pNotifLog,lspList:pLspList,dashLsp:dAdmin,dashTuk:dTuk};
   const content=p==='password'?pChangePassword(false):!allowedPage(p)?pDenied():p==='dashboard'?dash():pages[p]?pages[p]():modul(p);
   const navItems=menu.map(it=>it[0]==='g'?`<div class="grp">${it[1]}</div>`:`<button data-go-app="${it[0]}" class="${p===it[0]?'on':''}">${ic(it[2])}${it[1]}${it[0]==='approval'&&S.reviews.length?`<span class="navbadge">${S.reviews.length}</span>`:''}</button>`).join('');
   const ctxLabel=ME.active.lsp_nama?(ME.active.tuk_nama?ME.active.tuk_nama:ME.active.lsp_nama):(ME.active.role==='asesi'?'Akun asesi pribadi':'Platform');

@@ -64,7 +64,9 @@ const PERM_DEFS = [
 const ROLE_PERMS = [
     'admin_lsp'      => ['lsp.dashboard', 'registration.verify', 'schedule.manage', 'assessment.monitor', 'decision.manage',
                          'master.manage', 'alumni.view', 'listing.manage', 'quality.manage', 'finance.manage', 'crm.manage',
-                         'report.bnsp', 'settings.manage', 'user.manage', 'rbac.view', 'notif.log', 'ai.use'],
+                         'report.bnsp', 'settings.manage', 'user.manage', 'rbac.view', 'notif.log', 'ai.use',
+                         // Admin LSP membuka semua data LSP-nya, termasuk semua TUK di bawah LSP itu.
+                         'tuk.dashboard', 'tuk.applicants', 'tuk.schedule', 'tuk.facility', 'tuk.chat', 'tuk.alumni'],
     'manajer_mutu'   => ['lsp.dashboard', 'quality.manage', 'alumni.view', 'report.bnsp', 'decision.manage', 'ai.use'],
     'keuangan'       => ['lsp.dashboard', 'finance.manage', 'ai.use'],
     'marketing'      => ['lsp.dashboard', 'listing.manage', 'crm.manage', 'ai.use'],

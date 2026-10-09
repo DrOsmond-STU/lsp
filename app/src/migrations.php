@@ -119,6 +119,10 @@ function migrations(): array
             // Admin Platform memegang semua hak akses (sinkronkan matriks di database).
             seed_rbac_missing();
         },
+        5 => function (): void {
+            // Admin LSP memegang semua hak akses tingkat LSP, termasuk data TUK di LSP-nya.
+            seed_rbac_missing();
+        },
     ];
 }
 

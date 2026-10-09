@@ -67,6 +67,12 @@ console.log('Bertindak atas nama LSP mana pun');
 
 console.log('Admin LSP tetap terisolasi');
 {
+  const lspPerms = ['lsp.dashboard', 'registration.verify', 'schedule.manage', 'assessment.monitor', 'decision.manage', 'master.manage', 'alumni.view',
+    'listing.manage', 'quality.manage', 'finance.manage', 'crm.manage', 'report.bnsp', 'settings.manage', 'user.manage', 'notif.log',
+    'tuk.dashboard', 'tuk.applicants', 'tuk.schedule', 'tuk.facility', 'tuk.chat', 'tuk.alumni'];
+  const tp = (await tdn.req('auth/me')).json.permissions;
+  check('Admin LSP memegang semua hak akses tingkat LSP (termasuk TUK)', lspPerms.every(p => tp.includes(p)));
+  check('Admin LSP tidak memegang hak akses platform', !['listing.review', 'lsp.manage', 'platform.dashboard'].some(p => tp.includes(p)));
   check('Admin LSP tidak bisa daftar LSP (403)', (await tdn.req('lsps')).status === 403);
   const l = await tdn.req('listings?lsp=2');
   check('parameter ?lsp diabaikan untuk Admin LSP', l.status === 200 && l.json.items.every(i => i.lsp_nama === 'LSP Teknologi Digital Nusantara'));
