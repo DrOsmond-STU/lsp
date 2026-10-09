@@ -45,6 +45,10 @@
 .toggle input{width:auto;margin-top:.25rem;flex:none}
 .bell[hidden]{display:none}
 .bell i[hidden]{display:none}
+/* Daftar + panel detail (pendaftaran, pra-asesmen, asesmen, pleno) */
+.ld{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,2.3fr);gap:1.25rem;align-items:start}
+.ld td .mono{white-space:nowrap;font-size:.78rem}
+@media (max-width:980px){.ld{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:640px){
   .ai-panel{right:16px;left:16px;width:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));height:min(560px,calc(100vh - 110px))}
   .ai-fab{right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px))}

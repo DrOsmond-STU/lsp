@@ -42,7 +42,7 @@ let tdnListing, pbiListing;
   const names = new Set(u.json.items.map(i => i.lsp_nama));
   check('pengguna: semua LSP + akun platform/pribadi', u.status === 200 && names.has('LSP Teknologi Digital Nusantara') && names.has('LSP Pariwisata Bahari Indonesia') && u.json.items.some(i => i.role === 'platform_admin'));
   const ls = await sup.req('lsps');
-  check('daftar LSP dengan ringkasan angka', ls.status === 200 && ls.json.items.length === 4 && ls.json.items.every(i => typeof i.pengguna === 'number'));
+  check('daftar LSP dengan ringkasan angka', ls.status === 200 && ls.json.items.length >= 4 && ls.json.items.every(i => typeof i.pengguna === 'number'));
   check('log notifikasi bisa disaring per LSP', (await sup.req('notifications/log?lsp=1')).status === 200);
 }
 

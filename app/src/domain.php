@@ -179,6 +179,21 @@ function r_dokumen(): void
     json_out(['items' => array_map('dokumen_row', $rows), 'jenis' => DOK_JENIS, 'wajib' => DOK_WAJIB]);
 }
 
+function sniff_mime(string $path): string
+{
+    $head = (string)file_get_contents($path, false, null, 0, 8);
+    if (strncmp($head, '%PDF-', 5) === 0) {
+        return 'application/pdf';
+    }
+    if ($head === "\x89PNG\r\n\x1a\n") {
+        return 'image/png';
+    }
+    if (strncmp($head, "\xFF\xD8\xFF", 3) === 0) {
+        return 'image/jpeg';
+    }
+    return 'application/octet-stream';
+}
+
 function r_dokumen_upload(): void
 {
     require_method('POST');
@@ -190,14 +205,17 @@ function r_dokumen_upload(): void
         fail('Jenis dokumen tidak valid.', 422);
     }
     $f = $_FILES['file'] ?? null;
+    if (is_array($f) && in_array($f['error'] ?? 0, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+        fail('Ukuran berkas maksimal 2 MB.', 422);
+    }
     if (!is_array($f) || ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name'])) {
         fail('Pilih berkas untuk diunggah.', 422);
     }
     if ($f['size'] > DOK_MAX) {
         fail('Ukuran berkas maksimal 2 MB.', 422);
     }
-    // Jenis berkas ditentukan dari isi berkas, bukan dari nama atau header kiriman.
-    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
+    // Jenis berkas ditentukan dari isi berkas (magic bytes), bukan dari nama atau header kiriman.
+    $mime = sniff_mime($f['tmp_name']);
     if (!isset(DOK_MIME[$mime])) {
         fail('Format berkas harus PDF, JPG, atau PNG.', 422);
     }

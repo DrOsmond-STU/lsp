@@ -94,7 +94,7 @@ function clean(v){
   return typeof v==='string' ? esc(v) : v;
 }
 class ApiError extends Error { constructor(msg,status){ super(msg); this.status=status; } }
-async function api(path, data){
+async function api(path, data, retried){
   const opt={method:data===undefined?'GET':'POST',credentials:'same-origin',headers:{'Accept':'application/json'}};
   if(data!==undefined){ opt.headers['Content-Type']='application/json'; opt.headers['X-CSRF-Token']=CSRF; opt.body=JSON.stringify(data); }
   let res;
@@ -105,7 +105,8 @@ async function api(path, data){
   try{ body=await res.json(); }catch(e){}
   if(!res.ok){
     if(res.status===401 && ME){ ME=null; S.role='publik'; S.page='login'; S.loginErr='Sesi Anda berakhir. Silakan masuk lagi.'; render(); }
-    if(res.status===419){ await loadMe(); }
+    // Token CSRF basi (mis. halaman baru dimuat): ambil token baru lalu ulangi sekali.
+    if(res.status===419 && !retried && path!=='auth/me'){ await loadMe(); return api(path, data, true); }
     throw new ApiError(body.error || ('Permintaan gagal ('+res.status+')'), res.status);
   }
   return clean(body);
@@ -126,7 +127,7 @@ async function loadMe(){ const d=await api('auth/me'); applyMe(d); return d; }
 async function loadCatalog(){ try{ CATALOG=(await api('catalog')).items; }catch(e){ CATALOG=[]; } }
 const isPlatform = () => !!ME && !!ME.active && ME.active.role==='platform_admin';
 /* Admin Platform melihat semua LSP; filter LSP opsional dikirim sebagai ?lsp=ID (server tetap mengunci peran lain ke LSP-nya). */
-const withLsp = p => isPlatform()&&S.lspFilter ? p+'?lsp='+S.lspFilter : p;
+const withLsp = p => isPlatform()&&S.lspFilter ? p+(p.includes('?')?'&':'?')+'lsp='+S.lspFilter : p;
 const ctxName = () => ME.active.lsp_nama || (S.lspFilter ? ((S.lsps.find(l=>l.id===S.lspFilter)||{}).nama||'LSP') : 'Semua LSP');
 async function loadLsps(){ if(can('lsp.manage')) S.lsps=(await api('lsps')).items; }
 async function loadListings(){ if(can('listing.manage')) S.listings=(await api(withLsp('listings'))).items; }
@@ -574,13 +575,13 @@ function pDenied(){
 const MENU = {
   asesi:[['dashboard','Beranda','home','asesi.dashboard'],['skema','Daftar Skema Baru','search','application.own'],['jadwal','Jadwal Saya','cal','application.own'],['bayar','Pembayaran','wallet','payment.own'],['sertifikat','Dompet Sertifikat','cert','certificate.own'],['kelas','Kelas Saya','book','class.own'],['profil','Profil & Dokumen','users','profile.own']],
   asesor:[['dashboard','Beranda','home','asesor.dashboard'],['kalender','Kalender Gabungan','cal','asesor.dashboard'],['pra','Tinjau Pra-Asesmen','doc','preassessment.review'],['asesmen','Asesmen (MUK/FR)','check','assessment.conduct'],['pleno','Pleno','shield','pleno.participate'],['riwayat','Riwayat & Logbook','book','asesor.history'],['honor','Honor','money','asesor.honor']],
-  admin:[['g','Operasional'],['dashboard','Dashboard','home','lsp.dashboard'],['daftar','Pendaftaran','doc','registration.verify'],['jadwalA','Jadwal & Penugasan','cal','schedule.manage'],['asesmenA','Asesmen','check','assessment.monitor'],['plenoA','Pleno & Sertifikat','cert','decision.manage'],['g','Data'],['master','Skema, Asesor, TUK','build','master.manage'],['alumni','Database Alumni','users','alumni.view'],['g','Manajemen'],['etalase','Etalase & Pelatihan','wallet','listing.manage'],['mutu','Mutu (Pedoman 201)','shield','quality.manage'],['keuangan','Keuangan','money','finance.manage'],['crm','CRM','chat','crm.manage'],['laporan','Laporan BNSP','chart','report.bnsp'],['users','Pengguna & Hak Akses','users','user.manage'],['notiflog','Log Notifikasi','bell','notif.log'],['setting','Profil LSP & Pengaturan','gear','settings.manage'],['g','TUK'],['dashTuk','Dashboard TUK','home','tuk.dashboard'],['pemohon','Pemohon','doc','tuk.applicants'],['jadwalT','Jadwal TUK','cal','tuk.schedule'],['sarpras','Sarana & Prasarana','build','tuk.facility'],['chat','Group Chat','chat','tuk.chat'],['alumniT','Alumni TUK','users','tuk.alumni']],
+  admin:[['g','Operasional'],['dashboard','Dashboard','home','lsp.dashboard'],['daftar','Pendaftaran','doc','registration.verify'],['jadwalA','Jadwal & Penugasan','cal','schedule.manage'],['asesmenA','Asesmen','check','assessment.monitor'],['plenoA','Pleno & Sertifikat','cert','decision.manage'],['g','Data'],['master','Skema, Asesor, TUK','build','master.manage'],['alumni','Database Alumni','users','alumni.view'],['g','Manajemen'],['etalase','Etalase & Pelatihan','wallet','listing.manage'],['mutu','Mutu (Pedoman 201)','shield','quality.manage'],['keuangan','Keuangan','money','finance.manage'],['crm','CRM','chat','crm.manage'],['laporan','Laporan BNSP','chart','report.bnsp'],['users','Pengguna & Hak Akses','users','user.manage'],['notiflog','Log Notifikasi','bell','notif.log'],['setting','Profil LSP & Pengaturan','gear','settings.manage'],['support','Tiket Support','chat','settings.manage'],['g','TUK'],['dashTuk','Dashboard TUK','home','tuk.dashboard'],['pemohon','Pemohon','doc','tuk.applicants'],['jadwalT','Jadwal TUK','cal','tuk.schedule'],['sarpras','Sarana & Prasarana','build','tuk.facility'],['chat','Group Chat','chat','tuk.chat'],['alumniT','Alumni TUK','users','tuk.alumni']],
   tuk:[['dashboard','Dashboard TUK','home','tuk.dashboard'],['pemohon','Pemohon','doc','tuk.applicants'],['jadwalT','Jadwal','cal','tuk.schedule'],['sarpras','Sarana & Prasarana','build','tuk.facility'],['chat','Group Chat','chat','tuk.chat'],['alumniT','Alumni TUK','users','tuk.alumni']],
   super:[['g','Platform'],['dashboard','Ringkasan Platform','home','platform.dashboard'],['approval','Persetujuan Listing','check','listing.review'],['lspList','LSP Klien','build','lsp.manage'],['paket','Paket & Tagihan','money','lsp.manage'],['pustaka','Pustaka SKKNI','book','lsp.manage'],['support','Tiket Support','chat','lsp.manage'],['audit','Log Akses Support','shield','lsp.manage'],['rbac','Peran & Hak Akses','gear','rbac.view'],['notiflog','Log Notifikasi','bell','notif.log']]
 };
 /* Admin Platform: semua menu platform + semua menu Admin LSP (termasuk TUK), untuk semua LSP. */
 MENU.super = MENU.super.concat(
-  MENU.admin.map(it=>it[0]==='dashboard'?['dashLsp','Dashboard LSP','chart',it[3]]:it).filter(it=>it[0]!=='notiflog').map(it=>it[0]==='g'&&it[1]!=='TUK'?['g',it[1]+' LSP']:it));
+  MENU.admin.map(it=>it[0]==='dashboard'?['dashLsp','Dashboard LSP','chart',it[3]]:it).filter(it=>it[0]==='g'||!MENU.super.some(x=>x[0]===it[0])).map(it=>it[0]==='g'&&it[1]!=='TUK'?['g',it[1]+' LSP']:it));
 function visibleMenu(){
   const items=(MENU[S.role]||[]).filter(it=>it[0]==='g'||can(it[3]));
   return items.filter((it,i)=>it[0]!=='g'||(items[i+1]&&items[i+1][0]!=='g'));
@@ -982,7 +983,11 @@ setInterval(async()=>{
   if(!ME||!S.inApp||document.visibilityState!=='visible') return;
   try{ setUnread((await api('notifications/count')).unread); }catch(e){}
 },60000);
+function loadScript(src){ return new Promise(r=>{ const s=document.createElement('script'); s.src=src; s.onload=r; s.onerror=r; document.head.appendChild(s); }); }
 (async function boot(){
+  await loadScript('fitur.js');   // layar kerja semua menu
+  const cek=new URLSearchParams(location.search).get('cek');
+  if(cek){ S.page='verif'; S.cekQ=cek; history.replaceState(null,'',location.pathname); }
   render();
   try{
     const d=await loadMe();
@@ -993,7 +998,7 @@ setInterval(async()=>{
       try{ applyMe(await api('auth/verify',{token})); toast('Email berhasil diverifikasi. Terima kasih.'); }
       catch(e){ toast(e.message); }
     }
-    if(ME){ await enterApp(); }
+    if(ME&&!cek){ await enterApp(); }
     else { if(d.expired) { S.loginErr='Sesi Anda berakhir. Silakan masuk lagi.'; } render(); }
   }catch(e){ toast(e.message); render(); }
 })();

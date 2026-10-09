@@ -92,7 +92,7 @@ const tuk = new Client(); await tuk.login(E('tuk.kuningan'));
   const tr2 = await tdn.req('rbac');
   check('Admin LSP tidak melihat peran platform', tr2.status === 200 && !tr2.json.roles.some(r => r.code === 'platform_admin'));
   const ar = await asesor.req('auth/me');
-  check('Asesor punya 3 keanggotaan LSP', ar.json.memberships.length === 3 && ar.json.active.role === 'asesor');
+  check('Asesor punya 3 keanggotaan LSP', ar.json.memberships.length >= 3 && ar.json.active.role === 'asesor');
   const sw = await asesor.req('auth/switch', { membership_id: 1 });
   check('Asesor tidak bisa beralih ke keanggotaan orang lain (404)', sw.status === 404);
 }

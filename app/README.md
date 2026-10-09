@@ -29,6 +29,21 @@ app/
 - Log audit untuk login, logout, akses ditolak, perubahan listing, keputusan kurasi, dan manajemen pengguna.
 - Header keamanan & CSP ketat (`script-src 'self'`), HTTPS + HSTS, semua teks dari server di-escape di klien.
 
+## Proses sertifikasi (semua menu berfungsi)
+- **Asesi:** cari skema di portal → pilih jadwal → isi APL.02 → unggah KTP/ijazah/pas foto (dipakai ulang) → setujui
+  berbagi data ke LSP → ajukan. Lalu bayar tagihan, pantau pra-asesmen/uji/pleno, unduh/cetak sertifikat, ikut kelas LMS.
+- **Admin LSP / staf:** verifikasi pendaftaran (terima/perbaikan/tolak → tagihan otomatis), jadwal & penugasan asesor
+  (cek bentrok), pemantauan asesmen, pleno & sertifikat, master skema/unit/TUK/asesor, alumni, keuangan (konfirmasi
+  manual), CRM (kanban), mutu Pedoman 201, laporan BNSP (unduh CSV), pengaturan profil LSP, tiket support.
+- **Asesor:** kalender gabungan lintas LSP, tinjau pra-asesmen, isi hasil asesmen per unit (hanya pada/sesudah tanggal
+  uji), pleno (tidak boleh untuk asesmen yang ia uji sendiri), riwayat/logbook CSV, honor per LSP.
+- **TUK:** dashboard, pemohon, jadwal, sarana-prasarana, group chat per jadwal, alumni TUK (Admin TUK hanya TUK-nya).
+- **Admin Platform:** LSP klien (onboarding/nonaktif), paket & kuota, pustaka SKKNI, tiket support, log audit + semua menu LSP.
+- **Publik:** katalog skema, jadwal, direktori LSP, pelatihan, verifikasi sertifikat (`/?cek=KODE`).
+- Dokumen diunggah ke `storage/uploads` (di luar docroot), dicek dari isi berkas (PDF/JPG/PNG, maks 2 MB), dan hanya
+  bisa dibuka pemilik, staf LSP tempat ia mendaftar, asesor yang ditugaskan, atau Admin Platform (tercatat di audit).
+- Pembayaran masih simulasi (belum terhubung payment gateway).
+
 ## Notifikasi (aplikasi, email, WhatsApp)
 - Setiap peristiwa penting membuat notifikasi di kotak masuk aplikasi (ikon lonceng) lalu diantrekan ke email/WhatsApp
   sesuai pengaturan pengguna. Pengiriman dilakukan `tools/notify-worker.php` lewat cron (tiap 2 menit), dengan
@@ -56,5 +71,8 @@ php -S 127.0.0.1:8099 -t public
 node tests/api.test.mjs               # 49 uji autentikasi, CSRF, RBAC, isolasi LSP
 node tests/register.test.mjs          # 29 uji pendaftaran asesi
 node tests/notify-ai.test.mjs         # 47 uji notifikasi & asisten AI (server tiruan di port 8098)
-node tests/platform.test.mjs          # 21 uji akses penuh Admin Platform + isolasi Admin LSP
+node tests/platform.test.mjs          # 23 uji akses penuh Admin Platform + isolasi Admin LSP
+node tests/flow.test.mjs              # 108 uji alur sertifikasi ujung-ke-ujung + isolasi
+NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs   # uji browser (Playwright): daftar asesi s.d. sertifikat
+NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs   # uji browser: klik semua menu tiap peran
 ```
