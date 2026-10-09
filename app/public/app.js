@@ -145,12 +145,12 @@ async function goApp(p){S.appPage=p;render();window.scrollTo(0,0);await loadForP
 /* ===================== Portal publik ===================== */
 const PUB_NAV = [['beranda','Beranda'],['cari','Cari Skema'],['jadwal','Jadwal Uji'],['lsp','Daftar LSP'],['lms','Pelatihan'],['verif','Verifikasi Sertifikat'],['untuk','Untuk LSP']];
 function topbar(){
-  return `<header class="topbar"><div class="wrap" style="position:relative">
+  return `<div class="topbar" role="banner"><div class="wrap" style="position:relative">
     <button class="logo" data-go="beranda"><span class="logo-mark">${ic('shield')}</span>PortalLSP</button>
     <nav class="nav ${S.navOpen?'open':''}" aria-label="Menu utama">${PUB_NAV.map(([k,l])=>`<button data-go="${k}" class="${S.page===k||(k==='cari'&&S.page==='detail')?'on':''}">${l}</button>`).join('')}</nav>
     <div class="row auth">${ME?`<button class="btn sm" data-enter="1">${ic('home')}Dashboard</button>`:`<button class="btn ghost sm" data-go="login">Masuk</button><button class="btn sm" data-toast="Pendaftaran akun asesi mandiri dibuat pada tahap berikutnya.">Daftar</button>`}</div>
     <button class="btn ghost sm menu-btn" id="menuBtn" aria-label="Buka menu">${ic('menu')}</button>
-  </div></header>`;
+  </div></div>`;
 }
 function skemaCard(s){
   return `<article class="card skema" data-skema="${s.id}" tabindex="0">
