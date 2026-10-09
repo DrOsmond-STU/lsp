@@ -84,6 +84,37 @@ function migrations(): array
             // Akun demo dianggap sudah terverifikasi.
             q('UPDATE users SET email_verified_at = created_at');
         },
+        3 => function (): void {
+            $d = ddl();
+            $pk = $d['pk'];
+            $fk = $d['fk'];
+            $e = $d['end'];
+            $stmts = [
+                "CREATE TABLE notifications (id $pk, user_id $fk NOT NULL, lsp_id $fk NULL, type VARCHAR(60) NOT NULL,
+                    title VARCHAR(190) NOT NULL, body TEXT NOT NULL, page VARCHAR(40) NULL, read_at DATETIME NULL,
+                    created_at DATETIME NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id), FOREIGN KEY (lsp_id) REFERENCES lsp(id))$e",
+                'CREATE INDEX idx_notif_user ON notifications (user_id, read_at)',
+                'CREATE INDEX idx_notif_lsp ON notifications (lsp_id)',
+                "CREATE TABLE notification_outbox (id $pk, notification_id $fk NOT NULL, channel VARCHAR(20) NOT NULL,
+                    recipient VARCHAR(190) NOT NULL, status VARCHAR(20) NOT NULL, attempts SMALLINT NOT NULL DEFAULT 0,
+                    last_error VARCHAR(255) NULL, next_attempt_at DATETIME NOT NULL, sent_at DATETIME NULL, created_at DATETIME NOT NULL,
+                    FOREIGN KEY (notification_id) REFERENCES notifications(id))$e",
+                'CREATE INDEX idx_outbox_queue ON notification_outbox (status, next_attempt_at)',
+                'CREATE INDEX idx_outbox_notif ON notification_outbox (notification_id)',
+                "CREATE TABLE notification_settings (user_id $fk NOT NULL PRIMARY KEY, email_on SMALLINT NOT NULL DEFAULT 1,
+                    wa_on SMALLINT NOT NULL DEFAULT 0, wa_number VARCHAR(20) NULL, wa_opt_in_at DATETIME NULL, updated_at DATETIME NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id))$e",
+                "CREATE TABLE ai_usage (id $pk, user_id $fk NOT NULL, lsp_id $fk NULL, status VARCHAR(10) NOT NULL,
+                    input_tokens INT NOT NULL DEFAULT 0, output_tokens INT NOT NULL DEFAULT 0, created_at DATETIME NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id))$e",
+                'CREATE INDEX idx_ai_usage_user ON ai_usage (user_id, created_at)',
+                'CREATE INDEX idx_ai_usage_time ON ai_usage (created_at)',
+            ];
+            foreach ($stmts as $s) {
+                db()->exec($s);
+            }
+            seed_rbac_missing();
+        },
     ];
 }
 
@@ -98,6 +129,23 @@ function seed_rbac(): void
     foreach (ROLE_PERMS as $role => $perms) {
         foreach ($perms as $p) {
             q('INSERT INTO role_permissions (role_code, perm_code) VALUES (?, ?)', [$role, $p]);
+        }
+    }
+}
+
+/** Tambahkan hak akses baru dari konstanta ke database yang sudah berjalan, tanpa menduplikasi. */
+function seed_rbac_missing(): void
+{
+    foreach (PERM_DEFS as $code => $desc) {
+        if (!q('SELECT 1 FROM permissions WHERE code = ?', [$code])->fetch()) {
+            q('INSERT INTO permissions (code, deskripsi) VALUES (?, ?)', [$code, $desc]);
+        }
+    }
+    foreach (ROLE_PERMS as $role => $perms) {
+        foreach ($perms as $p) {
+            if (!q('SELECT 1 FROM role_permissions WHERE role_code = ? AND perm_code = ?', [$role, $p])->fetch()) {
+                q('INSERT INTO role_permissions (role_code, perm_code) VALUES (?, ?)', [$role, $p]);
+            }
         }
     }
 }

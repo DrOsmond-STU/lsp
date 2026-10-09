@@ -5,7 +5,8 @@ const MAX_FAIL_PER_EMAIL = 5;
 const MAX_FAIL_PER_IP = 20;
 const LOCK_WINDOW_SEC = 900;
 
-function start_session(): void
+/** $touch = false untuk permintaan latar (polling) agar tidak memperpanjang batas idle sesi. */
+function start_session(bool $touch = true): void
 {
     global $CONFIG;
     $dir = APP_ROOT . '/storage/sessions';
@@ -33,7 +34,7 @@ function start_session(): void
         if ($idle > (int)($CONFIG['idle_timeout'] ?? 1800) || $age > (int)($CONFIG['absolute_timeout'] ?? 28800)) {
             clear_session();
             $_SESSION['expired'] = 1;
-        } else {
+        } elseif ($touch) {
             $_SESSION['last'] = $t;
         }
     }
@@ -146,6 +147,8 @@ function me_payload(): array
     $out['memberships'] = array_map('membership_public', memberships((int)$u['id']));
     $out['active'] = $act ? membership_public($act) : null;
     $out['permissions'] = permissions_for($act);
+    $out['ai_enabled'] = ai_enabled();
+    $out['unread'] = unread_count((int)$u['id']);
     return $out;
 }
 
@@ -278,6 +281,8 @@ function do_change_password(): void
     session_regenerate_id(true);
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
     audit('password.changed');
+    notify([(int)$u['id']], null, 'akun.password_diubah', 'Password akun Anda diganti',
+        'Password akun PortalLSP Anda diganti pada ' . date('d-m-Y H:i') . ' WIB. Bila bukan Anda yang menggantinya, segera hubungi Admin LSP.');
     forget_user_cache();
     json_out(['ok' => true] + me_payload());
 }

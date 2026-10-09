@@ -27,6 +27,13 @@ function dispatch(string $route): void
         'auth/verify' => 'do_verify_email',
         'auth/resend-verification' => 'do_resend_verification',
         'profile' => 'r_profile',
+        'notifications' => 'r_notifications',
+        'notifications/count' => 'r_notif_count',
+        'notifications/read' => 'r_notif_read',
+        'notifications/settings' => 'r_notif_settings',
+        'notifications/test' => 'r_notif_test',
+        'notifications/log' => 'r_notif_log',
+        'ai/chat' => 'r_ai_chat',
     ];
     if (!isset($routes[$route])) {
         fail('Alamat API tidak ditemukan.', 404);
@@ -114,6 +121,9 @@ function r_listings(): void
         [$lspId, $tipe, $judul, $bidang, $kota, $format, $harga, $desc, $status, (int)current_user()['id'], $status === 'menunggu' ? $t : null, $t, $t]);
     $id = (int)db()->lastInsertId();
     audit($status === 'menunggu' ? 'listing.submitted' : 'listing.drafted', 'listing:' . $id);
+    if ($status === 'menunggu') {
+        notify_listing_submitted($id);
+    }
     json_out(['id' => $id], 201);
 }
 
@@ -128,6 +138,7 @@ function r_listing_submit(): void
     q("UPDATE listings SET status = 'menunggu', catatan = NULL, submitted_at = ?, updated_at = ? WHERE id = ? AND lsp_id = ?",
         [now(), now(), $row['id'], $m['lsp_id']]);
     audit('listing.submitted', 'listing:' . $row['id']);
+    notify_listing_submitted((int)$row['id']);
     json_out(['ok' => true]);
 }
 
@@ -174,6 +185,7 @@ function r_review_decide(): void
         [$decision, $note === '' ? null : $note, (int)current_user()['id'], now(), now(), $id]);
     if ($st->rowCount() !== 1) fail('Listing ini sudah diputuskan oleh peninjau lain.', 409);
     audit('listing.' . $decision, 'listing:' . $id);
+    notify_listing_decided($id, $decision, $note);
     json_out(['ok' => true]);
 }
 
@@ -222,6 +234,9 @@ function r_users(): void
         throw $e;
     }
     audit('user.created', $email . ' as ' . $role);
+    // Password sementara tidak pernah dikirim lewat email/WA; diserahkan langsung oleh admin.
+    notify([$uid], $lspId, 'akun.dibuat', 'Akun PortalLSP Anda sudah dibuat',
+        'Anda ditambahkan sebagai ' . role_label($role) . ' di ' . $m['lsp_nama'] . '. Minta password sementara kepada Admin LSP Anda, lalu ganti saat pertama masuk.');
     json_out(['ok' => true], 201);
 }
 
@@ -233,7 +248,7 @@ function r_user_status(): void
     $mid = int_in('membership_id');
     $status = str_in('status', 20);
     if (!in_array($status, ['aktif', 'nonaktif'], true)) fail('Status tidak valid.', 422);
-    $row = q('SELECT id, role, status FROM memberships WHERE id = ? AND lsp_id = ?', [$mid, $m['lsp_id']])->fetch();
+    $row = q('SELECT id, user_id, role, status FROM memberships WHERE id = ? AND lsp_id = ?', [$mid, $m['lsp_id']])->fetch();
     if (!$row) {
         audit('access.denied', 'membership:' . $mid);
         fail('Pengguna tidak ditemukan.', 404);
@@ -245,6 +260,11 @@ function r_user_status(): void
     }
     q('UPDATE memberships SET status = ? WHERE id = ? AND lsp_id = ?', [$status, $mid, $m['lsp_id']]);
     audit('membership.' . $status, 'membership:' . $mid);
+    if ($row['status'] !== $status) {
+        notify([(int)$row['user_id']], (int)$m['lsp_id'], 'akun.akses_' . $status,
+            $status === 'aktif' ? 'Akses Anda diaktifkan' : 'Akses Anda dinonaktifkan',
+            'Akses ' . role_label($row['role']) . ' Anda di ' . $m['lsp_nama'] . ($status === 'aktif' ? ' sudah aktif kembali.' : ' dinonaktifkan oleh Admin LSP. Hubungi admin bila ini keliru.'));
+    }
     json_out(['ok' => true]);
 }
 

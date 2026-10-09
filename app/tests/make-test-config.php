@@ -17,5 +17,11 @@ $cfg = [
     'seed_password_hashes' => $hashes,
     'app_url' => 'http://127.0.0.1:8099',
     'mail_log' => $dir . '/storage/mail.log',
+    // Server tiruan dari tests/notify-ai.test.mjs (port 8098); bukan kunci asli.
+    'ai_api_key' => 'test-key',
+    'ai_base_url' => 'http://127.0.0.1:8098',
+    'wa_driver' => 'fonnte',
+    'wa_token' => 'test-wa-token',
+    'wa_fonnte_url' => 'http://127.0.0.1:8098/send',
 ];
 file_put_contents($dir . '/config.php', "<?php\nreturn " . var_export($cfg, true) . ";\n");

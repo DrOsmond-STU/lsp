@@ -172,6 +172,7 @@ function do_register(): void
     validate_new_password($pw, $email);
     if ((body()['consent_privacy'] ?? false) !== true) fail('Setujui syarat dan kebijakan privasi untuk mendaftar.', 422);
     $marketing = (body()['consent_marketing'] ?? false) === true ? 1 : 0;
+    $waOptIn = (body()['consent_wa'] ?? false) === true;
 
     if (q('SELECT id FROM users WHERE email = ?', [$email])->fetch()) {
         fail('Email ini sudah terdaftar. Silakan masuk, atau hubungi admin bila lupa password.', 409);
@@ -193,6 +194,9 @@ function do_register(): void
             [$uid, encrypt_text($nik), $nikHash, $tgl, $jk, $hp, $t, $marketing, $t, $t]);
         // Keanggotaan asesi pribadi (belum terikat LSP). Keanggotaan per LSP dibuat saat asesi mendaftar skema.
         q('INSERT INTO memberships (user_id, lsp_id, role, status, created_at) VALUES (?, NULL, ?, ?, ?)', [$uid, 'asesi', 'aktif', $t]);
+        if ($waOptIn) {
+            save_notif_settings($uid, true, true, $hp);
+        }
         db()->commit();
     } catch (Throwable $e) {
         db()->rollBack();

@@ -56,19 +56,21 @@ const PERM_DEFS = [
     'certificate.own'       => 'Melihat sertifikat sendiri',
     'class.own'             => 'Mengikuti kelas',
     'profile.own'           => 'Mengelola profil & dokumen sendiri',
+    'notif.log'             => 'Melihat log pengiriman notifikasi',
+    'ai.use'                => 'Memakai asisten AI',
 ];
 
 const ROLE_PERMS = [
-    'platform_admin' => ['platform.dashboard', 'listing.review', 'lsp.manage', 'rbac.view'],
+    'platform_admin' => ['platform.dashboard', 'listing.review', 'lsp.manage', 'rbac.view', 'notif.log', 'ai.use'],
     'admin_lsp'      => ['lsp.dashboard', 'registration.verify', 'schedule.manage', 'assessment.monitor', 'decision.manage',
                          'master.manage', 'alumni.view', 'listing.manage', 'quality.manage', 'finance.manage', 'crm.manage',
-                         'report.bnsp', 'settings.manage', 'user.manage', 'rbac.view'],
-    'manajer_mutu'   => ['lsp.dashboard', 'quality.manage', 'alumni.view', 'report.bnsp', 'decision.manage'],
-    'keuangan'       => ['lsp.dashboard', 'finance.manage'],
-    'marketing'      => ['lsp.dashboard', 'listing.manage', 'crm.manage'],
-    'admin_tuk'      => ['tuk.dashboard', 'tuk.applicants', 'tuk.schedule', 'tuk.facility', 'tuk.chat', 'tuk.alumni'],
-    'asesor'         => ['asesor.dashboard', 'preassessment.review', 'assessment.conduct', 'pleno.participate', 'asesor.history', 'asesor.honor'],
-    'asesi'          => ['asesi.dashboard', 'application.own', 'payment.own', 'certificate.own', 'class.own', 'profile.own'],
+                         'report.bnsp', 'settings.manage', 'user.manage', 'rbac.view', 'notif.log', 'ai.use'],
+    'manajer_mutu'   => ['lsp.dashboard', 'quality.manage', 'alumni.view', 'report.bnsp', 'decision.manage', 'ai.use'],
+    'keuangan'       => ['lsp.dashboard', 'finance.manage', 'ai.use'],
+    'marketing'      => ['lsp.dashboard', 'listing.manage', 'crm.manage', 'ai.use'],
+    'admin_tuk'      => ['tuk.dashboard', 'tuk.applicants', 'tuk.schedule', 'tuk.facility', 'tuk.chat', 'tuk.alumni', 'ai.use'],
+    'asesor'         => ['asesor.dashboard', 'preassessment.review', 'assessment.conduct', 'pleno.participate', 'asesor.history', 'asesor.honor', 'ai.use'],
+    'asesi'          => ['asesi.dashboard', 'application.own', 'payment.own', 'certificate.own', 'class.own', 'profile.own', 'ai.use'],
 ];
 
 /** Peran yang boleh diberikan Admin LSP kepada pengguna di LSP-nya. */

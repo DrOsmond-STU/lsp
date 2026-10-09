@@ -9,6 +9,7 @@ app/
   public/             # docroot web: index.html, app.js, api.php, .htaccess
   storage/            # sesi, lock migrasi, database SQLite (tidak di-commit)
   tools/smoke.php     # uji asap via CLI/cron
+  tools/notify-worker.php  # pengirim antrean email/WhatsApp (cron)
   tests/              # uji integrasi API
 ```
 
@@ -26,9 +27,31 @@ app/
 - Log audit untuk login, logout, akses ditolak, perubahan listing, keputusan kurasi, dan manajemen pengguna.
 - Header keamanan & CSP ketat (`script-src 'self'`), HTTPS + HSTS, semua teks dari server di-escape di klien.
 
+## Notifikasi (aplikasi, email, WhatsApp)
+- Setiap peristiwa penting membuat notifikasi di kotak masuk aplikasi (ikon lonceng) lalu diantrekan ke email/WhatsApp
+  sesuai pengaturan pengguna. Pengiriman dilakukan `tools/notify-worker.php` lewat cron (tiap 2 menit), dengan
+  percobaan ulang hingga 5 kali.
+- Peristiwa: listing diajukan (ke Admin Platform), listing disetujui/revisi/ditolak (ke staf LSP yang mengelola etalase),
+  akun dibuat dan akses diaktifkan/dinonaktifkan (ke pengguna), password diganti (selalu ke email, tidak bisa dimatikan).
+- WhatsApp hanya dikirim bila pengguna mengisi nomor dan mencentang persetujuan (opt-in); waktunya dicatat.
+- Password sementara tidak pernah dikirim lewat email/WA.
+- Log pengiriman: Admin LSP hanya melihat notifikasi LSP-nya, Admin Platform melihat semua; penerima disamarkan.
+- Driver WA: `fonnte` atau `meta` (WhatsApp Cloud API, wajib template). Kosong = kanal WA dilewati.
+
+## Asisten AI
+- Panggilan ke API Claude dilakukan dari server; kunci hanya di `config.php`. Kosong = fitur nonaktif.
+- Konteks yang dikirim ke model hanya data milik pengguna/LSP aktifnya (ringkasan peran, hak akses, status listing).
+  Email, NIK, dan nomor HP tidak dikirim; NIK/email/nomor HP yang diketik pengguna disamarkan sebelum dikirim.
+- Model tidak punya akses tool, jadi tidak bisa mengubah data atau membaca data di luar konteks.
+- Isi percakapan tidak disimpan di server; yang dicatat hanya jumlah token (tabel `ai_usage`).
+- Batas: 20 pesan/jam dan 100 pesan/hari per pengguna, plus batas harian platform (`ai_daily_limit`).
+- Aturan integritas: asisten tidak membuatkan jawaban uji, isian APL.02, atau bukti portofolio.
+
 ## Menjalankan lokal
 ```
 php tests/make-test-config.php        # config SQLite + akun demo (password: Demo-Pass-2026, hanya lokal)
 php -S 127.0.0.1:8099 -t public
 node tests/api.test.mjs               # 49 uji autentikasi, CSRF, RBAC, isolasi LSP
+node tests/register.test.mjs          # 29 uji pendaftaran asesi
+node tests/notify-ai.test.mjs         # 47 uji notifikasi & asisten AI (server tiruan di port 8098)
 ```

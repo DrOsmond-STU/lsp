@@ -22,6 +22,9 @@ const ICON = {
   menu:'<path d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/>',
   qr:'<path d="M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v8h-8V3Zm2 2v4h4V5h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Zm8-2h2v2h-2v-2Zm4 0h4v2h-2v2h-2v-4Zm-4 4h2v4h-2v-4Zm4 2h4v2h-4v-2Z"/>',
   star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/>',
+  spark:'<path d="M12 2l1.9 5.6 5.6 1.9-5.6 1.9L12 17l-1.9-5.6-5.6-1.9 5.6-1.9L12 2Zm6.5 11 1 2.9 2.9 1-2.9 1-1 2.9-1-2.9-2.9-1 2.9-1 1-2.9Z"/>',
+  close:'<path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4 6.4 5Z"/>',
+  send:'<path d="M3 20.5 21 12 3 3.5v6.6L15 12 3 13.9v6.6Z"/>',
   logout:'<path d="M10 3H4v18h6v-2H6V5h4V3Zm6.6 4.6L15.2 9l2 2H9v2h8.2l-2 2 1.4 1.4L21 12l-4.4-4.4Z"/>'
 };
 const ic = (n,c='ico') => `<svg class="${c}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${ICON[n]}</svg>`;
@@ -79,7 +82,9 @@ let CATALOG = [];       // listing tayang dari server
 const S = {role:'publik', page:'beranda', skema:'jwd', filter:'Semua', q:'', jadwal:0, step:0, appPage:'dashboard', lspCtx:'all',
   navOpen:false, verif:false, etab:'semua', form:null, pick:null, busy:false, loginErr:'', loginEmail:'', pwErr:'', userForm:false, userErr:'', formErr:'',
   listings:[], reviews:[], reviewStats:{approved_month:0,rejected_month:0}, users:[], assignable:[], rbac:null, loading:false,
-  profile:null, regErr:'', regDraft:null};
+  profile:null, regErr:'', regDraft:null,
+  notifs:[], unread:0, notifSettings:null, notifLog:null, nsErr:'', ai:{open:false, msgs:[], busy:false, err:''}, aiDraft:''};
+let AI_ON = false;      // kunci API AI sudah diisi di server
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /* Semua teks dari server di-escape sekali saat diterima, sehingga aman dipakai di template HTML. */
@@ -110,6 +115,8 @@ const can = p => !!ME && Array.isArray(ME.permissions) && ME.permissions.include
 function applyMe(data){
   CSRF = data.csrf || CSRF;
   ME = data.user ? {user:data.user, memberships:data.memberships||[], active:data.active, permissions:data.permissions||[]} : null;
+  AI_ON = !!data.ai_enabled;
+  if(typeof data.unread==='number') setUnread(data.unread);
   if(ME && ME.active){ S.role = UI_ROLE[ME.active.role] || 'publik'; }
   else { S.role = 'publik'; }
   return data;
@@ -121,6 +128,8 @@ async function loadReviews(){ if(can('listing.review')){ const d=await api('revi
 async function loadUsers(){ if(can('user.manage')){ const d=await api('users'); S.users=d.items; S.assignable=d.assignable_roles; } }
 async function loadRbac(){ if(can('rbac.view')) S.rbac=await api('rbac'); }
 async function loadProfile(){ if(can('profile.own')) S.profile=await api('profile'); }
+async function loadNotifs(){ const d=await api('notifications'); S.notifs=d.items; setUnread(d.unread); S.notifSettings=await api('notifications/settings'); }
+async function loadNotifLog(){ if(can('notif.log')) S.notifLog=await api('notifications/log'); }
 async function loadForPage(p){
   try{
     if(p==='etalase'||p==='dashboard') await loadListings();
@@ -128,6 +137,8 @@ async function loadForPage(p){
     if(p==='users'){ await loadUsers(); await loadRbac(); }
     if(p==='rbac') await loadRbac();
     if(p==='dashboard'||p==='profil') await loadProfile();
+    if(p==='notif') await loadNotifs();
+    if(p==='notiflog') await loadNotifLog();
   }catch(e){ toast(e.message); }
 }
 
@@ -504,6 +515,7 @@ function pDaftar(){
       <p class="muted" style="font-size:.82rem">Minimal 10 karakter, berisi huruf dan angka, dan tidak memuat nama email Anda.</p>
       <div aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden"><label>Website<input id="rg-website" tabindex="-1" autocomplete="off"></label></div>
       <label class="row" style="gap:.55rem;align-items:flex-start;font-size:.9rem;flex-wrap:nowrap"><input type="checkbox" id="rg-privacy" ${d.consent_privacy?'checked':''} style="width:auto;margin-top:.25rem"><span>Saya menyetujui syarat penggunaan dan kebijakan privasi. Data diri saya disimpan oleh PortalLSP dan hanya dibagikan ke LSP yang saya pilih saat mendaftar skema. <b>(wajib)</b></span></label>
+      <label class="row" style="gap:.55rem;align-items:flex-start;font-size:.9rem;flex-wrap:nowrap"><input type="checkbox" id="rg-wa" ${d.consent_wa?'checked':''} style="width:auto;margin-top:.25rem"><span>Kirim notifikasi status pendaftaran dan jadwal uji lewat WhatsApp ke nomor di atas. (opsional)</span></label>
       <label class="row" style="gap:.55rem;align-items:flex-start;font-size:.9rem;flex-wrap:nowrap"><input type="checkbox" id="rg-marketing" ${d.consent_marketing?'checked':''} style="width:auto;margin-top:.25rem"><span>Saya mau menerima info jadwal uji dan promo lewat email/WhatsApp. Bisa berhenti kapan saja. (opsional)</span></label>
       <div class="spread"><button type="button" class="btn ghost" data-go="login">Sudah punya akun? Masuk</button><button class="btn lg green" type="submit" ${S.busy?'disabled':''}>${S.busy?'Mendaftarkan…':'Buat akun'}</button></div>
     </form></div></section>`;
@@ -554,15 +566,15 @@ function pDenied(){
 const MENU = {
   asesi:[['dashboard','Beranda','home','asesi.dashboard'],['skema','Daftar Skema Baru','search','application.own'],['jadwal','Jadwal Saya','cal','application.own'],['bayar','Pembayaran','wallet','payment.own'],['sertifikat','Dompet Sertifikat','cert','certificate.own'],['kelas','Kelas Saya','book','class.own'],['profil','Profil & Dokumen','users','profile.own']],
   asesor:[['dashboard','Beranda','home','asesor.dashboard'],['kalender','Kalender Gabungan','cal','asesor.dashboard'],['pra','Tinjau Pra-Asesmen','doc','preassessment.review'],['asesmen','Asesmen (MUK/FR)','check','assessment.conduct'],['pleno','Pleno','shield','pleno.participate'],['riwayat','Riwayat & Logbook','book','asesor.history'],['honor','Honor','money','asesor.honor']],
-  admin:[['g','Operasional'],['dashboard','Dashboard','home','lsp.dashboard'],['daftar','Pendaftaran','doc','registration.verify'],['jadwalA','Jadwal & Penugasan','cal','schedule.manage'],['asesmenA','Asesmen','check','assessment.monitor'],['plenoA','Pleno & Sertifikat','cert','decision.manage'],['g','Data'],['master','Skema, Asesor, TUK','build','master.manage'],['alumni','Database Alumni','users','alumni.view'],['g','Manajemen'],['etalase','Etalase & Pelatihan','wallet','listing.manage'],['mutu','Mutu (Pedoman 201)','shield','quality.manage'],['keuangan','Keuangan','money','finance.manage'],['crm','CRM','chat','crm.manage'],['laporan','Laporan BNSP','chart','report.bnsp'],['users','Pengguna & Hak Akses','users','user.manage'],['setting','Profil LSP & Pengaturan','gear','settings.manage']],
+  admin:[['g','Operasional'],['dashboard','Dashboard','home','lsp.dashboard'],['daftar','Pendaftaran','doc','registration.verify'],['jadwalA','Jadwal & Penugasan','cal','schedule.manage'],['asesmenA','Asesmen','check','assessment.monitor'],['plenoA','Pleno & Sertifikat','cert','decision.manage'],['g','Data'],['master','Skema, Asesor, TUK','build','master.manage'],['alumni','Database Alumni','users','alumni.view'],['g','Manajemen'],['etalase','Etalase & Pelatihan','wallet','listing.manage'],['mutu','Mutu (Pedoman 201)','shield','quality.manage'],['keuangan','Keuangan','money','finance.manage'],['crm','CRM','chat','crm.manage'],['laporan','Laporan BNSP','chart','report.bnsp'],['users','Pengguna & Hak Akses','users','user.manage'],['notiflog','Log Notifikasi','bell','notif.log'],['setting','Profil LSP & Pengaturan','gear','settings.manage']],
   tuk:[['dashboard','Dashboard TUK','home','tuk.dashboard'],['pemohon','Pemohon','doc','tuk.applicants'],['jadwalT','Jadwal','cal','tuk.schedule'],['sarpras','Sarana & Prasarana','build','tuk.facility'],['chat','Group Chat','chat','tuk.chat'],['alumniT','Alumni TUK','users','tuk.alumni']],
-  super:[['dashboard','Ringkasan Platform','home','platform.dashboard'],['approval','Persetujuan Listing','check','listing.review'],['lspList','LSP Klien','build','lsp.manage'],['paket','Paket & Tagihan','money','lsp.manage'],['pustaka','Pustaka SKKNI','book','lsp.manage'],['support','Tiket Support','chat','lsp.manage'],['audit','Log Akses Support','shield','lsp.manage'],['rbac','Peran & Hak Akses','gear','rbac.view']]
+  super:[['dashboard','Ringkasan Platform','home','platform.dashboard'],['approval','Persetujuan Listing','check','listing.review'],['lspList','LSP Klien','build','lsp.manage'],['paket','Paket & Tagihan','money','lsp.manage'],['pustaka','Pustaka SKKNI','book','lsp.manage'],['support','Tiket Support','chat','lsp.manage'],['audit','Log Akses Support','shield','lsp.manage'],['rbac','Peran & Hak Akses','gear','rbac.view'],['notiflog','Log Notifikasi','bell','notif.log']]
 };
 function visibleMenu(){
   const items=(MENU[S.role]||[]).filter(it=>it[0]==='g'||can(it[3]));
   return items.filter((it,i)=>it[0]!=='g'||(items[i+1]&&items[i+1][0]!=='g'));
 }
-const allowedPage = p => p==='password' || visibleMenu().some(it=>it[0]===p);
+const allowedPage = p => p==='password' || p==='notif' || visibleMenu().some(it=>it[0]===p);
 
 /* ===================== Etalase LSP (dari API) ===================== */
 function pEtalase(){
@@ -667,7 +679,7 @@ function app(){
   const otherCtx=ME.memberships.length>1 && !multi;
   const lspOpts=ME.memberships.map(m=>m.lsp_nama).filter(Boolean);
   const p=S.appPage;
-  const pages={etalase:pEtalase,approval:pApproval,users:pUsers,rbac:pRbac,profil:pProfil};
+  const pages={etalase:pEtalase,approval:pApproval,users:pUsers,rbac:pRbac,profil:pProfil,notif:pNotif,notiflog:pNotifLog};
   const content=p==='password'?pChangePassword(false):!allowedPage(p)?pDenied():p==='dashboard'?dash():pages[p]?pages[p]():modul(p);
   const navItems=menu.map(it=>it[0]==='g'?`<div class="grp">${it[1]}</div>`:`<button data-go-app="${it[0]}" class="${p===it[0]?'on':''}">${ic(it[2])}${it[1]}${it[0]==='approval'&&S.reviews.length?`<span class="navbadge">${S.reviews.length}</span>`:''}</button>`).join('');
   const ctxLabel=ME.active.lsp_nama?(ME.active.tuk_nama?ME.active.tuk_nama:ME.active.lsp_nama):(ME.active.role==='asesi'?'Akun asesi pribadi':'Platform');
@@ -683,17 +695,114 @@ function app(){
         ${multi?`<label class="row" style="gap:.4rem;font-size:.82rem;font-weight:600" for="ctx"><span class="muted">Tampilkan</span><select id="ctx"><option value="all">Semua LSP</option>${lspOpts.map(l=>`<option ${S.lspCtx===l?'selected':''}>${l}</option>`).join('')}</select></label>`:
           otherCtx?`<label class="row" style="gap:.4rem;font-size:.82rem;font-weight:600" for="switch"><span class="muted">Konteks</span><select id="switch">${ME.memberships.map(m=>`<option value="${m.id}" ${m.id===ME.active.id?'selected':''}>${m.lsp_nama||'Platform'} · ${m.role_nama}</option>`).join('')}</select></label>`:
           `<span class="chip info">${ME.active.role_nama}</span>`}
-        <div class="row" style="margin-left:auto;gap:.6rem"><span class="avatar">${ME.user.nama.split(' ').map(w=>w[0]).join('').slice(0,2)}</span><div style="line-height:1.2"><b style="font-size:.86rem">${ME.user.nama}</b><div class="muted" style="font-size:.74rem">${ME.active.role_nama}${ME.active.lsp_nama?' · '+ME.active.lsp_nama:''}</div></div><button class="btn ghost sm" data-logout="1" aria-label="Keluar">${ic('logout')}</button></div>
+        <div class="row" style="margin-left:auto;gap:.6rem"><button class="bell" data-go-app="notif" aria-label="Notifikasi">${ic('bell')}<i id="bellBadge" ${S.unread?'':'hidden'}>${S.unread>99?'99+':S.unread}</i></button><span class="avatar">${ME.user.nama.split(' ').map(w=>w[0]).join('').slice(0,2)}</span><div style="line-height:1.2"><b style="font-size:.86rem">${ME.user.nama}</b><div class="muted" style="font-size:.74rem">${ME.active.role_nama}${ME.active.lsp_nama?' · '+ME.active.lsp_nama:''}</div></div><button class="btn ghost sm" data-logout="1" aria-label="Keluar">${ic('logout')}</button></div>
       </div>
-      <div class="menu-mobile">${menu.filter(i=>i[0]!=='g').map(it=>`<button data-go-app="${it[0]}" class="${p===it[0]?'on':''}">${it[1]}</button>`).join('')}<button data-go-app="password">Ganti password</button><button data-logout="1">Keluar</button></div>
+      <div class="menu-mobile">${menu.filter(i=>i[0]!=='g').map(it=>`<button data-go-app="${it[0]}" class="${p===it[0]?'on':''}">${it[1]}</button>`).join('')}<button data-go-app="notif" class="${p==='notif'?'on':''}">Notifikasi</button><button data-go-app="password">Ganti password</button><button data-logout="1">Keluar</button></div>
       <div class="content">${verifyBanner()}${content}</div>
     </div>
   </div>`;
 }
 
+/* ===================== Notifikasi ===================== */
+function setUnread(n){
+  S.unread=n;
+  const b=document.getElementById('bellBadge');
+  if(b){ b.textContent=n>99?'99+':String(n); b.hidden=!n; }
+}
+const fmtWaktu = s => s ? new Date(String(s).replace(' ','T')).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+function pNotif(){
+  const s=S.notifSettings;
+  const list=S.notifs.length?S.notifs.map(n=>`<button class="notif-item ${n.read?'':'unread'}" data-notif="${n.id}"><span class="dot"></span><span style="flex:1;min-width:0"><b>${n.title}</b><span class="muted" style="display:block;font-size:.86rem;margin-top:.15rem">${n.body}</span><span class="muted" style="font-size:.74rem">${fmtWaktu(n.created_at)}${n.lsp_nama?' · '+n.lsp_nama:''}</span></span></button>`).join(''):'<p class="muted">Belum ada notifikasi.</p>';
+  const d=S.nsDraft||{};
+  const waNum=d.wa_number??(s?s.wa_number||'':'');
+  const waOn=d.wa_on??(s?s.wa_on:false);
+  const settings=!s?'<p class="muted">Memuat pengaturan…</p>':`<form class="stack" id="notifForm" novalidate>
+      ${S.nsErr?`<p class="alert bad" role="alert">${esc(S.nsErr)}</p>`:''}
+      <label class="toggle"><input type="checkbox" id="ns-email" ${(d.email_on??s.email_on)?'checked':''}><span>Kirim ke email <b>${s.email}</b></span></label>
+      <label class="f">Nomor WhatsApp<input id="ns-wa" type="tel" inputmode="tel" maxlength="20" placeholder="08xxxxxxxxxx" value="${esc(waNum)}"></label>
+      <label class="toggle"><input type="checkbox" id="ns-wa-on" ${waOn?'checked':''}><span>Kirim juga ke WhatsApp</span></label>
+      <label class="toggle"><input type="checkbox" id="ns-wa-consent" ${waOn?'checked':''}><span class="muted" style="font-size:.84rem">Saya setuju menerima notifikasi PortalLSP lewat WhatsApp ke nomor ini. Saya bisa berhenti kapan saja dengan mematikannya di sini.</span></label>
+      ${s.wa_available?'':`<div class="alert info" style="font-size:.84rem">${ic('bell')}<span>Kanal WhatsApp belum diaktifkan pengelola platform. Pengaturan Anda tetap disimpan dan dipakai begitu kanal aktif.</span></div>`}
+      <p class="muted" style="font-size:.8rem">Email keamanan (${s.forced.join(', ').toLowerCase()}) selalu dikirim.</p>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn ghost sm" data-ntest="1">Kirim uji coba</button><button class="btn green sm" type="submit">${ic('check')}Simpan</button></div>
+    </form>`;
+  return `<div class="spread"><div><p class="eyebrow">Kotak masuk</p><h2>Notifikasi</h2></div>${S.unread?`<button class="btn ghost sm" data-readall="1">${ic('check')}Tandai semua dibaca</button>`:''}</div>
+  <div class="layout-2">
+    <div class="card"><div class="notif-list">${list}</div></div>
+    <div class="card stack"><div><h3>Kanal notifikasi</h3><p class="muted" style="font-size:.86rem;margin-top:.2rem">Notifikasi selalu tampil di aplikasi. Pilih kanal tambahan.</p></div>${settings}</div>
+  </div>`;
+}
+const OUT_ST = {antri:['info','Antre'],terkirim:['ok','Terkirim'],gagal:['bad','Gagal'],dilewati:['plain','Dilewati']};
+function pNotifLog(){
+  const L=S.notifLog;
+  if(!L) return '<div class="card"><p class="muted">Memuat log…</p></div>';
+  const c=L.channels, sm=L.summary;
+  const rows=L.items.length?L.items.map(r=>`<tr><td class="num" style="white-space:nowrap">${fmtWaktu(r.created_at)}</td><td>${r.title}<div class="muted mono" style="font-size:.72rem">${r.type}</div></td><td>${r.channel==='email'?'Email':'WhatsApp'}</td><td class="mono">${r.recipient}</td><td><span class="chip ${(OUT_ST[r.status]||OUT_ST.antri)[0]}">${(OUT_ST[r.status]||OUT_ST.antri)[1]}</span>${r.attempts>1?`<div class="muted" style="font-size:.72rem">${r.attempts}× coba</div>`:''}</td><td class="muted" style="font-size:.8rem">${r.error||(r.sent_at?'Terkirim '+fmtWaktu(r.sent_at):'')}</td></tr>`).join(''):'<tr><td colspan="6" class="muted">Belum ada pengiriman.</td></tr>';
+  return `<div class="spread"><div><p class="eyebrow">${ME.active.lsp_nama||'Semua LSP'}</p><h2>Log Notifikasi</h2></div><div class="row"><span class="chip ok">Email aktif</span><span class="chip ${c.whatsapp?'ok':'warn'}">WhatsApp ${c.whatsapp?'aktif'+(c.wa_driver?' · '+c.wa_driver:''):'belum dikonfigurasi'}</span></div></div>
+  <div class="grid g4">${kpi('check','green',sm.terkirim||0,'Terkirim')}${kpi('cal','blue',sm.antri||0,'Antre')}${kpi('shield','red',sm.gagal||0,'Gagal')}${kpi('bell','orange',sm.dilewati||0,'Dilewati')}</div>
+  <div class="card"><h3 style="margin-bottom:.7rem">100 pengiriman terakhir</h3><div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Notifikasi</th><th>Kanal</th><th>Penerima</th><th>Status</th><th>Keterangan</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p class="muted" style="font-size:.78rem;margin-top:.6rem">Penerima disamarkan. Pengiriman yang gagal dicoba ulang otomatis hingga 5 kali.</p></div>`;
+}
+
+/* ===================== Asisten AI ===================== */
+const AI_SUGGEST = {
+  asesi:['Bagaimana alur sertifikasi dari daftar sampai sertifikat?','Dokumen apa saja yang perlu saya siapkan?','Bagaimana cara mengaktifkan notifikasi WhatsApp?'],
+  asesor:['Apa yang perlu saya cek saat meninjau pra-asesmen?','Bagaimana melihat jadwal saya di beberapa LSP?'],
+  admin:['Ringkas status listing etalase LSP kami','Kenapa listing kami perlu revisi dan apa yang harus diperbaiki?','Bagaimana menambah pengguna baru?'],
+  tuk:['Apa saja tugas Admin TUK di aplikasi ini?'],
+  super:['Berapa listing yang menunggu persetujuan saya?','Apa yang perlu dicek saat kurasi listing?']
+};
+const unesc = s => String(s).replace(/&(amp|lt|gt|quot|#39);/g,(m,k)=>({amp:'&',lt:'<',gt:'>',quot:'"','#39':"'"}[k]));
+/* Teks asisten sudah di-escape oleh api(); di sini hanya diberi format ringan (tebal, daftar, baris baru). */
+function mdLite(t){
+  return String(t).split('\n').map(line=>{
+    const l=line.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+    if(/^\s*[-*•]\s+/.test(l)) return '<li>'+l.replace(/^\s*[-*•]\s+/,'')+'</li>';
+    if(/^#{1,4}\s+/.test(l)) return '<b>'+l.replace(/^#{1,4}\s+/,'')+'</b><br>';
+    return l+'<br>';
+  }).join('').replace(/(?:<li>.*?<\/li>)+/g,m=>'<ul>'+m+'</ul>').replace(/(?:<br>)+$/,'');
+}
+function renderAi(){
+  let el=document.getElementById('ai-root');
+  if(!el){ el=document.createElement('div'); el.id='ai-root'; document.body.appendChild(el); }
+  if(!(ME && S.inApp && can('ai.use') && !ME.user.must_change_password)){ el.innerHTML=''; return; }
+  const A=S.ai;
+  const fab=`<button class="ai-fab" data-ai-toggle="1" aria-expanded="${A.open}" aria-controls="ai-panel" aria-label="${A.open?'Tutup':'Buka'} Asisten AI">${ic(A.open?'close':'spark')}</button>`;
+  if(!A.open){ el.innerHTML=fab; return; }
+  const focused=document.activeElement && document.activeElement.id==='ai-input';
+  const hello=`<div class="ai-hello"><b>Halo, ${ME.user.nama.split(' ')[0]}!</b><p class="muted">Saya bisa menjelaskan alur sertifikasi, fitur PortalLSP, dan ringkasan data ${ME.active.lsp_nama?'di '+ME.active.lsp_nama:'akun Anda'}.</p>
+    <div class="ai-sug">${(AI_SUGGEST[S.role]||[]).map(q=>`<button data-ai-ask="${esc(q)}">${esc(q)}</button>`).join('')}</div></div>`;
+  const body=!AI_ON?`<div class="ai-hello"><b>Asisten AI belum aktif</b><p class="muted">${ME.active.role==='platform_admin'?'Isi <span class="mono">ai_api_key</span> di config.php server untuk mengaktifkannya.':'Pengelola platform belum mengaktifkan fitur ini.'}</p></div>`
+    :(A.msgs.length?A.msgs.map(m=>`<div class="ai-msg ${m.role}">${m.role==='user'?esc(m.text).replace(/\n/g,'<br>'):mdLite(m.text)}</div>`).join(''):hello)
+    +(A.busy?'<div class="ai-typing" aria-label="Asisten sedang mengetik"><span></span><span></span><span></span></div>':'')
+    +(A.err?`<p class="alert bad ai-err" role="alert">${esc(A.err)}</p>`:'');
+  el.innerHTML=fab+`<section class="ai-panel" id="ai-panel" role="dialog" aria-label="Asisten AI">
+    <div class="ai-top"><span class="logo-mark">${ic('spark')}</span><div><b>Asisten PortalLSP</b><small>AI · jawaban bisa keliru</small></div>${A.msgs.length?`<button class="btn glass sm" data-ai-clear="1">Baru</button>`:''}</div>
+    <div class="ai-body" id="ai-body" aria-live="polite">${body}</div>
+    <form class="ai-form" id="aiForm"><textarea id="ai-input" rows="1" maxlength="2000" placeholder="Tulis pertanyaan…" aria-label="Pertanyaan untuk asisten" ${!AI_ON||A.busy?'disabled':''}>${esc(S.aiDraft)}</textarea><button class="btn purple" type="submit" aria-label="Kirim" ${!AI_ON||A.busy?'disabled':''}>${ic('send')}</button></form>
+    <p class="ai-note">Jangan menuliskan NIK, password, atau data pribadi. Pesan diproses penyedia AI (Anthropic) dan tidak disimpan di PortalLSP.</p>
+  </section>`;
+  const b=document.getElementById('ai-body'); if(b) b.scrollTop=b.scrollHeight;
+  if(focused||A.justOpened){ const i=document.getElementById('ai-input'); if(i&&!i.disabled){ i.focus(); i.setSelectionRange(i.value.length,i.value.length); } A.justOpened=false; }
+}
+async function aiSend(text){
+  text=String(text||'').trim();
+  if(!text||S.ai.busy||!AI_ON) return;
+  if(text.length>2000){ toast('Pesan maksimal 2000 karakter.'); return; }
+  S.ai.msgs.push({role:'user',text}); S.ai.busy=true; S.ai.err=''; S.aiDraft=''; renderAi();
+  let hist=S.ai.msgs.slice(-11); while(hist.length && hist[0].role!=='user') hist=hist.slice(1);
+  try{
+    const r=await api('ai/chat',{messages:hist.map(m=>({role:m.role,content:m.role==='user'?m.text:unesc(m.text)}))});
+    S.ai.msgs.push({role:'assistant',text:r.reply+(r.truncated?' …':'')});
+  }catch(e){ S.ai.msgs.pop(); S.ai.err=e.message; S.aiDraft=text; }
+  S.ai.busy=false; S.ai.justOpened=true; renderAi();
+}
+function resetPrivateState(){ S.ai={open:false,msgs:[],busy:false,err:''}; S.aiDraft=''; S.notifs=[]; S.notifSettings=null; S.notifLog=null; S.nsDraft=null; setUnread(0); }
+
 /* ===================== Render & event ===================== */
 function render(){
   $('#root').innerHTML = (ME && S.role!=='publik' && S.inApp) ? app() : publik();
+  renderAi();
 }
 async function enterApp(){
   S.inApp=true; S.appPage='dashboard'; S.lspCtx='all';
@@ -702,7 +811,7 @@ async function enterApp(){
 }
 async function logout(){
   try{ applyMe(await api('auth/logout',{})); }catch(e){}
-  ME=null; S.inApp=false; S.role='publik'; S.listings=[]; S.reviews=[]; S.users=[]; S.rbac=null;
+  ME=null; S.inApp=false; S.role='publik'; S.listings=[]; S.reviews=[]; S.users=[]; S.rbac=null; resetPrivateState();
   go('beranda'); toast('Anda sudah keluar.');
 }
 /* Saat menunggu server: matikan tombol tanpa render ulang, agar isian form tidak hilang. */
@@ -749,6 +858,16 @@ document.addEventListener('click',async e=>{
       return}
     if(d.userform!==undefined){S.userForm=d.userform==='1';S.userErr='';S.userDraft=null;render();return}
     if(d.ustatus){busy(true);try{await api('users/status',{membership_id:Number(d.ustatus),status:d.to});toast(d.to==='aktif'?'Akses pengguna diaktifkan.':'Akses pengguna dinonaktifkan.');await loadUsers();}finally{busy(false)}return}
+    if(d.aiToggle){S.ai.open=!S.ai.open;S.ai.justOpened=S.ai.open;renderAi();return}
+    if(d.aiAsk){await aiSend(d.aiAsk);return}
+    if(d.aiClear){S.ai.msgs=[];S.ai.err='';renderAi();return}
+    if(d.notif){
+      const n=S.notifs.find(x=>x.id===Number(d.notif)); if(!n) return;
+      if(!n.read){ const r=await api('notifications/read',{id:n.id}); n.read=true; setUnread(r.unread); }
+      if(n.page && n.page!=='notif' && allowedPage(n.page)){ await goApp(n.page); } else render();
+      return}
+    if(d.readall){const r=await api('notifications/read',{all:true});S.notifs.forEach(n=>n.read=true);setUnread(r.unread);render();return}
+    if(d.ntest){busy(true);try{const r=await api('notifications/test',{});await loadNotifs();toast(r.channels.length?'Uji coba dikirim ke '+r.channels.join(' dan ')+'. Biasanya tiba dalam 1–2 menit.':'Uji coba hanya tampil di aplikasi karena semua kanal tambahan mati.');}finally{busy(false)}return}
     if(d.resend){busy(true);try{await api('auth/resend-verification',{});toast('Email verifikasi dikirim ulang. Periksa kotak masuk dan folder spam.');}finally{busy(false)}return}
     if(d.toast){toast(d.toast)}
   }catch(err){ toast(err.message); render(); }
@@ -769,10 +888,12 @@ document.addEventListener('change',async e=>{
   if(e.target.name==='jd'){S.jadwal=Number(e.target.value);render()}
   if(e.target.id==='ctx'){S.lspCtx=e.target.value;render()}
   if(e.target.id==='switch'){
-    try{ applyMe(await api('auth/switch',{membership_id:Number(e.target.value)})); await enterApp(); toast('Konteks diganti.'); }
+    try{ applyMe(await api('auth/switch',{membership_id:Number(e.target.value)})); S.ai.msgs=[]; S.ai.err=''; S.notifLog=null; await enterApp(); toast('Konteks diganti.'); }
     catch(err){ toast(err.message); render(); }
   }
 });
+document.addEventListener('input',e=>{if(e.target.id==='ai-input'){S.aiDraft=e.target.value;e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px';return}});
+document.addEventListener('keydown',e=>{if(e.target.id==='ai-input'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();aiSend(e.target.value)}if(e.key==='Escape'&&S.ai.open){S.ai.open=false;renderAi()}});
 document.addEventListener('input',e=>{if(e.target.id==='cq'){S.q=e.target.value;const pos=e.target.selectionStart;render();const n=$('#cq');n.focus();n.setSelectionRange(pos,pos)}});
 document.addEventListener('submit',async e=>{
   e.preventDefault();
@@ -798,13 +919,23 @@ document.addEventListener('submit',async e=>{
   if(id==='daftarForm'){
     const jk=document.querySelector('input[name="rg-jk"]:checked');
     const payload={nama:$('#rg-nama').value.trim(),nik:$('#rg-nik').value.replace(/\s+/g,''),tanggal_lahir:$('#rg-tgl').value,jenis_kelamin:jk?jk.value:'',
-      email:$('#rg-email').value.trim(),no_hp:$('#rg-hp').value.trim(),password:$('#rg-pass').value,consent_privacy:$('#rg-privacy').checked,consent_marketing:$('#rg-marketing').checked,website:$('#rg-website').value};
+      email:$('#rg-email').value.trim(),no_hp:$('#rg-hp').value.trim(),password:$('#rg-pass').value,consent_privacy:$('#rg-privacy').checked,consent_marketing:$('#rg-marketing').checked,consent_wa:$('#rg-wa').checked,website:$('#rg-website').value};
     const draft={...payload}; delete draft.password; delete draft.website; S.regDraft=draft;
     const err=!payload.nama?'Isi nama lengkap.':!/^\d{16}$/.test(payload.nik)?'NIK harus 16 digit angka.':!payload.tanggal_lahir?'Isi tanggal lahir.':!payload.jenis_kelamin?'Pilih jenis kelamin.':!payload.email?'Isi email.':!payload.no_hp?'Isi nomor HP.':payload.password.length<10?'Password minimal 10 karakter.':payload.password!==$('#rg-pass2').value?'Ulangi password dengan benar.':!payload.consent_privacy?'Setujui syarat dan kebijakan privasi untuk mendaftar.':'';
     if(err){S.regErr=err;render();window.scrollTo(0,0);return}
     S.regErr=''; busy(true);
     try{ applyMe(await api('auth/register',payload)); S.busy=false; S.regDraft=null; await enterApp(); toast('Akun dibuat. Kami mengirim tautan verifikasi ke '+ME.user.email+'.'); }
     catch(err2){ S.regErr=err2.message; busy(false); window.scrollTo(0,0); }
+  }
+  if(id==='aiForm'){ await aiSend($('#ai-input').value); return; }
+  if(id==='notifForm'){
+    const payload={email_on:$('#ns-email').checked,wa_number:$('#ns-wa').value.trim(),wa_on:$('#ns-wa-on').checked,wa_consent:$('#ns-wa-consent').checked};
+    if(payload.wa_on&&!payload.wa_number){S.nsErr='Isi nomor WhatsApp untuk mengaktifkan notifikasi WhatsApp.';S.nsDraft=payload;render();return}
+    if(payload.wa_on&&!payload.wa_consent){S.nsErr='Centang persetujuan menerima notifikasi lewat WhatsApp.';S.nsDraft=payload;render();return}
+    S.nsErr=''; busy(true);
+    try{ S.notifSettings=await api('notifications/settings',payload); S.nsDraft=null; toast('Pengaturan notifikasi disimpan.'); }
+    catch(err){ S.nsErr=err.message; S.nsDraft=payload; }
+    finally{ busy(false); }
   }
   if(id==='userForm'){
     const payload={nama:$('#uf-nama').value,email:$('#uf-email').value,role:$('#uf-role').value,password:$('#uf-pass').value};
@@ -816,6 +947,12 @@ document.addEventListener('submit',async e=>{
 });
 
 /* ===================== Mulai ===================== */
+(function loadCss(){ const l=document.createElement('link'); l.rel='stylesheet'; l.href='fitur.css'; document.head.appendChild(l); })();
+/* Cek notifikasi baru tiap 60 detik saat tab terlihat. Permintaan ini tidak memperpanjang sesi. */
+setInterval(async()=>{
+  if(!ME||!S.inApp||document.visibilityState!=='visible') return;
+  try{ setUnread((await api('notifications/count')).unread); }catch(e){}
+},60000);
 (async function boot(){
   render();
   try{

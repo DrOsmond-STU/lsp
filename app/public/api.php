@@ -8,8 +8,9 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
 
 try {
     migrate();
-    start_session();
     $route = isset($_GET['r']) && is_string($_GET['r']) ? $_GET['r'] : '';
+    // Polling jumlah notifikasi tidak dihitung sebagai aktivitas, jadi batas idle 30 menit tetap berlaku.
+    start_session($route !== 'notifications/count');
     dispatch($route);
 } catch (Throwable $e) {
     error_log('[lsp-api] ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());

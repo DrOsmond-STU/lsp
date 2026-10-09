@@ -22,5 +22,7 @@ require __DIR__ . '/http.php';
 require __DIR__ . '/rbac.php';
 require __DIR__ . '/auth.php';
 require __DIR__ . '/asesi.php';
+require __DIR__ . '/notify.php';
+require __DIR__ . '/ai.php';
 require __DIR__ . '/migrations.php';
 require __DIR__ . '/routes.php';

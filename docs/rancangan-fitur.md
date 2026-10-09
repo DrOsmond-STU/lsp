@@ -431,12 +431,12 @@ NAS hanya menyebut "dokumen manajemen". Untuk LSP, modul mutu inilah yang paling
 |---|---|---|
 | Notifikasi proses asesmen | ✅ | P1 |
 | Group chat asesmen | ✅ | P2 |
-| **Multi-kanal**: WhatsApp (API resmi), email, push notification, SMS | 🆕 | P1 |
+| **Multi-kanal**: WhatsApp (API resmi), email, push notification, SMS | 🛠️ email + WhatsApp (Fonnte / Cloud API) sudah dibangun, dengan opt-in WA & antrean kirim ulang | P1 |
 | **Template notifikasi** yang bisa diubah admin LSP | 🆕 | P2 |
 | Pengumuman / broadcast ke segmen tertentu | 🆕 | P2 |
 | **Helpdesk / tiket dukungan** di dalam aplikasi (bukan hanya telepon jam kerja) | 🆕 | P2 |
-| Chatbot FAQ asesi 24 jam | 🆕 | P3 |
-| **Kotak notifikasi di dalam aplikasi** (lonceng, tanda belum dibaca) | 🆕 | P1 |
+| Chatbot FAQ asesi 24 jam | 🛠️ dibangun sebagai Asisten AI (lihat bagian 17) | P3 |
+| **Kotak notifikasi di dalam aplikasi** (lonceng, tanda belum dibaca) | 🛠️ sudah dibangun, plus log pengiriman untuk Admin LSP/Platform | P1 |
 | **Pengingat jadwal** H-3 & H-1 ke asesi, asesor, TUK + konfirmasi kehadiran | 🆕 | P1 |
 | Preferensi notifikasi per user (kanal & jenis yang ingin diterima) | 🆕 | P2 |
 
@@ -724,6 +724,7 @@ Deck NAS menyebut "*untuk paket Basic*", artinya fitur dibedakan per paket. Apli
 | Generator draf soal dari unit kompetensi/KUK (wajib divalidasi manusia) | P3 |
 | Deteksi kecurangan SJJ (wajah berbeda, suara orang lain, jawaban identik antarpeserta) | P3 |
 | Chatbot asesi berbasis dokumen skema & FAQ LSP | P3 |
+| 🛠️ **Asisten AI di aplikasi** (sudah dibangun): tombol AI melayang untuk semua peran; menjawab alur sertifikasi & cara pakai, meringkas data milik pengguna/LSP-nya sendiri; NIK/email/HP disamarkan; tidak membuatkan jawaban uji; dibatasi per pengguna & per hari | P1 |
 
 ---
 
