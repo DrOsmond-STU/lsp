@@ -115,6 +115,10 @@ function migrations(): array
             }
             seed_rbac_missing();
         },
+        4 => function (): void {
+            // Admin Platform memegang semua hak akses (sinkronkan matriks di database).
+            seed_rbac_missing();
+        },
     ];
 }
 
@@ -126,7 +130,7 @@ function seed_rbac(): void
     foreach (PERM_DEFS as $code => $desc) {
         q('INSERT INTO permissions (code, deskripsi) VALUES (?, ?)', [$code, $desc]);
     }
-    foreach (ROLE_PERMS as $role => $perms) {
+    foreach (role_perm_map() as $role => $perms) {
         foreach ($perms as $p) {
             q('INSERT INTO role_permissions (role_code, perm_code) VALUES (?, ?)', [$role, $p]);
         }
@@ -141,7 +145,7 @@ function seed_rbac_missing(): void
             q('INSERT INTO permissions (code, deskripsi) VALUES (?, ?)', [$code, $desc]);
         }
     }
-    foreach (ROLE_PERMS as $role => $perms) {
+    foreach (role_perm_map() as $role => $perms) {
         foreach ($perms as $p) {
             if (!q('SELECT 1 FROM role_permissions WHERE role_code = ? AND perm_code = ?', [$role, $p])->fetch()) {
                 q('INSERT INTO role_permissions (role_code, perm_code) VALUES (?, ?)', [$role, $p]);

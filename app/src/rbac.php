@@ -60,8 +60,8 @@ const PERM_DEFS = [
     'ai.use'                => 'Memakai asisten AI',
 ];
 
+/** Admin Platform tidak dicantumkan di sini: ia selalu memegang SEMUA hak akses (lihat role_perm_map). */
 const ROLE_PERMS = [
-    'platform_admin' => ['platform.dashboard', 'listing.review', 'lsp.manage', 'rbac.view', 'notif.log', 'ai.use'],
     'admin_lsp'      => ['lsp.dashboard', 'registration.verify', 'schedule.manage', 'assessment.monitor', 'decision.manage',
                          'master.manage', 'alumni.view', 'listing.manage', 'quality.manage', 'finance.manage', 'crm.manage',
                          'report.bnsp', 'settings.manage', 'user.manage', 'rbac.view', 'notif.log', 'ai.use'],
@@ -72,6 +72,17 @@ const ROLE_PERMS = [
     'asesor'         => ['asesor.dashboard', 'preassessment.review', 'assessment.conduct', 'pleno.participate', 'asesor.history', 'asesor.honor', 'ai.use'],
     'asesi'          => ['asesi.dashboard', 'application.own', 'payment.own', 'certificate.own', 'class.own', 'profile.own', 'ai.use'],
 ];
+
+/** Peta peran → hak akses, termasuk Admin Platform yang mendapat semua hak akses. */
+function role_perm_map(): array
+{
+    return ['platform_admin' => array_keys(PERM_DEFS)] + ROLE_PERMS;
+}
+
+function is_platform(?array $m): bool
+{
+    return $m !== null && $m['role'] === 'platform_admin';
+}
 
 /** Peran yang boleh diberikan Admin LSP kepada pengguna di LSP-nya. */
 const LSP_ASSIGNABLE_ROLES = ['admin_lsp', 'manajer_mutu', 'keuangan', 'marketing'];
@@ -89,6 +100,9 @@ function permissions_for(?array $membership): array
         return [];
     }
     $role = $membership['role'];
+    if ($role === 'platform_admin') {
+        return array_keys(PERM_DEFS); // akses penuh ke semua menu dan semua LSP
+    }
     if (!isset($cache[$role])) {
         $cache[$role] = q('SELECT perm_code FROM role_permissions WHERE role_code = ? ORDER BY perm_code', [$role])
             ->fetchAll(PDO::FETCH_COLUMN);

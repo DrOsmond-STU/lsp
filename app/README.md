@@ -22,7 +22,9 @@ app/
 - Akun baru dari Admin LSP wajib ganti password saat login pertama; API lain diblokir sampai diganti.
 - RBAC dari tabel `roles`, `permissions`, `role_permissions`; diperiksa di server pada setiap endpoint.
 - Isolasi LSP: semua query listing/pengguna memakai `lsp_id` dari keanggotaan aktif di sesi (bukan dari input);
-  data LSP lain dibalas 404. Peran internal LSP hanya boleh satu keanggotaan; asesor/asesi boleh banyak.
+  data LSP lain dibalas 404.
+- Admin Platform memegang semua hak akses dan melihat data semua LSP (menu LSP Klien, etalase, pengguna, log),
+  dengan filter LSP opsional `?lsp=ID`. Parameter ini diabaikan untuk peran lain. Peran internal LSP hanya boleh satu keanggotaan; asesor/asesi boleh banyak.
 - Akun dibaca ulang dari DB tiap request, jadi akun/keanggotaan nonaktif langsung kehilangan akses.
 - Log audit untuk login, logout, akses ditolak, perubahan listing, keputusan kurasi, dan manajemen pengguna.
 - Header keamanan & CSP ketat (`script-src 'self'`), HTTPS + HSTS, semua teks dari server di-escape di klien.
@@ -54,4 +56,5 @@ php -S 127.0.0.1:8099 -t public
 node tests/api.test.mjs               # 49 uji autentikasi, CSRF, RBAC, isolasi LSP
 node tests/register.test.mjs          # 29 uji pendaftaran asesi
 node tests/notify-ai.test.mjs         # 47 uji notifikasi & asisten AI (server tiruan di port 8098)
+node tests/platform.test.mjs          # 21 uji akses penuh Admin Platform + isolasi Admin LSP
 ```

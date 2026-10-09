@@ -34,6 +34,7 @@ function dispatch(string $route): void
         'notifications/test' => 'r_notif_test',
         'notifications/log' => 'r_notif_log',
         'ai/chat' => 'r_ai_chat',
+        'lsps' => 'r_lsps',
     ];
     if (!isset($routes[$route])) {
         fail('Alamat API tidak ditemukan.', 404);
@@ -75,10 +76,39 @@ function r_catalog(): void
     json_out(['items' => array_map(function ($r) { return listing_row($r, false); }, $rows)]);
 }
 
-/** Ambil listing milik LSP aktif; listing LSP lain diperlakukan seperti tidak ada (404). */
-function own_listing(int $id, int $lspId): array
+/**
+ * Cakupan LSP untuk endpoint data LSP.
+ * Admin Platform: semua LSP (null), atau satu LSP bila memilih filter ?lsp=ID.
+ * Peran lain: selalu LSP aktif di sesi; tidak pernah dari input klien.
+ */
+function scope_lsp(array $m): ?int
 {
-    $row = q('SELECT l.*, s.nama AS lsp_nama FROM listings l JOIN lsp s ON s.id = l.lsp_id WHERE l.id = ? AND l.lsp_id = ?', [$id, $lspId])->fetch();
+    if (is_platform($m)) {
+        $f = isset($_GET['lsp']) && is_string($_GET['lsp']) && ctype_digit($_GET['lsp']) ? (int)$_GET['lsp'] : 0;
+        return $f > 0 ? $f : null;
+    }
+    if ($m['lsp_id'] === null) {
+        fail('Pilih konteks LSP terlebih dahulu.', 403);
+    }
+    return (int)$m['lsp_id'];
+}
+
+/** LSP tujuan saat Admin Platform membuat data atas nama sebuah LSP. */
+function target_lsp(): array
+{
+    $l = q("SELECT id, nama FROM lsp WHERE id = ? AND status = 'aktif'", [int_in('lsp_id')])->fetch();
+    if (!$l) {
+        fail('Pilih LSP tujuan.', 422);
+    }
+    return $l;
+}
+
+/** Ambil listing dalam cakupan; listing LSP lain diperlakukan seperti tidak ada (404). Admin Platform: semua. */
+function own_listing(int $id, array $m): array
+{
+    $row = is_platform($m)
+        ? q('SELECT l.*, s.nama AS lsp_nama FROM listings l JOIN lsp s ON s.id = l.lsp_id WHERE l.id = ?', [$id])->fetch()
+        : q('SELECT l.*, s.nama AS lsp_nama FROM listings l JOIN lsp s ON s.id = l.lsp_id WHERE l.id = ? AND l.lsp_id = ?', [$id, (int)$m['lsp_id']])->fetch();
     if (!$row) {
         audit('access.denied', 'listing:' . $id);
         fail('Listing tidak ditemukan.', 404);
@@ -89,13 +119,15 @@ function own_listing(int $id, int $lspId): array
 function r_listings(): void
 {
     $m = require_perm('listing.manage');
-    $lspId = (int)$m['lsp_id'];
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $rows = q('SELECT l.*, s.nama AS lsp_nama FROM listings l JOIN lsp s ON s.id = l.lsp_id WHERE l.lsp_id = ? ORDER BY l.updated_at DESC, l.id DESC', [$lspId])->fetchAll();
+        $scope = scope_lsp($m);
+        $rows = q('SELECT l.*, s.nama AS lsp_nama FROM listings l JOIN lsp s ON s.id = l.lsp_id'
+            . ($scope === null ? '' : ' WHERE l.lsp_id = ?') . ' ORDER BY l.updated_at DESC, l.id DESC', $scope === null ? [] : [$scope])->fetchAll();
         json_out(['items' => array_map(function ($r) { return listing_row($r, true); }, $rows)]);
     }
     require_method('POST');
     csrf_check();
+    $lspId = is_platform($m) ? (int)target_lsp()['id'] : (int)scope_lsp($m);
     $tipe = str_in('tipe', 20);
     $judul = str_in('judul', 150, 'Judul');
     $bidang = str_in('bidang', 40);
@@ -132,11 +164,11 @@ function r_listing_submit(): void
     require_method('POST');
     csrf_check();
     $m = require_perm('listing.manage');
-    $row = own_listing(int_in('id'), (int)$m['lsp_id']);
+    $row = own_listing(int_in('id'), $m);
     if (!in_array($row['status'], ['draf', 'revisi'], true)) fail('Listing ini tidak bisa diajukan pada status sekarang.', 409);
     if (text_len($row['deskripsi']) < 20) fail('Lengkapi deskripsi (minimal 20 karakter) sebelum diajukan.', 422);
     q("UPDATE listings SET status = 'menunggu', catatan = NULL, submitted_at = ?, updated_at = ? WHERE id = ? AND lsp_id = ?",
-        [now(), now(), $row['id'], $m['lsp_id']]);
+        [now(), now(), $row['id'], $row['lsp_id']]);
     audit('listing.submitted', 'listing:' . $row['id']);
     notify_listing_submitted((int)$row['id']);
     json_out(['ok' => true]);
@@ -147,9 +179,9 @@ function r_listing_withdraw(): void
     require_method('POST');
     csrf_check();
     $m = require_perm('listing.manage');
-    $row = own_listing(int_in('id'), (int)$m['lsp_id']);
+    $row = own_listing(int_in('id'), $m);
     if ($row['status'] !== 'menunggu') fail('Hanya pengajuan yang sedang menunggu yang bisa ditarik.', 409);
-    q("UPDATE listings SET status = 'draf', updated_at = ? WHERE id = ? AND lsp_id = ?", [now(), $row['id'], $m['lsp_id']]);
+    q("UPDATE listings SET status = 'draf', updated_at = ? WHERE id = ? AND lsp_id = ?", [now(), $row['id'], $row['lsp_id']]);
     audit('listing.withdrawn', 'listing:' . $row['id']);
     json_out(['ok' => true]);
 }
@@ -192,14 +224,15 @@ function r_review_decide(): void
 function r_users(): void
 {
     $m = require_perm('user.manage');
-    $lspId = (int)$m['lsp_id'];
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $rows = q('SELECT m.id, m.role, m.status, u.nama, u.email, u.last_login_at, t.nama AS tuk_nama
-                   FROM memberships m JOIN users u ON u.id = m.user_id LEFT JOIN tuk t ON t.id = m.tuk_id
-                   WHERE m.lsp_id = ? ORDER BY m.status, m.role, u.nama', [$lspId])->fetchAll();
+        // Admin Platform: semua keanggotaan di semua LSP (termasuk akun platform & asesi pribadi) bila tanpa filter.
+        $scope = scope_lsp($m);
+        $rows = q('SELECT m.id, m.role, m.status, u.nama, u.email, u.last_login_at, t.nama AS tuk_nama, l.nama AS lsp_nama
+                   FROM memberships m JOIN users u ON u.id = m.user_id LEFT JOIN tuk t ON t.id = m.tuk_id LEFT JOIN lsp l ON l.id = m.lsp_id'
+                   . ($scope === null ? '' : ' WHERE m.lsp_id = ?') . ' ORDER BY l.nama, m.status, m.role, u.nama', $scope === null ? [] : [$scope])->fetchAll();
         $items = array_map(function ($r) use ($m) {
             return ['membership_id' => (int)$r['id'], 'nama' => $r['nama'], 'email' => $r['email'], 'role' => $r['role'],
-                'role_nama' => role_label($r['role']), 'status' => $r['status'], 'tuk_nama' => $r['tuk_nama'],
+                'role_nama' => role_label($r['role']), 'status' => $r['status'], 'tuk_nama' => $r['tuk_nama'], 'lsp_nama' => $r['lsp_nama'],
                 'last_login_at' => $r['last_login_at'], 'is_me' => (int)$r['id'] === (int)$m['id']];
         }, $rows);
         $roles = array_map(function ($c) { return ['code' => $c, 'nama' => role_label($c)]; }, LSP_ASSIGNABLE_ROLES);
@@ -207,6 +240,8 @@ function r_users(): void
     }
     require_method('POST');
     csrf_check();
+    $target = is_platform($m) ? target_lsp() : ['id' => (int)scope_lsp($m), 'nama' => $m['lsp_nama']];
+    $lspId = (int)$target['id'];
     $nama = str_in('nama', 120, 'Nama');
     $email = strtolower(str_in('email', 190, 'Email'));
     $role = str_in('role', 40);
@@ -236,7 +271,7 @@ function r_users(): void
     audit('user.created', $email . ' as ' . $role);
     // Password sementara tidak pernah dikirim lewat email/WA; diserahkan langsung oleh admin.
     notify([$uid], $lspId, 'akun.dibuat', 'Akun PortalLSP Anda sudah dibuat',
-        'Anda ditambahkan sebagai ' . role_label($role) . ' di ' . $m['lsp_nama'] . '. Minta password sementara kepada Admin LSP Anda, lalu ganti saat pertama masuk.');
+        'Anda ditambahkan sebagai ' . role_label($role) . ' di ' . $target['nama'] . '. Minta password sementara kepada Admin LSP Anda, lalu ganti saat pertama masuk.');
     json_out(['ok' => true], 201);
 }
 
@@ -248,22 +283,28 @@ function r_user_status(): void
     $mid = int_in('membership_id');
     $status = str_in('status', 20);
     if (!in_array($status, ['aktif', 'nonaktif'], true)) fail('Status tidak valid.', 422);
-    $row = q('SELECT id, user_id, role, status FROM memberships WHERE id = ? AND lsp_id = ?', [$mid, $m['lsp_id']])->fetch();
+    $row = is_platform($m)
+        ? q('SELECT m.id, m.user_id, m.role, m.status, m.lsp_id, l.nama AS lsp_nama FROM memberships m LEFT JOIN lsp l ON l.id = m.lsp_id WHERE m.id = ?', [$mid])->fetch()
+        : q('SELECT m.id, m.user_id, m.role, m.status, m.lsp_id, l.nama AS lsp_nama FROM memberships m LEFT JOIN lsp l ON l.id = m.lsp_id WHERE m.id = ? AND m.lsp_id = ?', [$mid, (int)scope_lsp($m)])->fetch();
     if (!$row) {
         audit('access.denied', 'membership:' . $mid);
         fail('Pengguna tidak ditemukan.', 404);
     }
     if ((int)$row['id'] === (int)$m['id']) fail('Anda tidak bisa menonaktifkan akses Anda sendiri.', 409);
     if ($status === 'nonaktif' && $row['role'] === 'admin_lsp') {
-        $admins = (int)q("SELECT COUNT(*) FROM memberships WHERE lsp_id = ? AND role = 'admin_lsp' AND status = 'aktif'", [$m['lsp_id']])->fetchColumn();
+        $admins = (int)q("SELECT COUNT(*) FROM memberships WHERE lsp_id = ? AND role = 'admin_lsp' AND status = 'aktif'", [$row['lsp_id']])->fetchColumn();
         if ($admins <= 1) fail('LSP harus punya minimal satu Admin LSP aktif.', 409);
     }
-    q('UPDATE memberships SET status = ? WHERE id = ? AND lsp_id = ?', [$status, $mid, $m['lsp_id']]);
+    if ($status === 'nonaktif' && $row['role'] === 'platform_admin') {
+        $admins = (int)q("SELECT COUNT(*) FROM memberships WHERE role = 'platform_admin' AND status = 'aktif'")->fetchColumn();
+        if ($admins <= 1) fail('Platform harus punya minimal satu Admin Platform aktif.', 409);
+    }
+    q('UPDATE memberships SET status = ? WHERE id = ?', [$status, $mid]);
     audit('membership.' . $status, 'membership:' . $mid);
     if ($row['status'] !== $status) {
-        notify([(int)$row['user_id']], (int)$m['lsp_id'], 'akun.akses_' . $status,
+        notify([(int)$row['user_id']], $row['lsp_id'] === null ? null : (int)$row['lsp_id'], 'akun.akses_' . $status,
             $status === 'aktif' ? 'Akses Anda diaktifkan' : 'Akses Anda dinonaktifkan',
-            'Akses ' . role_label($row['role']) . ' Anda di ' . $m['lsp_nama'] . ($status === 'aktif' ? ' sudah aktif kembali.' : ' dinonaktifkan oleh Admin LSP. Hubungi admin bila ini keliru.'));
+            'Akses ' . role_label($row['role']) . ' Anda di ' . ($row['lsp_nama'] ?? 'PortalLSP') . ($status === 'aktif' ? ' sudah aktif kembali.' : ' dinonaktifkan oleh admin. Hubungi admin bila ini keliru.'));
     }
     json_out(['ok' => true]);
 }
@@ -284,4 +325,27 @@ function r_rbac(): void
     json_out(['roles' => array_map(function ($r) use ($map) {
         return ['code' => $r['code'], 'nama' => $r['nama'], 'scope' => $r['scope'], 'multi_lsp' => (int)$r['multi_lsp'] === 1, 'permissions' => $map[$r['code']] ?? []];
     }, $roles), 'permissions' => $perms]);
+}
+
+/** Daftar LSP beserta ringkasan angka (Admin Platform). */
+function r_lsps(): void
+{
+    require_method('GET');
+    require_perm('lsp.manage');
+    $rows = q("SELECT l.id, l.nama, l.jenis, l.kota, l.status, l.created_at,
+                 (SELECT COUNT(*) FROM memberships m WHERE m.lsp_id = l.id AND m.status = 'aktif') AS pengguna,
+                 (SELECT COUNT(*) FROM memberships m WHERE m.lsp_id = l.id AND m.status = 'aktif' AND m.role = 'asesor') AS asesor,
+                 (SELECT COUNT(*) FROM memberships m WHERE m.lsp_id = l.id AND m.status = 'aktif' AND m.role = 'asesi') AS asesi,
+                 (SELECT COUNT(*) FROM tuk t WHERE t.lsp_id = l.id) AS tuk,
+                 (SELECT COUNT(*) FROM listings s WHERE s.lsp_id = l.id) AS listing,
+                 (SELECT COUNT(*) FROM listings s WHERE s.lsp_id = l.id AND s.status = 'tayang') AS tayang,
+                 (SELECT COUNT(*) FROM listings s WHERE s.lsp_id = l.id AND s.status = 'menunggu') AS menunggu
+               FROM lsp l ORDER BY l.nama")->fetchAll();
+    json_out(['items' => array_map(function ($r) {
+        $out = ['id' => (int)$r['id'], 'nama' => $r['nama'], 'jenis' => $r['jenis'], 'kota' => $r['kota'], 'status' => $r['status'], 'created_at' => $r['created_at']];
+        foreach (['pengguna', 'asesor', 'asesi', 'tuk', 'listing', 'tayang', 'menunggu'] as $k) {
+            $out[$k] = (int)$r[$k];
+        }
+        return $out;
+    }, $rows)]);
 }

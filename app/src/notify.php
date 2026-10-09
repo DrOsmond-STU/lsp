@@ -386,9 +386,10 @@ function r_notif_log(): void
 {
     require_method('GET');
     $m = require_perm('notif.log');
-    $platform = $m['lsp_id'] === null;
-    $where = $platform ? '' : 'WHERE n.lsp_id = ?';
-    $params = $platform ? [] : [(int)$m['lsp_id']];
+    $platform = is_platform($m);
+    $scope = scope_lsp($m);
+    $where = $scope === null ? '' : 'WHERE n.lsp_id = ?';
+    $params = $scope === null ? [] : [$scope];
     $rows = q("SELECT o.id, o.channel, o.recipient, o.status, o.attempts, o.last_error, o.created_at, o.sent_at, n.type, n.title
                FROM notification_outbox o JOIN notifications n ON n.id = o.notification_id $where
                ORDER BY o.id DESC LIMIT 100", $params)->fetchAll();

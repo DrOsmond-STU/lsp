@@ -84,6 +84,10 @@ function ai_context(array $u, array $m): string
             $lines[] = "- Listing \"{$r['judul']}\" berstatus {$r['status']}; catatan peninjau: " . ($r['catatan'] ?: '-');
         }
     }
+    if (is_platform($m)) {
+        $lines[] = 'Anda Admin Platform dengan akses penuh ke semua LSP. Jumlah LSP: ' . (int)q('SELECT COUNT(*) FROM lsp')->fetchColumn()
+            . '; pengguna aktif: ' . (int)q("SELECT COUNT(DISTINCT user_id) FROM memberships WHERE status = 'aktif'")->fetchColumn();
+    }
     if ($has('listing.review')) {
         $n = (int)q("SELECT COUNT(*) FROM listings WHERE status = 'menunggu'")->fetchColumn();
         $lines[] = "Listing menunggu persetujuan Anda: $n";
