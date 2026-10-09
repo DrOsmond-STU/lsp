@@ -550,16 +550,90 @@ Untuk pengelola aplikasi menjual langganan ke LSP:
 
 | Fitur | Status | Prioritas |
 |---|---|---|
-| Website LSP | ✅ | P2 |
-| E-commerce (jual skema/paket sertifikasi) | ✅ | P3 |
-| LMS Bimtek | ✅ | P3 |
+| Website LSP (halaman depan: beranda, profil, skema, jadwal, verifikasi sertifikat), lihat 15.1 | ✅ | P1 (dasar) / P2 (page builder) |
+| E-commerce: katalog skema → pilih jadwal → keranjang → bayar, lihat 15.1 | ✅ | P1 (katalog + checkout) / P2 (promo, bundling) |
+| LMS Bimtek, lihat 15.1 | ✅ | P3 |
 | Kerja sama B2B (Pemda, BUMN, kampus) | ✅ | P3 |
 | **Portal mitra/korporat**: daftar karyawan massal, lihat progres & hasil, unduh sertifikat | 🆕 | P2 |
 | **Tracer study alumni** (status kerja setelah sertifikasi) | 🆕 | P3 |
 | **Job board / talent pool** pemegang sertifikat (dengan persetujuan asesi) | 🆕 | P3 |
 | **API publik & webhook** untuk integrasi HRIS/LMS mitra | 🆕 | P3 |
 
-### 15.1 Paket langganan & layanan support
+### 15.1 Halaman depan publik: Website, E-commerce & LMS
+
+Ada **dua tingkat halaman depan**:
+
+| Tingkat | Alamat (contoh) | Untuk siapa | Isi |
+|---|---|---|---|
+| **Portal pusat (platform)** | `aplikasi.id` | Calon LSP klien & masyarakat umum | Profil produk, harga paket, demo, **direktori LSP & pencarian skema lintas LSP** (hanya data publik yang LSP setujui tampil), verifikasi sertifikat, login |
+| **Website tiap LSP** | `lsp-abc.aplikasi.id` atau domain sendiri `lsp-abc.or.id` | Calon asesi, mitra, publik | Website lengkap LSP dengan branding LSP sendiri: beranda, e-commerce skema, LMS, login |
+
+#### Menu website LSP (sebelum login)
+
+```
+[Logo LSP]  Beranda | Profil | Skema Sertifikasi | Jadwal Uji | Pelatihan (LMS) | Verifikasi Sertifikat | Berita | Kontak    [Masuk] [Daftar]
+```
+
+| Menu | Isi | Prioritas |
+|---|---|---|
+| **Beranda** | Banner, keunggulan LSP, skema populer, jadwal terdekat, statistik (jumlah asesi, skema, TUK), testimoni, logo mitra | P1 |
+| **Profil** | Tentang LSP, visi-misi, struktur organisasi, nomor lisensi BNSP, daftar TUK (peta), daftar asesor (opsional, data terbatas) | P1 |
+| **Skema Sertifikasi** (e-commerce) | Katalog skema: unit kompetensi, persyaratan, biaya, jenjang; filter bidang/harga/lokasi; tombol **Daftar Sekarang** | P1 |
+| **Jadwal Uji** | Kalender jadwal terbuka per skema & TUK, sisa kuota, tombol daftar | P1 |
+| **Pelatihan (LMS)** | Katalog kelas bimtek/persiapan uji, gratis/berbayar | P3 |
+| **Verifikasi Sertifikat** | Cek nomor / scan QR | P1 |
+| **Berita / Galeri / Pengumuman** | Artikel, foto kegiatan, pengumuman | P2 |
+| **Kontak** | Alamat, peta, WA, form minat (masuk ke CRM sebagai lead) | P1 |
+| **Masuk / Daftar** | Satu pintu login untuk semua role; setelah login diarahkan ke dashboard sesuai role | P1 |
+
+Website dikelola Admin LSP lewat **CMS sederhana** (ubah banner, teks, berita, galeri, warna). *Page builder* drag-and-drop di P2. Halaman otomatis SEO-friendly (judul, deskripsi, sitemap) agar skema LSP muncul di Google.
+
+#### E-commerce (alur beli skema)
+
+```
+Katalog skema → Detail skema → Pilih jadwal & TUK → Keranjang → Login/Daftar → Isi APL.01/02 & unggah berkas → Bayar (VA/QRIS/e-wallet) → Masuk pipeline asesmen
+```
+
+| Fitur | Prioritas |
+|---|---|
+| Katalog skema + halaman detail + checkout satu skema | P1 |
+| Pembayaran payment gateway, invoice & kuitansi otomatis (terhubung modul Keuangan) | P1 |
+| Kode promo / voucher, harga khusus mitra | P2 |
+| Paket bundling (mis. kelas persiapan + uji kompetensi) | P2 |
+| Keranjang beberapa item, pembelian untuk orang lain (perusahaan membelikan karyawan) | P2 |
+| Ulasan & rating skema/TUK dari alumni | P3 |
+
+E-commerce ini **bukan modul terpisah**: begitu dibayar, pesanan otomatis menjadi permohonan sertifikasi (bagian 4) dan tagihan (bagian 11).
+
+#### LMS Bimtek
+
+| Fitur | Prioritas |
+|---|---|
+| Kelas online: video, materi PDF, kuis, tugas, progres belajar | P3 |
+| Kelas tatap muka/webinar: jadwal, link meeting, presensi | P3 |
+| Sertifikat pelatihan (berbeda dengan sertifikat kompetensi BNSP) | P3 |
+| Instruktur/pengajar sebagai role tersendiri | P3 |
+| Penjualan kelas melalui e-commerce yang sama | P3 |
+
+> **Penting: aturan ketidakberpihakan.** LSP yang juga menyelenggarakan pelatihan berisiko konflik kepentingan. Sistem wajib menegakkan:
+> - **Instruktur yang mengajar seorang peserta tidak boleh menjadi asesornya** (sistem memblokir penugasan otomatis, lihat deklarasi konflik kepentingan di bagian 2).
+> - **Mengikuti pelatihan tidak boleh menjadi syarat wajib** untuk mendaftar uji kompetensi, dan tidak boleh dijanjikan "pasti kompeten".
+> - Risiko ini tercatat di analisis risiko ketidakberpihakan (bagian 10).
+> - Opsi: LMS dioperasikan oleh **lembaga pelatihan (LPK) mitra** sebagai pihak terpisah, sementara LSP hanya menautkan.
+
+#### Setelah login: dashboard per role
+
+| Role | Menu utama |
+|---|---|
+| Asesi | Dashboard (status semua permohonan di semua LSP), Daftar Skema, Jadwal Saya, Pembayaran, Kelas Saya (LMS), Dompet Sertifikat, Profil & Dokumen |
+| Asesor | Kalender gabungan, Penugasan, Pra-asesmen, Asesmen (MUK/FR), Pleno, Riwayat, Logbook, Honor |
+| Admin LSP | Dashboard, Pendaftaran, Jadwal, Asesmen, Pleno & Sertifikat, Data Master, Mutu, Keuangan, CRM, Website/CMS, Laporan, Pengaturan |
+| Admin TUK | Dashboard TUK, Pemohon, Jadwal, Sarana-prasarana, Chat |
+| Mitra | Program/kuota, Peserta, Progres & hasil, Tagihan |
+
+Menu yang tampil **mengikuti paket langganan LSP** (feature flag, bagian 15.2): misalnya LSP paket Basic tidak menampilkan menu Pelatihan (LMS).
+
+### 15.2 Paket langganan & layanan support
 
 Deck NAS menyebut "*untuk paket Basic*", artinya fitur dibedakan per paket. Aplikasi perlu mendukung ini sejak awal.
 
@@ -611,7 +685,7 @@ Deck NAS menyebut "*untuk paket Basic*", artinya fitur dibedakan per paket. Apli
 
 ## 18. Usulan tahapan rilis
 
-**Fase 1 — MVP (±3–4 bulan)**: **multi-LSP (tenant) dengan isolasi data berlapis (bagian 0)** & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, **CRM dasar** (kontak, lead, follow-up pendaftar belum selesai, pengingat re-sertifikasi), **migrasi data dari Excel**, **persuratan otomatis** (surat tugas, SK pleno, BAPS), jadwal terbuka + kartu peserta, cetak sertifikat di blanko, paket langganan & feature flag, audit trail, kepatuhan PDP.
+**Fase 1 — MVP (±3–4 bulan)**: **multi-LSP (tenant) dengan isolasi data berlapis (bagian 0)** & RBAC, master data, skema & MUK berversi, pendaftaran + pembayaran, penjadwalan, verifikasi TUK, asesmen paperless + CBT, formulir FR lengkap, TTE, pleno, sertifikat ber-QR + halaman verifikasi, laporan BNSP, notifikasi WA/email, **CRM dasar** (kontak, lead, follow-up pendaftar belum selesai, pengingat re-sertifikasi), **migrasi data dari Excel**, **persuratan otomatis** (surat tugas, SK pleno, BAPS), **website LSP dasar + katalog skema & checkout (e-commerce dasar)**, jadwal terbuka + kartu peserta, cetak sertifikat di blanko, paket langganan & feature flag, audit trail, kepatuhan PDP.
 
 **Fase 2 — Mutu & skala (±3 bulan)**: SJJ dengan proctoring, mode offline asesor, modul mutu (audit internal, CAPA, kaji ulang manajemen, ketidakberpihakan), keuangan & honor asesor, surveilans & RCC, portal mitra, **CRM lanjutan** (pipeline B2B + penawaran, kampanye broadcast, survei NPS, laporan funnel), helpdesk, dashboard analitik lanjutan, jalur RPL, logbook asesor, pustaka SKKNI global, refund & waiting list, tindak lanjut temuan BNSP.
 
@@ -690,10 +764,10 @@ Semua fitur di slide "Fitur Sistem" dan "Ekosistem NAS" sudah tercakup.
 | Kerja sama B2B BUMN, Perusahaan Swasta, Kampus | 14.3, 15 |
 | Event calon asesi (Job Fair, Seminar) | 14.2 |
 | Proses Uji Kompetensi (APL01 – Generate BAPS) | 4–8 |
-| Website LSP | 15 |
-| E-Commerce | 15 |
-| LMS Bimtek | 15 |
+| Website LSP | 15, 15.1 |
+| E-Commerce | 15, 15.1 |
+| LMS Bimtek | 15, 15.1 |
 | Calon Asesi | 14.2 |
 | Asesor & TUK terhubung ke LSP | 0.8, 2, 6 |
-| Tim Support 08.00–17.00 WIB setiap hari | 15.1 |
-| Paket Basic | 15.1 |
+| Tim Support 08.00–17.00 WIB setiap hari | 15.2 |
+| Paket Basic | 15.2 |
