@@ -1,0 +1,17 @@
+<?php
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/src/bootstrap.php';
+
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
+try {
+    migrate();
+    start_session();
+    $route = isset($_GET['r']) && is_string($_GET['r']) ? $_GET['r'] : '';
+    dispatch($route);
+} catch (Throwable $e) {
+    error_log('[lsp-api] ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+    json_out(['error' => 'Terjadi kesalahan di server. Coba lagi beberapa saat lagi.'], 500);
+}

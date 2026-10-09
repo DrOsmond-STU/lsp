@@ -1,246 +1,5 @@
-<!doctype html>
-<html lang="id">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="robots" content="noindex, nofollow">
-<title>Purwarupa Portal LSP</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
-<style>
-/* Layout: portal publik (topbar + konten) dan aplikasi (sidebar gradasi biru + konten); tombol gradasi warna-warni berbayang melayang */
-:root{
-  --bg:#f2f6fd; --surface:#ffffff; --surface-2:#eaf1fc; --fg:#0e1a3a; --muted:#5b6889; --line:#dbe4f3;
-  --brand-a:#1e3a8a; --brand-b:#1d4ed8; --brand-c:#0ea5e9;
-  --grad:linear-gradient(135deg,var(--brand-a) 0%,var(--brand-b) 48%,var(--brand-c) 100%);
-  --g-blue:linear-gradient(135deg,#3b82f6,#1d4ed8); --s-blue:rgba(29,78,216,.45);
-  --g-green:linear-gradient(135deg,#34d399,#059669); --s-green:rgba(5,150,105,.42);
-  --g-orange:linear-gradient(135deg,#fbbf24,#f97316); --s-orange:rgba(249,115,22,.42);
-  --g-pink:linear-gradient(135deg,#f472b6,#db2777); --s-pink:rgba(219,39,119,.42);
-  --g-purple:linear-gradient(135deg,#a78bfa,#7c3aed); --s-purple:rgba(124,58,237,.42);
-  --g-teal:linear-gradient(135deg,#2dd4bf,#0d9488); --s-teal:rgba(13,148,136,.42);
-  --g-red:linear-gradient(135deg,#f87171,#dc2626); --s-red:rgba(220,38,38,.42);
-  --ok:#059669; --ok-bg:#d9f7ea; --warn:#b45309; --warn-bg:#fdf0d5; --bad:#c81e1e; --bad-bg:#fde2e2; --info:#1d4ed8; --info-bg:#dfe9ff;
-  --card-shadow:0 1px 2px rgba(14,26,58,.05),0 8px 24px -12px rgba(14,26,58,.18);
-  --font:"Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --r-sm:10px; --r-md:16px; --r-lg:22px;
-}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0a1126; --surface:#111a35; --surface-2:#172347; --fg:#e7edff; --muted:#9aa8cd; --line:#25335f;
-  --brand-a:#172b6b; --brand-b:#1d4ed8; --brand-c:#0891b2;
-  --ok:#34d399; --ok-bg:#0f3a2c; --warn:#fbbf24; --warn-bg:#3d2c0c; --bad:#f87171; --bad-bg:#431818; --info:#93b4ff; --info-bg:#1a2a5c;
-  --card-shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px -12px rgba(0,0,0,.6); color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0a1126; --surface:#111a35; --surface-2:#172347; --fg:#e7edff; --muted:#9aa8cd; --line:#25335f;
-  --brand-a:#172b6b; --brand-b:#1d4ed8; --brand-c:#0891b2;
-  --ok:#34d399; --ok-bg:#0f3a2c; --warn:#fbbf24; --warn-bg:#3d2c0c; --bad:#f87171; --bad-bg:#431818; --info:#93b4ff; --info-bg:#1a2a5c;
-  --card-shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px -12px rgba(0,0,0,.6); color-scheme:dark}
-
-*{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
-h1,h2,h3,h4{margin:0;line-height:1.2;text-wrap:balance;letter-spacing:-.01em}
-h1{font-size:clamp(1.9rem,4.4vw,3rem);font-weight:800}
-h2{font-size:clamp(1.3rem,2.4vw,1.7rem);font-weight:800}
-h3{font-size:1.08rem;font-weight:700}
-p{margin:0}
-a{color:inherit}
-.muted{color:var(--muted)}
-.mono{font-family:var(--mono);font-size:.86em;letter-spacing:0}
-.num{font-variant-numeric:tabular-nums}
-.eyebrow{font-size:.74rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
-:focus-visible{outline:3px solid var(--brand-c);outline-offset:2px;border-radius:8px}
-
-/* ---------- Tombol warna-warni melayang ---------- */
-.btn{--g:var(--g-blue);--s:var(--s-blue);display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border:0;cursor:pointer;
-  font:inherit;font-weight:700;font-size:.92rem;color:#fff;background:var(--g);padding:.72rem 1.15rem;border-radius:999px;
-  box-shadow:0 10px 22px -8px var(--s),0 2px 4px rgba(0,0,0,.06);transition:transform .18s ease,box-shadow .18s ease;white-space:nowrap;text-decoration:none}
-.btn:hover{transform:translateY(-3px);box-shadow:0 18px 30px -10px var(--s),0 3px 6px rgba(0,0,0,.08)}
-.btn:active{transform:translateY(-1px)}
-.btn.sm{padding:.48rem .85rem;font-size:.82rem}
-.btn.lg{padding:.95rem 1.5rem;font-size:1rem}
-.btn.green{--g:var(--g-green);--s:var(--s-green)} .btn.orange{--g:var(--g-orange);--s:var(--s-orange)}
-.btn.pink{--g:var(--g-pink);--s:var(--s-pink)} .btn.purple{--g:var(--g-purple);--s:var(--s-purple)}
-.btn.teal{--g:var(--g-teal);--s:var(--s-teal)} .btn.red{--g:var(--g-red);--s:var(--s-red)}
-.btn.ghost{background:var(--surface);color:var(--fg);box-shadow:var(--card-shadow);border:1px solid var(--line)}
-.btn.white{background:#fff;color:#1d4ed8;box-shadow:0 14px 28px -10px rgba(0,0,0,.45)}
-.btn.glass{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);box-shadow:0 10px 24px -12px rgba(0,0,0,.4)}
-.ico{width:1.05em;height:1.05em;flex:none}
-
-/* ---------- Kartu, chip, tabel ---------- */
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--card-shadow);padding:1.25rem;min-width:0}
-.chip{display:inline-flex;align-items:center;gap:.35rem;font-size:.75rem;font-weight:700;padding:.22rem .6rem;border-radius:999px;white-space:nowrap}
-.chip.ok{background:var(--ok-bg);color:var(--ok)} .chip.warn{background:var(--warn-bg);color:var(--warn)}
-.chip.bad{background:var(--bad-bg);color:var(--bad)} .chip.info{background:var(--info-bg);color:var(--info)}
-.chip.plain{background:var(--surface-2);color:var(--muted)}
-.dot{width:.55rem;height:.55rem;border-radius:50%;display:inline-block;flex:none}
-.table-wrap{overflow-x:auto;border-radius:var(--r-md)}
-table{width:100%;border-collapse:collapse;font-size:.9rem}
-th{text-align:left;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:.6rem .75rem;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:.75rem;border-bottom:1px solid var(--line);vertical-align:middle}
-tr:last-child td{border-bottom:0}
-.row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
-.spread{display:flex;justify-content:space-between;align-items:center;gap:.75rem;flex-wrap:wrap}
-.stack{display:flex;flex-direction:column;gap:1rem}
-.grid{display:grid;gap:1rem}
-.g2{grid-template-columns:repeat(2,minmax(0,1fr))} .g3{grid-template-columns:repeat(3,minmax(0,1fr))} .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
-input,select,textarea{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.7rem .9rem;width:100%;min-width:0}
-label.f{display:flex;flex-direction:column;gap:.35rem;font-size:.82rem;font-weight:600;color:var(--muted)}
-.tabs{display:flex;gap:.4rem;flex-wrap:wrap}
-.flow{display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;font-size:.78rem;font-weight:700}
-.flow span{padding:.3rem .65rem;border-radius:999px;background:var(--surface-2);color:var(--muted)}
-.flow i{font-style:normal;color:var(--muted)}
-.qitem{display:flex;flex-direction:column;gap:.3rem;text-align:left;width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:.8rem .9rem;cursor:pointer;font:inherit;color:var(--fg)}
-.qitem.on{border-color:var(--brand-b);background:var(--info-bg)}
-.checklist{display:grid;gap:.45rem;margin:0;padding:0;list-style:none;font-size:.9rem}
-.checklist label{display:flex;gap:.6rem;align-items:flex-start;cursor:pointer}
-.checklist input{width:auto;margin-top:.25rem}
-.navbadge{margin-left:auto;background:var(--g-orange);color:#fff;font-size:.68rem;font-weight:800;border-radius:999px;padding:.05rem .45rem;box-shadow:0 6px 12px -6px var(--s-orange)}
-.sample{font-size:.72rem;font-weight:700;color:var(--warn);background:var(--warn-bg);padding:.15rem .5rem;border-radius:6px}
-
-/* ---------- Portal publik ---------- */
-.wrap{max-width:1180px;margin:0 auto;padding-inline:clamp(16px,4vw,32px)}
-.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-.topbar .wrap{display:flex;align-items:center;gap:1rem;padding-block:.75rem}
-.logo{display:flex;align-items:center;gap:.55rem;font-weight:800;font-size:1.08rem;cursor:pointer;background:none;border:0;color:inherit;font-family:inherit;padding:0}
-.logo-mark{width:34px;height:34px;border-radius:11px;background:var(--grad);display:grid;place-items:center;box-shadow:0 8px 18px -8px var(--s-blue)}
-.nav{display:flex;gap:.2rem;margin-left:auto;flex-wrap:wrap}
-.nav button{background:none;border:0;font:inherit;font-weight:600;font-size:.88rem;color:var(--muted);padding:.5rem .7rem;border-radius:10px;cursor:pointer}
-.nav button:hover,.nav button.on{color:var(--fg);background:var(--surface-2)}
-.menu-btn{display:none;margin-left:auto}
-.hero{background:var(--grad);color:#fff;position:relative;overflow:hidden}
-.hero::before,.hero::after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none}
-.hero::before{width:520px;height:520px;right:-140px;top:-220px}
-.hero::after{width:300px;height:300px;left:-90px;bottom:-170px}
-.hero .wrap{position:relative;padding-block:clamp(2.5rem,7vw,4.5rem);display:grid;grid-template-columns:1.25fr 1fr;gap:2.5rem;align-items:center}
-.hero p.lead{font-size:1.08rem;opacity:.9;max-width:52ch;margin-top:.9rem}
-.search{margin-top:1.6rem;background:var(--surface);color:var(--fg);border-radius:20px;padding:.5rem;display:flex;gap:.5rem;box-shadow:0 24px 50px -20px rgba(0,0,0,.5);flex-wrap:wrap}
-.search input,.search select{border:0;background:transparent;flex:1 1 180px}
-.search select{flex:0 1 180px}
-.quick{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}
-.hero-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:var(--r-lg);padding:1.2rem;backdrop-filter:blur(6px)}
-.hero-card .cert{background:#fff;color:#0e1a3a;border-radius:16px;padding:1rem;box-shadow:0 20px 40px -18px rgba(0,0,0,.55)}
-.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-top:-2.2rem;position:relative;z-index:2}
-.stat{background:var(--surface);border-radius:var(--r-lg);padding:1rem 1.2rem;box-shadow:var(--card-shadow);border:1px solid var(--line)}
-.stat b{font-size:1.6rem;font-weight:800;display:block;font-variant-numeric:tabular-nums}
-section.block{padding-block:2.6rem}
-.sec-head{display:flex;justify-content:space-between;align-items:end;gap:1rem;margin-bottom:1.2rem;flex-wrap:wrap}
-.skema{display:flex;flex-direction:column;gap:.8rem;transition:transform .18s ease,box-shadow .18s ease;cursor:pointer}
-.skema:hover{transform:translateY(-4px);box-shadow:0 22px 40px -18px var(--s-blue)}
-.skema .badge{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:.95rem}
-.skema .meta{display:flex;gap:.4rem;flex-wrap:wrap}
-.price{font-weight:800;font-size:1.1rem;font-variant-numeric:tabular-nums}
-.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}
-.step-n{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;margin-bottom:.7rem}
-.cta{background:var(--grad);color:#fff;border-radius:28px;padding:clamp(1.5rem,4vw,2.5rem);display:flex;justify-content:space-between;align-items:center;gap:1.5rem;flex-wrap:wrap;box-shadow:0 30px 60px -30px var(--s-blue)}
-.filters{display:flex;gap:.5rem;flex-wrap:wrap}
-.fchip{border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-weight:600;font-size:.84rem;padding:.45rem .85rem;border-radius:999px;cursor:pointer}
-.fchip.on{background:var(--g-blue);color:#fff;border-color:transparent;box-shadow:0 8px 18px -8px var(--s-blue)}
-.layout-2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:1.25rem;align-items:start}
-.sched-opt{display:flex;gap:.8rem;align-items:center;border:1.5px solid var(--line);border-radius:14px;padding:.8rem;cursor:pointer}
-.sched-opt.on{border-color:var(--brand-b);background:var(--info-bg)}
-.stepper{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.2rem}
-.stepper span{flex:1 1 120px;font-size:.78rem;font-weight:700;padding:.5rem .7rem;border-radius:12px;background:var(--surface-2);color:var(--muted)}
-.stepper span.done{background:var(--ok-bg);color:var(--ok)} .stepper span.now{background:var(--g-blue);color:#fff;box-shadow:0 8px 18px -8px var(--s-blue)}
-.pay{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem}
-.pay label{border:1.5px solid var(--line);border-radius:14px;padding:.8rem;display:flex;gap:.6rem;align-items:center;cursor:pointer;font-weight:600}
-.pay input{width:auto}
-.plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.2rem;align-items:start}
-.plan.feat{border:2px solid var(--brand-b);transform:translateY(-8px)}
-.plan ul{padding-left:1.1rem;margin:.6rem 0 0;display:grid;gap:.35rem;font-size:.9rem}
-footer{border-top:1px solid var(--line);padding-block:1.6rem;margin-top:1rem;font-size:.85rem}
-
-/* ---------- Aplikasi (setelah login) ---------- */
-.app{display:grid;grid-template-columns:262px minmax(0,1fr);min-height:100%}
-.side{background:var(--grad);color:#fff;padding:1.1rem .85rem;display:flex;flex-direction:column;gap:1rem;position:sticky;top:0;height:100vh;overflow-y:auto}
-.side .logo{color:#fff}
-.side .logo-mark{background:rgba(255,255,255,.18);box-shadow:none}
-.tenant{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:14px;padding:.7rem .8rem;font-size:.8rem}
-.tenant b{display:block;font-size:.9rem}
-.side nav{display:flex;flex-direction:column;gap:.15rem}
-.side nav button{display:flex;align-items:center;gap:.65rem;background:none;border:0;color:rgba(255,255,255,.82);font:inherit;font-weight:600;font-size:.88rem;padding:.6rem .7rem;border-radius:12px;cursor:pointer;text-align:left}
-.side nav button:hover{background:rgba(255,255,255,.12);color:#fff}
-.side nav button.on{background:#fff;color:#1d4ed8;box-shadow:0 12px 24px -12px rgba(0,0,0,.55)}
-.side nav .grp{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;opacity:.6;padding:.7rem .7rem .2rem;font-weight:700}
-.main{min-width:0;display:flex;flex-direction:column}
-.apptop{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:.7rem clamp(16px,3vw,28px);display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
-.apptop select{width:auto;padding:.5rem .8rem;font-weight:600;font-size:.86rem}
-.avatar{width:36px;height:36px;border-radius:50%;background:var(--g-pink);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.85rem;box-shadow:0 8px 16px -8px var(--s-pink)}
-.bell{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;width:38px;height:38px;display:grid;place-items:center;cursor:pointer;color:var(--fg)}
-.bell i{position:absolute;top:-4px;right:-4px;background:var(--g-red);color:#fff;font-style:normal;font-size:.65rem;font-weight:800;border-radius:999px;padding:.05rem .35rem}
-.content{padding:clamp(16px,3vw,28px);display:flex;flex-direction:column;gap:1.25rem}
-.kpi{display:flex;gap:.9rem;align-items:center}
-.kpi .k-ico{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;color:#fff;flex:none}
-.kpi b{font-size:1.5rem;font-weight:800;display:block;font-variant-numeric:tabular-nums;line-height:1.1}
-.track{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.3rem;margin-top:.8rem}
-.track div{height:8px;border-radius:99px;background:var(--surface-2)}
-.track div.d{background:var(--g-green)} .track div.n{background:var(--g-blue);box-shadow:0 0 0 3px var(--info-bg)}
-.track-l{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.3rem;font-size:.66rem;color:var(--muted);margin-top:.35rem;font-weight:600}
-.cert-card{border-radius:var(--r-lg);padding:1.1rem;color:#fff;position:relative;overflow:hidden;box-shadow:0 18px 34px -16px var(--s)}
-.cert-card::after{content:"";position:absolute;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.12);right:-50px;top:-60px}
-.funnel{display:flex;flex-direction:column;gap:.55rem}
-.funnel .bar{height:30px;border-radius:10px;display:flex;align-items:center;padding-inline:.7rem;color:#fff;font-weight:700;font-size:.8rem;min-width:max-content}
-.day{display:grid;grid-template-columns:70px minmax(0,1fr);gap:.8rem;padding:.75rem 0;border-bottom:1px solid var(--line)}
-.day:last-child{border-bottom:0}
-.ev{border-left:4px solid var(--c);background:var(--surface-2);border-radius:10px;padding:.55rem .75rem;margin-bottom:.45rem}
-.ev:last-child{margin-bottom:0}
-.alert{display:flex;gap:.7rem;align-items:flex-start;padding:.75rem .9rem;border-radius:14px}
-.alert.warn{background:var(--warn-bg);color:var(--warn)} .alert.bad{background:var(--bad-bg);color:var(--bad)} .alert.info{background:var(--info-bg);color:var(--info)}
-.empty{text-align:center;padding:2.5rem 1rem}
-.empty ul{display:inline-grid;gap:.4rem;text-align:left;margin:1rem 0 0;padding-left:1.2rem}
-.menu-mobile{display:none}
-
-/* ---------- Bar demo melayang ---------- */
-.demo{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:999px;box-shadow:0 22px 50px -18px rgba(14,26,58,.55);padding:.35rem;display:flex;gap:.25rem;align-items:center;max-width:calc(100vw - 24px);overflow-x:auto}
-.demo span{font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-inline:.6rem .3rem;white-space:nowrap}
-.demo button{border:0;background:none;font:inherit;font-weight:700;font-size:.8rem;padding:.45rem .8rem;border-radius:999px;color:var(--muted);cursor:pointer;white-space:nowrap}
-.demo button.on{background:var(--g-blue);color:#fff;box-shadow:0 8px 16px -8px var(--s-blue)}
-.toast{position:fixed;right:18px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;background:var(--g-green);color:#fff;font-weight:700;padding:.8rem 1.1rem;border-radius:14px;box-shadow:0 18px 30px -12px var(--s-green);max-width:calc(100vw - 36px)}
-body{padding-bottom:90px}
-
-@media (max-width:980px){
-  .hero .wrap,.layout-2{grid-template-columns:minmax(0,1fr)}
-  .hero-card{display:none}
-  .g4,.stats,.steps{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .g3,.plans{grid-template-columns:minmax(0,1fr)}
-  .plan.feat{transform:none}
-  .nav{display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);flex-direction:column;padding:.6rem;border-bottom:1px solid var(--line);box-shadow:var(--card-shadow)}
-  .nav.open{display:flex}
-  .menu-btn{display:inline-flex}
-  .topbar .auth{display:none}
-  .app{grid-template-columns:minmax(0,1fr)}
-  .side{display:none}
-  .menu-mobile{display:flex;gap:.4rem;overflow-x:auto;padding:.6rem clamp(16px,3vw,28px) 0;scrollbar-width:none}
-  .menu-mobile button{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-weight:600;font-size:.8rem;padding:.4rem .75rem;border-radius:999px;cursor:pointer}
-  .menu-mobile button.on{background:var(--g-blue);color:#fff;border-color:transparent}
-}
-@media (max-width:560px){
-  .g2,.pay{grid-template-columns:minmax(0,1fr)}
-  .stats,.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .steps{grid-template-columns:minmax(0,1fr)}
-  .search select{flex:1 1 100%}
-  .search .btn{flex:1 1 100%}
-}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.btn:hover,.skema:hover{transform:none}}
-</style>
-
-</head>
-<body>
-<div id="root"></div>
-<div class="demo" role="tablist" aria-label="Lihat purwarupa sebagai">
-  <span>Lihat sebagai</span>
-  <button data-role="publik" class="on">Publik</button>
-  <button data-role="asesi">Asesi</button>
-  <button data-role="asesor">Asesor</button>
-  <button data-role="admin">Admin LSP</button>
-  <button data-role="tuk">Admin TUK</button>
-  <button data-role="super">Super Admin</button>
-</div>
-<div class="toast" id="toast" hidden></div>
-
-<script>
+'use strict';
+/* PortalLSP: frontend. Data contoh ditandai di UI; data etalase, persetujuan, pengguna dan sesi berasal dari server. */
 /* ===================== Data contoh ===================== */
 const ICON = {
   search:'<path d="M11 4a7 7 0 1 0 4.4 12.4l4.1 4.1 1.4-1.4-4.1-4.1A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/>',
@@ -309,32 +68,79 @@ const KELAS = [
   {judul:'Teknik Latte Art untuk Barista',info:'Tatap muka · Denpasar',warna:'orange',harga:500000,lsp:'LSP Pariwisata Bahari Indonesia'},
   {judul:'Dasar K3 Kelistrikan',info:'Webinar · 2 sesi',warna:'teal',harga:0,lsp:'LSP Konstruksi Mandiri'}
 ];
-/* Listing yang diajukan LSP ke etalase/LMS. Hanya status 'tayang' yang muncul di portal publik. */
-const ME_LSP = 'LSP Teknologi Digital Nusantara';
-let LISTINGS = [
-  {id:'L1',tipe:'skema',judul:'Junior Web Developer',lsp:ME_LSP,harga:750000,status:'tayang',tgl:'02 Okt 2026',catatan:'',static:true},
-  {id:'L2',tipe:'pelatihan',judul:'Persiapan Uji Junior Web Developer',lsp:ME_LSP,harga:350000,status:'tayang',tgl:'02 Okt 2026',catatan:'',static:true},
-  {id:'L3',tipe:'skema',judul:'Pemrogram Junior (Junior Coder)',lsp:ME_LSP,harga:650000,status:'menunggu',tgl:'08 Okt 2026',catatan:'',
-    pub:{id:'jc',kode:'JC',nama:'Pemrogram Junior (Junior Coder)',bidang:'TIK',kkni:'Level 2',lsp:ME_LSP,kota:'Jakarta',metode:['Tatap muka','SJJ'],harga:650000,unit:6,warna:'teal',rating:5.0},desc:'Skema untuk lulusan SMK RPL. Uji praktik membuat program sederhana dan wawancara.'},
-  {id:'L4',tipe:'pelatihan',judul:'Bootcamp Laravel 5 Hari',lsp:ME_LSP,harga:1200000,status:'revisi',tgl:'05 Okt 2026',catatan:'Hapus kalimat "dijamin kompeten saat uji" di deskripsi. Cantumkan nama instruktur.',
-    pub:{judul:'Bootcamp Laravel 5 Hari',info:'Tatap muka · Jakarta · 5 hari',warna:'purple',harga:1200000,lsp:ME_LSP},desc:'Belajar Laravel dari nol sampai deploy. Dijamin kompeten saat uji.'},
-  {id:'L5',tipe:'skema',judul:'Barista Kopi Nusantara (jadwal Nov)',lsp:'LSP Pariwisata Bahari Indonesia',harga:600000,status:'menunggu',tgl:'07 Okt 2026',catatan:'',
-    pub:{id:'brs2',kode:'BKN',nama:'Barista Kopi Nusantara',bidang:'Pariwisata',kkni:'Level 2',lsp:'LSP Pariwisata Bahari Indonesia',kota:'Denpasar',metode:['Tatap muka'],harga:600000,unit:7,warna:'orange',rating:5.0},desc:'Skema barista dengan fokus kopi nusantara. TUK Hotel Sanur.'},
-  {id:'L6',tipe:'pelatihan',judul:'Kelas Persiapan Housekeeping Supervisor',lsp:'LSP Pariwisata Bahari Indonesia',harga:450000,status:'menunggu',tgl:'09 Okt 2026',catatan:'',
-    pub:{judul:'Kelas Persiapan Housekeeping Supervisor',info:'Webinar · 3 sesi',warna:'pink',harga:450000,lsp:'LSP Pariwisata Bahari Indonesia'},desc:'Persiapan uji untuk supervisor housekeeping. Tidak wajib untuk mendaftar uji.'},
-  {id:'L7',tipe:'skema',judul:'Teknisi Jaringan (paket korporat)',lsp:ME_LSP,harga:0,status:'draf',tgl:'—',catatan:''}
-];
-const ST = {draf:['plain','Draf'],menunggu:['warn','Menunggu persetujuan'],revisi:['bad','Perlu revisi'],tayang:['ok','Tayang'],ditolak:['bad','Ditolak']};
-const allSkema = () => SKEMA.concat(LISTINGS.filter(l=>l.tipe==='skema'&&l.status==='tayang'&&l.pub&&!l.static).map(l=>({...l.pub,baru:true})));
-const allKelas = () => KELAS.concat(LISTINGS.filter(l=>l.tipe==='pelatihan'&&l.status==='tayang'&&l.pub&&!l.static).map(l=>({...l.pub,baru:true})));
-const antrean = () => LISTINGS.filter(l=>l.status==='menunggu');
 
-/* ===================== State & helpers ===================== */
-const S = {role:'publik', page:'beranda', skema:'jwd', filter:'Semua', q:'', jadwal:0, step:0, appPage:'dashboard', lspCtx:'all', navOpen:false, verif:false, etab:'semua', form:null, pick:null};
+
+/* ===================== Sesi, API & RBAC (klien) =====================
+   Klien hanya menyembunyikan menu yang tidak diizinkan. Semua izin
+   ditegakkan ulang di server (api.php); jangan mengandalkan klien. */
+let ME = null;          // {user, memberships, active, permissions}
+let CSRF = '';
+let CATALOG = [];       // listing tayang dari server
+const S = {role:'publik', page:'beranda', skema:'jwd', filter:'Semua', q:'', jadwal:0, step:0, appPage:'dashboard', lspCtx:'all',
+  navOpen:false, verif:false, etab:'semua', form:null, pick:null, busy:false, loginErr:'', loginEmail:'', pwErr:'', userForm:false, userErr:'', formErr:'',
+  listings:[], reviews:[], reviewStats:{approved_month:0,rejected_month:0}, users:[], assignable:[], rbac:null, loading:false};
+
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* Semua teks dari server di-escape sekali saat diterima, sehingga aman dipakai di template HTML. */
+function clean(v){
+  if(Array.isArray(v)) return v.map(clean);
+  if(v && typeof v==='object'){ const o={}; for(const k in v) o[k]=clean(v[k]); return o; }
+  return typeof v==='string' ? esc(v) : v;
+}
+class ApiError extends Error { constructor(msg,status){ super(msg); this.status=status; } }
+async function api(path, data){
+  const opt={method:data===undefined?'GET':'POST',credentials:'same-origin',headers:{'Accept':'application/json'}};
+  if(data!==undefined){ opt.headers['Content-Type']='application/json'; opt.headers['X-CSRF-Token']=CSRF; opt.body=JSON.stringify(data); }
+  let res;
+  try{ res=await fetch('api.php?r='+encodeURIComponent(path),opt); }
+  catch(e){ throw new ApiError('Tidak bisa terhubung ke server. Periksa koneksi Anda.',0); }
+  let body={};
+  try{ body=await res.json(); }catch(e){}
+  if(!res.ok){
+    if(res.status===401 && ME){ ME=null; S.role='publik'; S.page='login'; S.loginErr='Sesi Anda berakhir. Silakan masuk lagi.'; render(); }
+    if(res.status===419){ await loadMe(); }
+    throw new ApiError(body.error || ('Permintaan gagal ('+res.status+')'), res.status);
+  }
+  return clean(body);
+}
+const UI_ROLE = {platform_admin:'super',admin_lsp:'admin',manajer_mutu:'admin',keuangan:'admin',marketing:'admin',admin_tuk:'tuk',asesor:'asesor',asesi:'asesi'};
+const can = p => !!ME && Array.isArray(ME.permissions) && ME.permissions.includes(p);
+
+function applyMe(data){
+  CSRF = data.csrf || CSRF;
+  ME = data.user ? {user:data.user, memberships:data.memberships||[], active:data.active, permissions:data.permissions||[]} : null;
+  if(ME && ME.active){ S.role = UI_ROLE[ME.active.role] || 'publik'; }
+  else { S.role = 'publik'; }
+  return data;
+}
+async function loadMe(){ const d=await api('auth/me'); applyMe(d); return d; }
+async function loadCatalog(){ try{ CATALOG=(await api('catalog')).items; }catch(e){ CATALOG=[]; } }
+async function loadListings(){ if(can('listing.manage')) S.listings=(await api('listings')).items; }
+async function loadReviews(){ if(can('listing.review')){ const d=await api('reviews'); S.reviews=d.items; S.reviewStats=d.stats; } }
+async function loadUsers(){ if(can('user.manage')){ const d=await api('users'); S.users=d.items; S.assignable=d.assignable_roles; } }
+async function loadRbac(){ if(can('rbac.view')) S.rbac=await api('rbac'); }
+async function loadForPage(p){
+  try{
+    if(p==='etalase'||p==='dashboard') await loadListings();
+    if(p==='approval'||p==='dashboard') await loadReviews();
+    if(p==='users'){ await loadUsers(); await loadRbac(); }
+    if(p==='rbac') await loadRbac();
+  }catch(e){ toast(e.message); }
+}
+
+const WARNA = ['blue','purple','teal','pink','green','orange','red'];
+const initials = t => (String(t).replace(/&[a-z#0-9]+;/g,'').match(/\b[A-Z]/g)||['N','E','W']).join('').slice(0,3);
+function toSkema(l){ return {id:'n'+l.id,kode:initials(l.judul),nama:l.judul,bidang:l.bidang,kkni:'—',lsp:l.lsp_nama,kota:l.kota,metode:String(l.format).split(' &amp; '),harga:l.harga,unit:'—',warna:WARNA[l.id%WARNA.length],rating:5,baru:true}; }
+function toKelas(l){ return {judul:l.judul,info:l.format+' · '+l.kota,warna:WARNA[l.id%WARNA.length],harga:l.harga,lsp:l.lsp_nama,baru:true}; }
+const allSkema = () => SKEMA.concat(CATALOG.filter(l=>l.tipe==='skema').map(toSkema));
+const allKelas = () => KELAS.concat(CATALOG.filter(l=>l.tipe==='pelatihan').map(toKelas));
+const ST = {draf:['plain','Draf'],menunggu:['warn','Menunggu persetujuan'],revisi:['bad','Perlu revisi'],tayang:['ok','Tayang'],ditolak:['bad','Ditolak']};
+const fmtTgl = s => s ? new Date(String(s).replace(' ','T')).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,3200)}
 const $ = s => document.querySelector(s);
-function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600)}
 function go(page,extra={}){Object.assign(S,{page,navOpen:false},extra);render();window.scrollTo(0,0)}
-function goApp(p){S.appPage=p;render();window.scrollTo(0,0)}
+async function goApp(p){S.appPage=p;render();window.scrollTo(0,0);await loadForPage(p);render()}
 
 /* ===================== Portal publik ===================== */
 const PUB_NAV = [['beranda','Beranda'],['cari','Cari Skema'],['jadwal','Jadwal Uji'],['lsp','Daftar LSP'],['lms','Pelatihan'],['verif','Verifikasi Sertifikat'],['untuk','Untuk LSP']];
@@ -342,7 +148,7 @@ function topbar(){
   return `<header class="topbar"><div class="wrap" style="position:relative">
     <button class="logo" data-go="beranda"><span class="logo-mark">${ic('shield')}</span>PortalLSP</button>
     <nav class="nav ${S.navOpen?'open':''}" aria-label="Menu utama">${PUB_NAV.map(([k,l])=>`<button data-go="${k}" class="${S.page===k||(k==='cari'&&S.page==='detail')?'on':''}">${l}</button>`).join('')}</nav>
-    <div class="row auth"><button class="btn ghost sm" data-login="asesi">Masuk</button><button class="btn sm" data-login="asesi">Daftar</button></div>
+    <div class="row auth">${ME?`<button class="btn sm" data-enter="1">${ic('home')}Dashboard</button>`:`<button class="btn ghost sm" data-go="login">Masuk</button><button class="btn sm" data-toast="Pendaftaran akun asesi mandiri dibuat pada tahap berikutnya.">Daftar</button>`}</div>
     <button class="btn ghost sm menu-btn" id="menuBtn" aria-label="Buka menu">${ic('menu')}</button>
   </div></header>`;
 }
@@ -380,7 +186,7 @@ function pBeranda(){
         <div class="track">${[1,1,1,2,0,0,0].map(v=>`<div class="${v===1?'d':v===2?'n':''}"></div>`).join('')}</div>
         <div class="track-l"><span>Daftar</span><span>Berkas</span><span>Bayar</span><span>Pra</span><span>Uji</span><span>Pleno</span><span>Sertifikat</span></div>
       </div>
-      <div class="row" style="margin-top:.9rem;justify-content:space-between"><span style="font-size:.85rem;opacity:.9">Asesor sedang meninjau APL.02 Anda</span><button class="btn sm white" data-login="asesi">Lihat</button></div>
+      <div class="row" style="margin-top:.9rem;justify-content:space-between"><span style="font-size:.85rem;opacity:.9">Asesor sedang meninjau APL.02 Anda</span><button class="btn sm white" data-go="login">Lihat</button></div>
     </div>
   </div></section>
   <div class="wrap"><div class="stats">
@@ -531,18 +337,12 @@ function pUntuk(){
   <div class="plans">${plans.map((p,i)=>`<div class="card plan ${i===1?'feat':''}"><div class="spread"><h3>${p[0]}</h3>${i===1?'<span class="chip info">Paling dipilih</span>':''}</div><p style="margin-top:.6rem"><span class="price" style="font-size:1.6rem">${p[1]}</span><span class="muted">${p[2]}</span></p><ul>${p[4].map(f=>`<li>${f}</li>`).join('')}</ul><button class="btn ${p[3]}" style="width:100%;margin-top:1.1rem" data-toast="Permintaan demo terkirim (purwarupa)">${i===2?'Hubungi sales':'Coba gratis 14 hari'}</button></div>`).join('')}</div></div></section>`;
 }
 function publik(){
-  const pages={beranda:pBeranda,cari:pCari,detail:pDetail,jadwal:pJadwal,lsp:pLsp,lms:pLms,verif:pVerif,untuk:pUntuk};
+  const pages={beranda:pBeranda,cari:pCari,detail:pDetail,jadwal:pJadwal,lsp:pLsp,lms:pLms,verif:pVerif,untuk:pUntuk,login:pLogin};
   return topbar()+(pages[S.page]||pBeranda)()+`<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Purwarupa UI/UX · nama produk sementara</span></span><span class="muted">Terdaftar PSE · Server di Indonesia</span></div></footer>`;
 }
 
-/* ===================== Aplikasi per role ===================== */
-const MENU = {
-  asesi:{nama:'Rina Kartika Sari',inisial:'RK',ctx:'Asesi · 2 LSP',items:[['dashboard','Beranda','home'],['skema','Daftar Skema Baru','search'],['jadwal','Jadwal Saya','cal'],['bayar','Pembayaran','wallet'],['sertifikat','Dompet Sertifikat','cert'],['kelas','Kelas Saya','book'],['profil','Profil & Dokumen','users']]},
-  asesor:{nama:'Budi Santoso, S.Kom.',inisial:'BS',ctx:'Asesor · MET.000.004521 2021',items:[['dashboard','Beranda','home'],['kalender','Kalender Gabungan','cal'],['pra','Tinjau Pra-Asesmen','doc'],['asesmen','Asesmen (MUK/FR)','check'],['pleno','Pleno','shield'],['riwayat','Riwayat & Logbook','book'],['honor','Honor','money']]},
-  admin:{nama:'Dewi Lestari',inisial:'DL',ctx:'Admin LSP',items:[['g','Operasional'],['dashboard','Dashboard','home'],['daftar','Pendaftaran','doc'],['jadwalA','Jadwal & Penugasan','cal'],['asesmenA','Asesmen','check'],['plenoA','Pleno & Sertifikat','cert'],['g','Data'],['master','Skema, Asesor, TUK','build'],['alumni','Database Alumni','users'],['g','Manajemen'],['etalase','Etalase & Pelatihan','wallet'],['mutu','Mutu (Pedoman 201)','shield'],['keuangan','Keuangan','money'],['crm','CRM','chat'],['laporan','Laporan BNSP','chart'],['setting','Profil LSP & Pengaturan','gear']]},
-  tuk:{nama:'Agus Pratama',inisial:'AP',ctx:'Admin TUK Sewaktu Kuningan',items:[['dashboard','Dashboard TUK','home'],['pemohon','Pemohon','doc'],['jadwalT','Jadwal','cal'],['sarpras','Sarana & Prasarana','build'],['chat','Group Chat','chat'],['alumniT','Alumni TUK','users']]},
-  super:{nama:'Tim Platform',inisial:'TP',ctx:'Super Admin Platform',items:[['dashboard','Ringkasan Platform','home'],['approval','Persetujuan Listing','check'],['lspList','LSP Klien','build'],['paket','Paket & Tagihan','money'],['pustaka','Pustaka SKKNI','book'],['support','Tiket Support','chat'],['audit','Log Akses Support','shield']]}
-};
+
+
 const MODUL = {
   skema:['Daftar skema baru','Cari skema di semua LSP, pilih jadwal, dan pakai ulang berkas dari profil.',['Pencarian marketplace','Pakai ulang dokumen profil','Simpan draf pendaftaran']],
   jadwal:['Jadwal saya','Semua jadwal uji Anda dari seluruh LSP.',['Kartu peserta ber-QR','Reschedule & pembatalan','Pengingat H-3 dan H-1']],
@@ -585,7 +385,7 @@ const track = n => `<div class="track">${[0,1,2,3,4,5,6].map(i=>`<div class="${i
 function dAsesi(){
   const per=[{s:'Junior Web Developer',lsp:'LSP Teknologi Digital Nusantara',w:'blue',n:3,st:['info','Pra-asesmen'],ket:'Asesor Budi Santoso meninjau APL.02. Jadwal uji Sab, 24 Okt 2026.',btn:['Lihat kartu peserta','blue']},{s:'Digital Marketing',lsp:'LSP Teknologi Digital Nusantara',w:'purple',n:2,st:['warn','Menunggu bayar'],ket:'Bayar sebelum Kam, 15 Okt 2026 pukul 23.59 WIB.',btn:['Bayar Rp850.000','orange']},{s:'Barista',lsp:'LSP Pariwisata Bahari Indonesia',w:'orange',n:1,st:['bad','Berkas kurang'],ket:'LSP meminta pas foto latar merah yang lebih jelas.',btn:['Unggah ulang','pink']}];
   const ctx=S.lspCtx;const list=per.filter(p=>ctx==='all'||p.lsp===ctx);
-  return `<div class="spread"><div><p class="eyebrow">Jumat, 9 Oktober 2026</p><h2>Halo, Rina</h2></div><button class="btn purple" data-app-pub="cari">${ic('search')}Daftar skema baru</button></div>
+  return `<div class="spread"><div><p class="eyebrow">Jumat, 9 Oktober 2026</p><h2>Halo, ${ME.user.nama.split(' ')[0]}</h2></div><button class="btn purple" data-app-pub="cari">${ic('search')}Daftar skema baru</button></div>
   <div class="grid g4">${kpi('doc','blue','3','Permohonan aktif')}${kpi('cal','teal','1','Jadwal uji minggu depan')}${kpi('wallet','orange','1','Tagihan belum dibayar')}${kpi('cert','green','2','Sertifikat dimiliki')}</div>
   <div class="layout-2">
     <div class="stack">
@@ -603,7 +403,7 @@ function dAsesi(){
 function dAsesor(){
   const L={'LSP Teknologi Digital Nusantara':'#1d4ed8','LSP Konstruksi Mandiri':'#0d9488','LSP Manajemen Profesional':'#059669'};
   const ev=[['Sab 10 Okt',[['08.00','Uji JWD · 6 asesi','LSP Teknologi Digital Nusantara','TUK Sewaktu Kuningan']]],['Sen 12 Okt',[['13.00','Pleno Administrasi Perkantoran · 8 berkas','LSP Manajemen Profesional','Daring']]],['Rab 14 Okt',[['09.00','Rapat teknis asesor JWD','LSP Teknologi Digital Nusantara','Daring'],['14.00','Verifikasi TUK SMK 5','LSP Konstruksi Mandiri','Surabaya']]],['Sab 17 Okt',[['08.00','Uji Teknisi Listrik · 5 asesi','LSP Konstruksi Mandiri','TUK SMK Negeri 5 Surabaya']]]].map(d=>[d[0],d[1].filter(e=>S.lspCtx==='all'||e[2]===S.lspCtx)]).filter(d=>d[1].length);
-  return `<div class="spread"><div><p class="eyebrow">Jumat, 9 Oktober 2026</p><h2>Selamat pagi, Pak Budi</h2></div><span class="chip ok">${ic('check')}Sertifikat MET berlaku s.d. Agu 2027</span></div>
+  return `<div class="spread"><div><p class="eyebrow">Jumat, 9 Oktober 2026</p><h2>Selamat datang, ${ME.user.nama.split(',')[0]}</h2></div><span class="chip ok">${ic('check')}Sertifikat MET berlaku s.d. Agu 2027</span></div>
   <div class="grid g4">${kpi('cal','blue','4','Jadwal 7 hari ke depan')}${kpi('doc','orange','7','APL.02 menunggu tinjauan')}${kpi('shield','purple','8','Berkas pleno')}${kpi('chart','green','63','Asesmen tahun ini','<span class="muted">dari 3 LSP</span>')}</div>
   <div class="layout-2">
     <div class="card"><div class="spread" style="margin-bottom:.4rem"><h3>Kalender gabungan</h3><div class="row" style="gap:.6rem;font-size:.75rem">${Object.entries(L).map(([n,c])=>`<span class="row" style="gap:.3rem"><span class="dot" style="background:${c}"></span>${n.replace('LSP ','')}</span>`).join('')}</div></div>
@@ -618,12 +418,12 @@ function dAsesor(){
   </div>`;
 }
 function dAdmin(){
-  return `<div class="spread"><div><p class="eyebrow">LSP Teknologi Digital Nusantara · Oktober 2026</p><h2>Dashboard LSP</h2></div><div class="row"><button class="btn teal" data-toast="Jadwal baru dibuat (purwarupa)">${ic('cal')}Buat jadwal</button><button class="btn pink" data-toast="Laporan BNSP dibuat">${ic('chart')}Laporan BNSP</button></div></div>
+  return `<div class="spread"><div><p class="eyebrow">${ME.active.lsp_nama} · ${ME.active.role_nama}</p><h2>Dashboard LSP</h2></div><div class="row">${can('schedule.manage')?`<button class="btn teal" data-toast="Jadwal baru dibuat (purwarupa)">${ic('cal')}Buat jadwal</button>`:''}${can('report.bnsp')?`<button class="btn pink" data-toast="Laporan BNSP dibuat">${ic('chart')}Laporan BNSP</button>`:''}</div></div>
   <div class="grid g4">${kpi('users','blue','214','Pendaftar bulan ini','<span class="chip ok">+18% dari Sep</span>')}${kpi('check','teal','37','Asesmen berjalan')}${kpi('shield','purple','52','Menunggu pleno')}${kpi('cert','orange','129','Sertifikat habis ≤ 90 hari','<span class="chip warn">Peluang RCC</span>')}</div>
   <div class="layout-2">
     <div class="card"><div class="spread" style="margin-bottom:.6rem"><h3>Pendaftaran perlu verifikasi</h3><span class="chip warn">12 menunggu</span></div>
       <div class="table-wrap"><table><thead><tr><th>Pemohon</th><th>Skema</th><th>Berkas</th><th>Bayar</th><th>Aksi</th></tr></thead><tbody>
-      ${[['Rina Kartika Sari','Junior Web Developer','ok','Lengkap','ok','Lunas'],['Hendra Wijaya','Analis Data Junior','warn','Ijazah buram','ok','Lunas'],['PT Data Prima (25 org)','Junior Web Developer','ok','Lengkap','info','Kolektif'],['Maya Anggraini','Digital Marketing','ok','Lengkap','warn','Belum']].map(r=>`<tr><td><b>${r[0]}</b></td><td class="muted">${r[1]}</td><td><span class="chip ${r[2]}">${r[3]}</span></td><td><span class="chip ${r[4]}">${r[5]}</span></td><td><div class="row" style="gap:.35rem;flex-wrap:nowrap"><button class="btn sm green" data-toast="Permohonan diterima">Terima</button><button class="btn sm orange" data-toast="Permintaan perbaikan dikirim">Perbaiki</button></div></td></tr>`).join('')}
+      ${[['Rina Kartika Sari','Junior Web Developer','ok','Lengkap','ok','Lunas'],['Hendra Wijaya','Analis Data Junior','warn','Ijazah buram','ok','Lunas'],['PT Data Prima (25 org)','Junior Web Developer','ok','Lengkap','info','Kolektif'],['Maya Anggraini','Digital Marketing','ok','Lengkap','warn','Belum']].map(r=>`<tr><td><b>${r[0]}</b></td><td class="muted">${r[1]}</td><td><span class="chip ${r[2]}">${r[3]}</span></td><td><span class="chip ${r[4]}">${r[5]}</span></td><td>${can('registration.verify')?`<div class="row" style="gap:.35rem;flex-wrap:nowrap"><button class="btn sm green" data-toast="Permohonan diterima">Terima</button><button class="btn sm orange" data-toast="Permintaan perbaikan dikirim">Perbaiki</button></div>`:'<span class="muted" style="font-size:.8rem">Tidak ada akses</span>'}</td></tr>`).join('')}
       </tbody></table></div>
     </div>
     <div class="stack">
@@ -632,7 +432,7 @@ function dAdmin(){
         <div class="alert bad">${ic('bell')}<span><b>Sertifikat MET 3 asesor</b> habis dalam 30 hari. Asesor tidak bisa ditugaskan setelah tanggal itu.</span></div>
         <div class="alert warn">${ic('shield')}<span><b>Surveilans BNSP</b> 18 Nov 2026. Checklist kesiapan 82% lengkap.</span></div>
         <div class="alert info">${ic('build')}<span><b>TUK SMK 7 Jakarta</b> verifikasi berakhir 30 Okt 2026.</span></div>
-        ${LISTINGS.some(l=>l.lsp===ME_LSP&&l.status==='revisi')?`<div class="alert bad">${ic('wallet')}<span><b>Etalase:</b> ${LISTINGS.filter(l=>l.lsp===ME_LSP&&l.status==='revisi').length} listing perlu revisi dari Admin Platform. <button class="btn sm red" data-go-app="etalase" style="margin-top:.4rem">Buka etalase</button></span></div>`:''}
+        ${can('listing.manage')&&S.listings.some(l=>l.status==='revisi')?`<div class="alert bad">${ic('wallet')}<span><b>Etalase:</b> ${S.listings.filter(l=>l.status==='revisi').length} listing perlu revisi dari Admin Platform. <button class="btn sm red" data-go-app="etalase" style="margin-top:.4rem">Buka etalase</button></span></div>`:''}
       </div>
     </div>
   </div>
@@ -643,157 +443,311 @@ function dAdmin(){
   </div>`;
 }
 function dTuk(){
-  return `<div class="spread"><div><p class="eyebrow">LSP Teknologi Digital Nusantara</p><h2>TUK Sewaktu Kuningan</h2></div><button class="btn orange" data-toast="Usulan jadwal dikirim ke Admin LSP">${ic('cal')}Usulkan jadwal</button></div>
+  return `<div class="spread"><div><p class="eyebrow">${ME.active.lsp_nama}</p><h2>${ME.active.tuk_nama||'TUK'}</h2></div><button class="btn orange" data-toast="Usulan jadwal dikirim ke Admin LSP">${ic('cal')}Usulkan jadwal</button></div>
   <div class="grid g4">${kpi('users','blue','34','Pemohon di TUK ini')}${kpi('cal','teal','3','Jadwal bulan ini')}${kpi('build','purple','96%','Sarana siap')}${kpi('shield','green','Mar 2027','Verifikasi berlaku s.d.')}</div>
   <div class="card"><h3>Pemohon jadwal Sab, 10 Okt</h3><div class="table-wrap" style="margin-top:.6rem"><table><thead><tr><th>Nama</th><th>Skema</th><th>Kehadiran</th><th></th></tr></thead><tbody>${[['Rina Kartika Sari','Junior Web Developer','ok','Terkonfirmasi'],['Fajar Nugroho','Junior Web Developer','warn','Belum konfirmasi'],['Sinta Maharani','Junior Web Developer','ok','Terkonfirmasi']].map(r=>`<tr><td><b>${r[0]}</b></td><td class="muted">${r[1]}</td><td><span class="chip ${r[2]}">${r[3]}</span></td><td><button class="btn sm teal" data-toast="Pengingat terkirim via WhatsApp">Ingatkan</button></td></tr>`).join('')}</tbody></table></div></div>
   <div class="alert info">${ic('shield')}<span>Admin TUK hanya melihat data TUK ini. Data TUK lain dan data asesor tidak tampil.</span></div>`;
 }
 function dSuper(){
   return `<div class="spread"><div><p class="eyebrow">Platform</p><h2>Ringkasan platform</h2></div><button class="btn green" data-toast="Undangan onboarding dikirim">${ic('build')}Tambah LSP klien</button></div>
-  <div class="grid g4">${kpi('check','orange',String(antrean().length),'Listing menunggu persetujuan',antrean().length?'<button class="btn sm orange" data-go-app="approval" style="margin-top:.3rem">Tinjau sekarang</button>':'')}${kpi('build','blue','168','LSP aktif')}${kpi('money','green','Rp412 jt','MRR')}${kpi('bell','red','6','Sinyal churn')}</div>
+  <div class="grid g4">${kpi('check','orange',String(S.reviews.length),'Listing menunggu persetujuan',S.reviews.length?'<button class="btn sm orange" data-go-app="approval" style="margin-top:.3rem">Tinjau sekarang</button>':'')}${kpi('build','blue','168','LSP aktif')}${kpi('money','green','Rp412 jt','MRR')}${kpi('bell','red','6','Sinyal churn')}</div>
   <div class="card"><div class="spread" style="margin-bottom:.6rem"><h3>LSP klien</h3><span class="chip plain">Data agregat, tanpa data pribadi asesi</span></div><div class="table-wrap"><table><thead><tr><th>LSP</th><th>Paket</th><th>Asesi/tahun</th><th>Storage</th><th>Status</th></tr></thead><tbody>
   ${[['LSP Teknologi Digital Nusantara','Pro','3.912 / 5.000','64%','ok','Aktif'],['LSP Pariwisata Bahari Indonesia','Basic','980 / 1.000','91%','warn','Kuota hampir habis'],['LSP Konstruksi Mandiri','Pro','1.204 / 5.000','22%','ok','Aktif'],['LSP Kesehatan Nusa Husada','Basic','112 / 1.000','8%','bad','Aktivitas turun 60%'],['LSP Politeknik Negeri Maritim','Trial','40 / 200','3%','info','Trial s.d. 20 Okt']].map(r=>`<tr><td><b>${r[0]}</b></td><td><span class="chip plain">${r[1]}</span></td><td class="num">${r[2]}</td><td class="num">${r[3]}</td><td><span class="chip ${r[4]}">${r[5]}</span></td></tr>`).join('')}
   </tbody></table></div></div>
   <div class="alert warn">${ic('shield')}<span>Super Admin tidak bisa membuka data operasional LSP. Akses support hanya lewat "masuk sebagai" dengan izin Admin LSP dan tercatat di log.</span></div>`;
 }
+
+/* ===================== Halaman login & password ===================== */
+function pLogin(){
+  return `<section class="block"><div class="wrap" style="max-width:480px">
+    <form class="card stack" id="loginForm" novalidate>
+      <div><p class="eyebrow">Masuk</p><h2>Masuk ke PortalLSP</h2><p class="muted" style="margin-top:.3rem">Satu akun untuk asesi, asesor, dan pengelola LSP.</p></div>
+      ${S.loginErr?`<p class="alert bad" role="alert">${esc(S.loginErr)}</p>`:''}
+      <label class="f">Email<input id="lg-email" type="email" autocomplete="username" required maxlength="190" value="${esc(S.loginEmail)}"></label>
+      <label class="f">Password<input id="lg-pass" type="password" autocomplete="current-password" required maxlength="128"></label>
+      <button class="btn lg" type="submit" ${S.busy?'disabled':''}>${S.busy?'Memeriksa…':'Masuk'}</button>
+      <button type="button" class="btn ghost sm" data-toast="Hubungi Admin LSP Anda untuk mengatur ulang password.">Lupa password?</button>
+      <p class="muted" style="font-size:.8rem">Setelah 5 kali gagal, login dikunci 15 menit. Sesi berakhir otomatis setelah 30 menit tidak aktif.</p>
+    </form></div></section>`;
+}
+function pChangePassword(forced){
+  return `<div class="wrap" style="max-width:520px;padding-block:2.5rem">
+    <form class="card stack" id="pwForm" novalidate>
+      <div><p class="eyebrow">${forced?'Wajib sebelum melanjutkan':'Keamanan akun'}</p><h2>Ganti password</h2>
+      ${forced?'<p class="muted" style="margin-top:.3rem">Akun Anda dibuat oleh Admin LSP. Buat password pribadi sebelum mulai bekerja.</p>':''}</div>
+      ${S.pwErr?`<p class="alert bad" role="alert">${esc(S.pwErr)}</p>`:''}
+      <input type="email" autocomplete="username" value="${ME.user.email}" hidden>
+      <label class="f">Password saat ini<input id="pw-cur" type="password" autocomplete="current-password" required></label>
+      <label class="f">Password baru<input id="pw-new" type="password" autocomplete="new-password" required minlength="10" maxlength="128"></label>
+      <label class="f">Ulangi password baru<input id="pw-new2" type="password" autocomplete="new-password" required></label>
+      <p class="muted" style="font-size:.82rem">Minimal 10 karakter, berisi huruf dan angka, dan tidak memuat nama email Anda.</p>
+      <div class="row" style="justify-content:flex-end">${forced?'<button type="button" class="btn ghost" data-logout="1">Keluar</button>':'<button type="button" class="btn ghost" data-go-app="dashboard">Batal</button>'}<button class="btn green" type="submit" ${S.busy?'disabled':''}>${S.busy?'Menyimpan…':'Simpan password'}</button></div>
+    </form></div>`;
+}
+function pDenied(){
+  return `<div class="card empty"><span class="logo-mark" style="width:60px;height:60px;margin:0 auto 1rem;color:#fff;background:var(--g-red)">${ic('shield','ico" style="width:28px;height:28px')}</span><h3>Akses ditolak</h3><p class="muted" style="margin-top:.4rem">Peran ${ME.active.role_nama} tidak punya hak akses ke halaman ini. Hubungi Admin LSP bila Anda memerlukannya.</p><div style="margin-top:1.2rem"><button class="btn" data-go-app="dashboard">Kembali ke beranda</button></div></div>`;
+}
+
+/* ===================== Menu per peran (dengan hak akses) ===================== */
+const MENU = {
+  asesi:[['dashboard','Beranda','home','asesi.dashboard'],['skema','Daftar Skema Baru','search','application.own'],['jadwal','Jadwal Saya','cal','application.own'],['bayar','Pembayaran','wallet','payment.own'],['sertifikat','Dompet Sertifikat','cert','certificate.own'],['kelas','Kelas Saya','book','class.own'],['profil','Profil & Dokumen','users','profile.own']],
+  asesor:[['dashboard','Beranda','home','asesor.dashboard'],['kalender','Kalender Gabungan','cal','asesor.dashboard'],['pra','Tinjau Pra-Asesmen','doc','preassessment.review'],['asesmen','Asesmen (MUK/FR)','check','assessment.conduct'],['pleno','Pleno','shield','pleno.participate'],['riwayat','Riwayat & Logbook','book','asesor.history'],['honor','Honor','money','asesor.honor']],
+  admin:[['g','Operasional'],['dashboard','Dashboard','home','lsp.dashboard'],['daftar','Pendaftaran','doc','registration.verify'],['jadwalA','Jadwal & Penugasan','cal','schedule.manage'],['asesmenA','Asesmen','check','assessment.monitor'],['plenoA','Pleno & Sertifikat','cert','decision.manage'],['g','Data'],['master','Skema, Asesor, TUK','build','master.manage'],['alumni','Database Alumni','users','alumni.view'],['g','Manajemen'],['etalase','Etalase & Pelatihan','wallet','listing.manage'],['mutu','Mutu (Pedoman 201)','shield','quality.manage'],['keuangan','Keuangan','money','finance.manage'],['crm','CRM','chat','crm.manage'],['laporan','Laporan BNSP','chart','report.bnsp'],['users','Pengguna & Hak Akses','users','user.manage'],['setting','Profil LSP & Pengaturan','gear','settings.manage']],
+  tuk:[['dashboard','Dashboard TUK','home','tuk.dashboard'],['pemohon','Pemohon','doc','tuk.applicants'],['jadwalT','Jadwal','cal','tuk.schedule'],['sarpras','Sarana & Prasarana','build','tuk.facility'],['chat','Group Chat','chat','tuk.chat'],['alumniT','Alumni TUK','users','tuk.alumni']],
+  super:[['dashboard','Ringkasan Platform','home','platform.dashboard'],['approval','Persetujuan Listing','check','listing.review'],['lspList','LSP Klien','build','lsp.manage'],['paket','Paket & Tagihan','money','lsp.manage'],['pustaka','Pustaka SKKNI','book','lsp.manage'],['support','Tiket Support','chat','lsp.manage'],['audit','Log Akses Support','shield','lsp.manage'],['rbac','Peran & Hak Akses','gear','rbac.view']]
+};
+function visibleMenu(){
+  const items=(MENU[S.role]||[]).filter(it=>it[0]==='g'||can(it[3]));
+  return items.filter((it,i)=>it[0]!=='g'||(items[i+1]&&items[i+1][0]!=='g'));
+}
+const allowedPage = p => p==='password' || visibleMenu().some(it=>it[0]===p);
+
+/* ===================== Etalase LSP (dari API) ===================== */
 function pEtalase(){
-  const mine=LISTINGS.filter(l=>l.lsp===ME_LSP);
+  const mine=S.listings;
   const tabs=[['semua','Semua'],['tayang','Tayang'],['menunggu','Menunggu'],['revisi','Perlu revisi'],['draf','Draf'],['ditolak','Ditolak']];
   const list=mine.filter(l=>S.etab==='semua'||l.status===S.etab);
   const count=k=>k==='semua'?mine.length:mine.filter(l=>l.status===k).length;
-  const form=S.form?`<form class="card stack" id="listingForm" style="gap:.9rem;border:2px solid var(--brand-b)">
-      <div class="spread"><h3>${S.form==='skema'?'Tambah skema ke etalase':'Tambah kelas pelatihan'}</h3><button type="button" class="btn ghost sm" data-closeform="1">Batal</button></div>
+  const isSkema=S.form==='skema';
+  const fd=S.formDraft||{};
+  const form=S.form?`<form class="card stack" id="listingForm" style="gap:.9rem;border:2px solid var(--brand-b)" novalidate>
+      <div class="spread"><h3>${isSkema?'Tambah skema ke etalase':'Tambah kelas pelatihan'}</h3><button type="button" class="btn ghost sm" data-closeform="1">Batal</button></div>
+      ${S.formErr?`<p class="alert bad" role="alert">${esc(S.formErr)}</p>`:''}
       <div class="grid g2">
-        <label class="f">Judul<input id="lf-judul" required value="${S.form==='skema'?'Analis Data Junior (jadwal Desember)':'Kelas Persiapan Analis Data'}"></label>
-        <label class="f">${S.form==='skema'?'Skema berlisensi':'Skema terkait (opsional)'}<select id="lf-skema"><option>Analis Data Junior</option><option>Junior Web Developer</option><option>Digital Marketing</option></select></label>
-        <label class="f">Harga (Rp)<input id="lf-harga" type="number" min="0" step="1000" value="${S.form==='skema'?950000:400000}"></label>
-        <label class="f">${S.form==='skema'?'Metode':'Format'}<select id="lf-format">${S.form==='skema'?'<option>Tatap muka</option><option>SJJ</option><option>Tatap muka & SJJ</option>':'<option>Online</option><option>Webinar</option><option>Tatap muka</option>'}</select></label>
+        <label class="f">Judul<input id="lf-judul" required maxlength="150" value="${esc(fd.judul??(isSkema?'Analis Data Junior (jadwal Desember)':'Kelas Persiapan Analis Data'))}"></label>
+        <label class="f">Bidang<select id="lf-bidang">${['TIK','Pariwisata','Konstruksi','Bisnis','Kesehatan'].map(b=>`<option ${fd.bidang===b?'selected':''}>${b}</option>`).join('')}</select></label>
+        <label class="f">Harga (Rp)<input id="lf-harga" type="number" min="0" max="100000000" step="1000" value="${esc(fd.harga??(isSkema?950000:400000))}"></label>
+        <label class="f">${isSkema?'Metode':'Format'}<select id="lf-format">${(isSkema?['Tatap muka','SJJ','Tatap muka & SJJ']:['Online','Webinar','Tatap muka']).map(f=>`<option ${fd.format===f?'selected':''}>${esc(f)}</option>`).join('')}</select></label>
+        <label class="f">Kota<input id="lf-kota" maxlength="100" value="${esc(fd.kota??'Jakarta')}"></label>
       </div>
-      <label class="f">Deskripsi<textarea id="lf-desc" rows="3">${S.form==='skema'?'Uji kompetensi analis data junior. TUK Sewaktu Kuningan atau daring.':'Kelas persiapan 4 sesi. Tidak wajib untuk mendaftar uji kompetensi.'}</textarea></label>
+      <label class="f">Deskripsi<textarea id="lf-desc" rows="3" maxlength="2000">${esc(fd.deskripsi??(isSkema?'Uji kompetensi analis data junior. TUK Sewaktu Kuningan atau daring.':'Kelas persiapan 4 sesi. Tidak wajib untuk mendaftar uji kompetensi.'))}</textarea></label>
       ${S.form==='pelatihan'?`<label class="row" style="gap:.5rem;font-size:.88rem"><input type="checkbox" id="lf-ack" checked style="width:auto">Saya menyatakan kelas ini bukan syarat wajib uji, dan instruktur tidak akan menjadi asesor pesertanya.</label>`:''}
-      <div class="row" style="justify-content:flex-end"><button type="button" class="btn ghost" data-savedraft="1">Simpan draf</button><button type="submit" class="btn green">${ic('check')}Ajukan persetujuan</button></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn ghost" data-savedraft="1" ${S.busy?'disabled':''}>Simpan draf</button><button type="submit" class="btn green" ${S.busy?'disabled':''}>${ic('check')}Ajukan persetujuan</button></div>
     </form>`:'';
-  return `<div class="spread"><div><p class="eyebrow">${ME_LSP}</p><h2>Etalase & Pelatihan</h2></div><div class="row"><button class="btn" data-newform="skema">${ic('cert')}Tambah skema</button><button class="btn purple" data-newform="pelatihan">${ic('book')}Tambah pelatihan</button></div></div>
-  <div class="alert info">${ic('shield')}<span>Listing baru dan setiap perubahan baru tampil di portal publik setelah <b>disetujui Admin Platform</b>. Versi lama tetap tayang selama perubahan ditinjau.</span></div>
+  return `<div class="spread"><div><p class="eyebrow">${ME.active.lsp_nama}</p><h2>Etalase & Pelatihan</h2></div><div class="row"><button class="btn" data-newform="skema">${ic('cert')}Tambah skema</button><button class="btn purple" data-newform="pelatihan">${ic('book')}Tambah pelatihan</button></div></div>
+  <div class="alert info">${ic('shield')}<span>Listing baru dan setiap perubahan baru tampil di portal publik setelah <b>disetujui Admin Platform</b>.</span></div>
   <div class="flow"><span>Draf</span><i>→</i><span>Diajukan</span><i>→</i><span>Ditinjau Admin Platform</span><i>→</i><span style="background:var(--ok-bg);color:var(--ok)">Tayang</span><i>/</i><span style="background:var(--bad-bg);color:var(--bad)">Perlu revisi</span></div>
   ${form}
   <div class="card">
     <div class="tabs" style="margin-bottom:.8rem">${tabs.map(([k,l])=>`<button class="fchip ${S.etab===k?'on':''}" data-etab="${k}">${l} <span class="num">(${count(k)})</span></button>`).join('')}</div>
     <div class="table-wrap"><table><thead><tr><th>Judul</th><th>Jenis</th><th>Harga</th><th>Status</th><th>Catatan Admin Platform</th><th>Aksi</th></tr></thead><tbody>
-    ${list.map(l=>`<tr><td><b>${l.judul}</b><div class="muted" style="font-size:.76rem">Diajukan ${l.tgl}</div></td><td><span class="chip ${l.tipe==='skema'?'info':'plain'}">${l.tipe==='skema'?'Skema uji':'Pelatihan'}</span></td><td class="num">${l.harga?rp(l.harga):'—'}</td><td><span class="chip ${ST[l.status][0]}">${ST[l.status][1]}</span></td><td style="max-width:280px;font-size:.84rem" class="${l.catatan?'':'muted'}">${l.catatan||'—'}</td><td>${
+    ${list.map(l=>`<tr><td><b>${l.judul}</b><div class="muted" style="font-size:.76rem">${l.submitted_at?'Diajukan '+fmtTgl(l.submitted_at):'Belum diajukan'}</div></td><td><span class="chip ${l.tipe==='skema'?'info':'plain'}">${l.tipe==='skema'?'Skema uji':'Pelatihan'}</span></td><td class="num">${l.harga?rp(l.harga):'—'}</td><td><span class="chip ${ST[l.status][0]}">${ST[l.status][1]}</span></td><td style="max-width:280px;font-size:.84rem" class="${l.catatan?'':'muted'}">${l.catatan||'—'}</td><td>${
       l.status==='draf'||l.status==='revisi'?`<button class="btn sm green" data-submit="${l.id}">Ajukan</button>`:
-      l.status==='menunggu'?`<button class="btn sm ghost" data-withdraw="${l.id}">Tarik</button>`:
-      l.status==='tayang'?`<button class="btn sm orange" data-toast="Perubahan dikirim untuk ditinjau. Versi lama tetap tayang.">Ubah</button>`:'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Belum ada listing dengan status ini.</td></tr>'}
+      l.status==='menunggu'?`<button class="btn sm ghost" data-withdraw="${l.id}">Tarik</button>`:'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Belum ada listing dengan status ini.</td></tr>'}
     </tbody></table></div>
   </div>`;
 }
+
+/* ===================== Persetujuan listing (Admin Platform) ===================== */
 function pApproval(){
-  const q=antrean();
-  if(!S.pick||!q.find(l=>l.id===S.pick))S.pick=q[0]?.id||null;
+  const q=S.reviews;
+  if(!S.pick||!q.find(l=>l.id===S.pick))S.pick=q[0]?q[0].id:null;
   const cur=q.find(l=>l.id===S.pick);
-  const preview=cur&&cur.pub?(cur.tipe==='skema'?skemaCard(cur.pub):kelasCard(cur.pub)):'';
+  const preview=cur?(cur.tipe==='skema'?skemaCard(toSkema(cur)):kelasCard(toKelas(cur))):'';
   return `<div class="spread"><div><p class="eyebrow">Kurasi e-commerce & LMS</p><h2>Persetujuan listing</h2></div><span class="chip ${q.length?'warn':'ok'}">${q.length} menunggu · SLA 2 hari kerja</span></div>
-  <div class="grid g4">${kpi('check','orange',String(q.length),'Menunggu')}${kpi('cal','blue','1,4 hari','Rata-rata waktu tinjau')}${kpi('star','green','46','Disetujui bulan ini')}${kpi('bell','red','5','Ditolak / revisi')}</div>
-  ${q.length?`<div class="layout-2" style="grid-template-columns:minmax(0,1fr) minmax(0,1.5fr)">
-    <div class="stack" style="gap:.6rem">${q.map(l=>`<button class="qitem ${l.id===S.pick?'on':''}" data-pick="${l.id}"><span class="spread" style="width:100%"><b>${l.judul}</b><span class="chip ${l.tipe==='skema'?'info':'plain'}">${l.tipe==='skema'?'Skema':'Pelatihan'}</span></span><span class="muted" style="font-size:.8rem">${l.lsp} · diajukan ${l.tgl}</span></button>`).join('')}</div>
+  <div class="grid g4">${kpi('check','orange',String(q.length),'Menunggu')}${kpi('star','green',String(S.reviewStats.approved_month),'Disetujui bulan ini')}${kpi('bell','red',String(S.reviewStats.rejected_month),'Ditolak / revisi bulan ini')}${kpi('cal','blue','2 hari','Target waktu tinjau')}</div>
+  ${cur?`<div class="layout-2" style="grid-template-columns:minmax(0,1fr) minmax(0,1.5fr)">
+    <div class="stack" style="gap:.6rem">${q.map(l=>`<button class="qitem ${l.id===S.pick?'on':''}" data-pick="${l.id}"><span class="spread" style="width:100%"><b>${l.judul}</b><span class="chip ${l.tipe==='skema'?'info':'plain'}">${l.tipe==='skema'?'Skema':'Pelatihan'}</span></span><span class="muted" style="font-size:.8rem">${l.lsp_nama} · diajukan ${fmtTgl(l.submitted_at)}</span></button>`).join('')}</div>
     <div class="card stack">
-      <div class="spread"><div><p class="eyebrow">Pratinjau tampilan publik</p><h3>${cur.judul}</h3><p class="muted" style="font-size:.84rem">${cur.lsp} · ${cur.harga?rp(cur.harga):'Gratis'}</p></div><span class="chip warn">Belum tayang</span></div>
+      <div class="spread"><div><p class="eyebrow">Pratinjau tampilan publik</p><h3>${cur.judul}</h3><p class="muted" style="font-size:.84rem">${cur.lsp_nama} · ${cur.harga?rp(cur.harga):'Gratis'}</p></div><span class="chip warn">Belum tayang</span></div>
       <div style="max-width:340px">${preview}</div>
-      <div><p class="eyebrow">Deskripsi dari LSP</p><p style="margin-top:.3rem">${cur.desc||'—'}</p></div>
-      <div><p class="eyebrow" style="margin-bottom:.5rem">Checklist kurasi</p><ul class="checklist">${(cur.tipe==='skema'?['Skema masuk ruang lingkup lisensi BNSP LSP & lisensi masih berlaku','Harga, biaya tambahan, dan kebijakan refund jelas','Tidak ada klaim menyesatkan ("pasti lulus", "dijamin kompeten")','Lokasi TUK & jadwal benar']:['Tidak dinyatakan sebagai syarat wajib uji','Instruktur tercatat (untuk cek konflik kepentingan asesor)','Harga & kebijakan refund jelas','Tidak ada klaim menyesatkan']).map((c,i)=>`<li><label><input type="checkbox" id="ck-${cur.id}-${i}" checked>${c}</label></li>`).join('')}</ul></div>
-      <label class="f">Catatan untuk LSP (wajib untuk revisi / tolak)<textarea id="ap-note" rows="2" placeholder="Mis. hapus klaim 'dijamin kompeten' di deskripsi"></textarea></label>
-      <div class="row" style="justify-content:flex-end"><button class="btn red" data-decide="ditolak">Tolak</button><button class="btn orange" data-decide="revisi">Minta revisi</button><button class="btn green" data-decide="tayang">${ic('check')}Setujui & tayangkan</button></div>
+      <div><p class="eyebrow">Deskripsi dari LSP</p><p style="margin-top:.3rem">${cur.deskripsi||'—'}</p></div>
+      <div><p class="eyebrow" style="margin-bottom:.5rem">Checklist kurasi</p><ul class="checklist">${(cur.tipe==='skema'?['Skema masuk ruang lingkup lisensi BNSP LSP & lisensi masih berlaku','Harga, biaya tambahan, dan kebijakan refund jelas','Tidak ada klaim menyesatkan ("pasti lulus", "dijamin kompeten")','Lokasi TUK & jadwal benar']:['Tidak dinyatakan sebagai syarat wajib uji','Instruktur tercatat (untuk cek konflik kepentingan asesor)','Harga & kebijakan refund jelas','Tidak ada klaim menyesatkan']).map((c,i)=>`<li><label><input type="checkbox" id="ck-${cur.id}-${i}">${c}</label></li>`).join('')}</ul></div>
+      <label class="f">Catatan untuk LSP (wajib untuk revisi / tolak)<textarea id="ap-note" rows="2" maxlength="500" placeholder="Mis. hapus klaim 'dijamin kompeten' di deskripsi"></textarea></label>
+      <div class="row" style="justify-content:flex-end"><button class="btn red" data-decide="ditolak" ${S.busy?'disabled':''}>Tolak</button><button class="btn orange" data-decide="revisi" ${S.busy?'disabled':''}>Minta revisi</button><button class="btn green" data-decide="tayang" ${S.busy?'disabled':''}>${ic('check')}Setujui & tayangkan</button></div>
     </div>
-  </div>`:`<div class="card empty"><h3>Antrean kosong</h3><p class="muted">Semua listing sudah ditinjau. Coba ajukan listing baru dari akun Admin LSP.</p></div>`}`;
+  </div>`:`<div class="card empty"><h3>Antrean kosong</h3><p class="muted">Semua listing sudah ditinjau.</p></div>`}`;
 }
-function modul(k){
-  const m=MODUL[k]||['Modul','',[]];
-  return `<div><p class="eyebrow">Purwarupa</p><h2>${m[0]}</h2></div><div class="card empty"><span class="logo-mark" style="width:60px;height:60px;margin:0 auto 1rem;color:#fff">${ic('doc','ico" style="width:28px;height:28px')}</span><h3>${m[1]}</h3><p class="muted" style="margin-top:.4rem">Layar rinci modul ini dibuat pada tahap desain berikutnya. Fitur yang direncanakan:</p><ul>${m[2].map(f=>`<li>${f}</li>`).join('')}</ul><div style="margin-top:1.2rem"><button class="btn" data-go-app="dashboard">Kembali ke beranda</button></div></div>`;
+
+/* ===================== Pengguna & peran (Admin LSP) ===================== */
+function rbacMatrix(){
+  if(!S.rbac) return '<p class="muted">Memuat…</p>';
+  const roles=S.rbac.roles, perms=S.rbac.permissions;
+  return `<div class="table-wrap"><table><thead><tr><th>Hak akses</th>${roles.map(r=>`<th style="text-align:center">${r.nama}</th>`).join('')}</tr></thead><tbody>
+    ${perms.filter(p=>roles.some(r=>r.permissions.includes(p.code))).map(p=>`<tr><td><span class="mono">${p.code}</span><div class="muted" style="font-size:.78rem">${p.deskripsi}</div></td>${roles.map(r=>`<td style="text-align:center">${r.permissions.includes(p.code)?`<span class="chip ok" aria-label="diizinkan">${ic('check')}</span>`:'<span class="muted" aria-label="tidak">·</span>'}</td>`).join('')}</tr>`).join('')}
+  </tbody></table></div>`;
 }
+function pUsers(){
+  const ud=S.userDraft||{};
+  const form=S.userForm?`<form class="card stack" id="userForm" style="border:2px solid var(--brand-b)" novalidate autocomplete="off">
+      <div class="spread"><h3>Tambah pengguna LSP</h3><button type="button" class="btn ghost sm" data-userform="0">Batal</button></div>
+      ${S.userErr?`<p class="alert bad" role="alert">${esc(S.userErr)}</p>`:''}
+      <div class="grid g2">
+        <label class="f">Nama lengkap<input id="uf-nama" required maxlength="120" value="${esc(ud.nama??'')}"></label>
+        <label class="f">Email<input id="uf-email" type="email" required maxlength="190" value="${esc(ud.email??'')}"></label>
+        <label class="f">Peran<select id="uf-role">${S.assignable.map(r=>`<option value="${r.code}" ${ud.role===r.code?'selected':''}>${r.nama}</option>`).join('')}</select></label>
+        <label class="f">Password awal<input id="uf-pass" type="password" autocomplete="new-password" required minlength="10" maxlength="128"></label>
+      </div>
+      <p class="muted" style="font-size:.82rem">Pengguna wajib mengganti password awal saat pertama kali masuk. Asesor dan asesi tidak ditambahkan di sini; mereka bergabung lewat undangan dan pendaftaran.</p>
+      <div class="row" style="justify-content:flex-end"><button class="btn green" type="submit" ${S.busy?'disabled':''}>${ic('check')}Simpan pengguna</button></div>
+    </form>`:'';
+  return `<div class="spread"><div><p class="eyebrow">${ME.active.lsp_nama}</p><h2>Pengguna & Hak Akses</h2></div><button class="btn" data-userform="1">${ic('users')}Tambah pengguna</button></div>
+  <div class="alert info">${ic('shield')}<span>Daftar ini hanya berisi pengguna LSP Anda. Pengguna dari LSP lain tidak pernah tampil di sini.</span></div>
+  ${form}
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Login terakhir</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
+    ${S.users.map(u=>`<tr><td><b>${u.nama}</b>${u.is_me?' <span class="chip info">Anda</span>':''}</td><td class="muted">${u.email}</td><td><span class="chip plain">${u.role_nama}${u.tuk_nama?' · '+u.tuk_nama:''}</span></td><td class="muted num">${fmtTgl(u.last_login_at)}</td><td><span class="chip ${u.status==='aktif'?'ok':'bad'}">${u.status==='aktif'?'Aktif':'Nonaktif'}</span></td><td>${u.is_me?'—':`<button class="btn sm ${u.status==='aktif'?'red':'green'}" data-ustatus="${u.membership_id}" data-to="${u.status==='aktif'?'nonaktif':'aktif'}">${u.status==='aktif'?'Nonaktifkan':'Aktifkan'}</button>`}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Memuat…</td></tr>'}
+  </tbody></table></div></div>
+  <div class="card"><h3>Matriks peran & hak akses</h3><p class="muted" style="font-size:.85rem;margin:.2rem 0 .8rem">Ditegakkan di server pada setiap permintaan.</p>${rbacMatrix()}</div>`;
+}
+function pRbac(){
+  return `<div><p class="eyebrow">Platform</p><h2>Peran & hak akses</h2></div>
+  <div class="alert info">${ic('shield')}<span>Peran internal LSP hanya boleh punya satu keanggotaan. Asesor dan asesi boleh aktif di banyak LSP, tetapi hanya melihat data miliknya.</span></div>
+  <div class="card">${rbacMatrix()}</div>`;
+}
+
+/* ===================== Kerangka aplikasi ===================== */
 function app(){
-  const r=S.role,m=MENU[r];
+  const r=S.role;
+  if(ME.user.must_change_password) return `<div class="main">${pChangePassword(true)}</div>`;
   const dash={asesi:dAsesi,asesor:dAsesor,admin:dAdmin,tuk:dTuk,super:dSuper}[r];
-  const multi=(r==='asesi'||r==='asesor');
-  const lspOpts=r==='asesi'?['LSP Teknologi Digital Nusantara','LSP Pariwisata Bahari Indonesia']:['LSP Teknologi Digital Nusantara','LSP Konstruksi Mandiri','LSP Manajemen Profesional'];
-  const navItems=m.items.map(it=>it[0]==='g'?`<div class="grp">${it[1]}</div>`:`<button data-go-app="${it[0]}" class="${S.appPage===it[0]?'on':''}">${ic(it[2])}${it[1]}${it[0]==='approval'&&antrean().length?`<span class="navbadge">${antrean().length}</span>`:''}</button>`).join('');
+  const menu=visibleMenu();
+  const multi=ME.memberships.length>1 && ME.memberships.every(m=>m.role===ME.active.role);
+  const otherCtx=ME.memberships.length>1 && !multi;
+  const lspOpts=ME.memberships.map(m=>m.lsp_nama).filter(Boolean);
+  const p=S.appPage;
+  const pages={etalase:pEtalase,approval:pApproval,users:pUsers,rbac:pRbac};
+  const content=p==='password'?pChangePassword(false):!allowedPage(p)?pDenied():p==='dashboard'?dash():pages[p]?pages[p]():modul(p);
+  const navItems=menu.map(it=>it[0]==='g'?`<div class="grp">${it[1]}</div>`:`<button data-go-app="${it[0]}" class="${p===it[0]?'on':''}">${ic(it[2])}${it[1]}${it[0]==='approval'&&S.reviews.length?`<span class="navbadge">${S.reviews.length}</span>`:''}</button>`).join('');
+  const ctxLabel=ME.active.lsp_nama?(ME.active.tuk_nama?ME.active.tuk_nama:ME.active.lsp_nama):'Platform';
   return `<div class="app">
     <aside class="side">
-      <button class="logo" data-logout="1"><span class="logo-mark">${ic('shield')}</span>PortalLSP</button>
-      <div class="tenant"><span style="opacity:.75">${multi?'Akun Anda aktif di':'Masuk ke'}</span><b>${multi?lspOpts.length+' LSP':r==='super'?'Platform':r==='tuk'?'TUK Sewaktu Kuningan':'LSP Teknologi Digital Nusantara'}</b></div>
+      <button class="logo" data-go-public="beranda"><span class="logo-mark">${ic('shield')}</span>PortalLSP</button>
+      <div class="tenant"><span style="opacity:.75">${multi?'Akun Anda aktif di':'Masuk ke'}</span><b>${multi?ME.memberships.length+' LSP':ctxLabel}</b></div>
       <nav aria-label="Menu aplikasi">${navItems}</nav>
-      <button class="btn glass sm" data-logout="1" style="margin-top:auto">${ic('logout')}Keluar ke portal</button>
+      <div class="stack" style="gap:.4rem;margin-top:auto"><button class="btn glass sm" data-go-app="password">${ic('gear')}Ganti password</button><button class="btn glass sm" data-logout="1">${ic('logout')}Keluar</button></div>
     </aside>
     <div class="main">
       <div class="apptop">
-        ${multi?`<label class="row" style="gap:.4rem;font-size:.82rem;font-weight:600" for="ctx"><span class="muted">Tampilkan</span><select id="ctx"><option value="all">Semua LSP</option>${lspOpts.map(l=>`<option ${S.lspCtx===l?'selected':''}>${l}</option>`).join('')}</select></label>`:`<span class="chip info">${m.ctx}</span>`}
-        <div class="row" style="margin-left:auto;gap:.6rem"><button class="bell" aria-label="Notifikasi" data-toast="3 notifikasi baru">${ic('bell')}<i>3</i></button><span class="avatar">${m.inisial}</span><div style="line-height:1.2"><b style="font-size:.86rem">${m.nama}</b><div class="muted" style="font-size:.74rem">${m.ctx}</div></div></div>
+        ${multi?`<label class="row" style="gap:.4rem;font-size:.82rem;font-weight:600" for="ctx"><span class="muted">Tampilkan</span><select id="ctx"><option value="all">Semua LSP</option>${lspOpts.map(l=>`<option ${S.lspCtx===l?'selected':''}>${l}</option>`).join('')}</select></label>`:
+          otherCtx?`<label class="row" style="gap:.4rem;font-size:.82rem;font-weight:600" for="switch"><span class="muted">Konteks</span><select id="switch">${ME.memberships.map(m=>`<option value="${m.id}" ${m.id===ME.active.id?'selected':''}>${m.lsp_nama||'Platform'} · ${m.role_nama}</option>`).join('')}</select></label>`:
+          `<span class="chip info">${ME.active.role_nama}</span>`}
+        <div class="row" style="margin-left:auto;gap:.6rem"><span class="avatar">${ME.user.nama.split(' ').map(w=>w[0]).join('').slice(0,2)}</span><div style="line-height:1.2"><b style="font-size:.86rem">${ME.user.nama}</b><div class="muted" style="font-size:.74rem">${ME.active.role_nama}${ME.active.lsp_nama?' · '+ME.active.lsp_nama:''}</div></div><button class="btn ghost sm" data-logout="1" aria-label="Keluar">${ic('logout')}</button></div>
       </div>
-      <div class="menu-mobile">${m.items.filter(i=>i[0]!=='g').map(it=>`<button data-go-app="${it[0]}" class="${S.appPage===it[0]?'on':''}">${it[1]}</button>`).join('')}<button data-logout="1">Keluar</button></div>
-      <div class="content">${S.appPage==='dashboard'?dash():S.appPage==='etalase'?pEtalase():S.appPage==='approval'?pApproval():modul(S.appPage)}</div>
+      <div class="menu-mobile">${menu.filter(i=>i[0]!=='g').map(it=>`<button data-go-app="${it[0]}" class="${p===it[0]?'on':''}">${it[1]}</button>`).join('')}<button data-go-app="password">Ganti password</button><button data-logout="1">Keluar</button></div>
+      <div class="content">${content}</div>
     </div>
   </div>`;
 }
 
 /* ===================== Render & event ===================== */
 function render(){
-  $('#root').innerHTML = S.role==='publik' ? publik() : app();
-  document.querySelectorAll('.demo button').forEach(b=>b.classList.toggle('on',b.dataset.role===S.role));
-  document.body.style.paddingBottom='90px';
+  $('#root').innerHTML = (ME && S.role!=='publik' && S.inApp) ? app() : publik();
 }
-function setRole(r){S.role=r;S.appPage='dashboard';S.lspCtx='all';if(r==='publik')S.page='beranda';render();window.scrollTo(0,0)}
-document.addEventListener('click',e=>{
-  const t=e.target.closest('button,[data-skema]');if(!t)return;
+async function enterApp(){
+  S.inApp=true; S.appPage='dashboard'; S.lspCtx='all';
+  render(); window.scrollTo(0,0);
+  await loadForPage('dashboard'); render();
+}
+async function logout(){
+  try{ applyMe(await api('auth/logout',{})); }catch(e){}
+  ME=null; S.inApp=false; S.role='publik'; S.listings=[]; S.reviews=[]; S.users=[]; S.rbac=null;
+  go('beranda'); toast('Anda sudah keluar.');
+}
+/* Saat menunggu server: matikan tombol tanpa render ulang, agar isian form tidak hilang. */
+function busy(on){
+  S.busy=on;
+  if(on){ document.querySelectorAll('#root button').forEach(b=>{ b.dataset.wasDisabled=b.disabled?'1':''; b.disabled=true; }); }
+  else render();
+}
+
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('button,[data-skema]');if(!t||t.disabled)return;
   const d=t.dataset;
-  if(d.role){setRole(d.role);return}
-  if(t.id==='menuBtn'){S.navOpen=!S.navOpen;render();return}
-  if(d.login){setRole(d.login);return}
-  if(d.logout){setRole('publik');return}
-  if(d.appPub){S.role='publik';go(d.appPub);return}
-  if(d.goApp){goApp(d.goApp);return}
-  if(d.filter){S.filter=d.filter;if(S.page!=='cari')go('cari');else render();return}
-  if(d.skema){go('detail',{skema:d.skema,step:0,jadwal:0});return}
-  if(d.step){S.step=Math.max(0,Math.min(4,S.step+Number(d.step)));render();return}
-  if(t.id==='bayar'){toast('Pembayaran berhasil. Permohonan masuk ke LSP.');setTimeout(()=>setRole('asesi'),900);return}
-  if(d.go){go(d.go,d.verif?{verif:true}:{});return}
-  if(d.etab){S.etab=d.etab;render();return}
-  if(d.newform){S.form=d.newform;render();return}
-  if(d.closeform){S.form=null;render();return}
-  if(d.savedraft){addListing('draf');return}
-  if(d.submit){const l=LISTINGS.find(x=>x.id===d.submit);l.status='menunggu';l.tgl='09 Okt 2026';l.catatan='';if(!l.pub)l.pub={id:l.id,kode:'TJ',nama:l.judul,bidang:'TIK',kkni:'Level 3',lsp:l.lsp,kota:'Jakarta',metode:['Tatap muka'],harga:l.harga||800000,unit:8,warna:'blue',rating:5};if(l.tipe==='pelatihan'&&l.pub)l.pub.judul=l.judul;render();toast('Diajukan ke Admin Platform untuk ditinjau');return}
-  if(d.withdraw){LISTINGS.find(x=>x.id===d.withdraw).status='draf';render();toast('Pengajuan ditarik, kembali menjadi draf');return}
-  if(d.pick){S.pick=d.pick;render();return}
-  if(d.decide){
-    const l=LISTINGS.find(x=>x.id===S.pick);const note=($('#ap-note')?.value||'').trim();
-    if(d.decide!=='tayang'&&!note){toast('Isi catatan untuk LSP dulu');$('#ap-note').focus();return}
-    l.status=d.decide;l.catatan=d.decide==='tayang'?'Disetujui':note;S.pick=null;render();
-    toast(d.decide==='tayang'?'Disetujui. Listing sudah tayang di portal publik.':d.decide==='revisi'?'Permintaan revisi dikirim ke LSP':'Listing ditolak. LSP sudah diberi tahu.');return}
-  if(d.toast){toast(d.toast)}
+  try{
+    if(t.id==='menuBtn'){S.navOpen=!S.navOpen;render();return}
+    if(d.logout){await logout();return}
+    if(d.enter){await enterApp();return}
+    if(d.goPublic){S.inApp=false;go(d.goPublic);return}
+    if(d.goApp){await goApp(d.goApp);return}
+    if(d.filter){S.filter=d.filter;if(S.page!=='cari')go('cari');else render();return}
+    if(d.skema){go('detail',{skema:d.skema,step:0,jadwal:0});return}
+    if(d.step){S.step=Math.max(0,Math.min(4,S.step+Number(d.step)));render();return}
+    if(t.id==='bayar'){
+      if(!ME){toast('Masuk sebagai asesi untuk melanjutkan pembayaran.');go('login');return}
+      if(ME.active.role!=='asesi'){toast('Pembayaran hanya untuk akun asesi.');return}
+      toast('Pembayaran berhasil (simulasi). Permohonan masuk ke LSP.');await enterApp();return}
+    if(d.go){S.inApp=false;go(d.go,d.verif?{verif:true}:{loginErr:''});return}
+    if(d.etab){S.etab=d.etab;render();return}
+    if(d.newform){S.form=d.newform;S.formErr='';S.formDraft=null;render();return}
+    if(d.closeform){S.form=null;render();return}
+    if(d.savedraft){await saveListing('draf');return}
+    if(d.submit){busy(true);try{await api('listings/submit',{id:Number(d.submit)});toast('Diajukan ke Admin Platform untuk ditinjau.');await loadListings();}finally{busy(false)}return}
+    if(d.withdraw){busy(true);try{await api('listings/withdraw',{id:Number(d.withdraw)});toast('Pengajuan ditarik, kembali menjadi draf.');await loadListings();}finally{busy(false)}return}
+    if(d.pick){S.pick=Number(d.pick);render();return}
+    if(d.decide){
+      const note=($('#ap-note')?.value||'').trim();
+      if(d.decide==='tayang'&&[...document.querySelectorAll('.checklist input')].some(c=>!c.checked)){toast('Centang semua checklist kurasi sebelum menyetujui.');return}
+      if(d.decide!=='tayang'&&note.length<5){toast('Tulis catatan untuk LSP dulu (minimal 5 karakter).');$('#ap-note').focus();return}
+      busy(true);
+      try{
+        await api('reviews/decide',{id:S.pick,decision:d.decide,note});
+        S.pick=null; await Promise.all([loadReviews(),loadCatalog()]);
+        toast(d.decide==='tayang'?'Disetujui. Listing sudah tayang di portal publik.':d.decide==='revisi'?'Permintaan revisi dikirim ke LSP.':'Listing ditolak. LSP sudah diberi tahu.');
+      }finally{busy(false)}
+      return}
+    if(d.userform!==undefined){S.userForm=d.userform==='1';S.userErr='';S.userDraft=null;render();return}
+    if(d.ustatus){busy(true);try{await api('users/status',{membership_id:Number(d.ustatus),status:d.to});toast(d.to==='aktif'?'Akses pengguna diaktifkan.':'Akses pengguna dinonaktifkan.');await loadUsers();}finally{busy(false)}return}
+    if(d.toast){toast(d.toast)}
+  }catch(err){ toast(err.message); render(); }
 });
-let seq=8;
-function addListing(status){
-  const f=S.form,judul=$('#lf-judul').value.trim()||'Listing baru',harga=Number($('#lf-harga').value)||0,fmt=$('#lf-format').value,desc=$('#lf-desc').value.trim();
-  if(f==='pelatihan'&&status==='menunggu'&&!$('#lf-ack').checked){toast('Centang pernyataan pelatihan dulu');return}
-  const id='L'+(seq++);
-  const pub=f==='skema'?{id,kode:judul.split(/\s+/).filter(w=>/^[A-Z]/.test(w)).map(w=>w[0]).join('').slice(0,3)||'NEW',nama:judul,bidang:'TIK',kkni:'Level 4',lsp:ME_LSP,kota:'Jakarta',metode:fmt.includes('&')?['Tatap muka','SJJ']:[fmt],harga,unit:9,warna:'pink',rating:5}
-    :{judul,info:fmt,warna:'green',harga,lsp:ME_LSP};
-  LISTINGS.unshift({id,tipe:f,judul,lsp:ME_LSP,harga,status,tgl:status==='draf'?'—':'09 Okt 2026',catatan:'',pub,desc});
-  S.form=null;S.etab='semua';render();
-  toast(status==='draf'?'Disimpan sebagai draf':'Diajukan. Tampil di portal setelah disetujui Admin Platform.');
+async function saveListing(status){
+  const f=S.form;
+  const payload={tipe:f,judul:$('#lf-judul').value,bidang:$('#lf-bidang').value,harga:Number($('#lf-harga').value)||0,format:$('#lf-format').value,kota:$('#lf-kota').value,deskripsi:$('#lf-desc').value,status,ack:f==='pelatihan'?$('#lf-ack').checked:false};
+  busy(true);
+  try{
+    await api('listings',payload);
+    S.form=null;S.formErr='';S.formDraft=null;S.etab='semua';await loadListings();
+    toast(status==='draf'?'Disimpan sebagai draf.':'Diajukan. Tampil di portal setelah disetujui Admin Platform.');
+  }catch(err){ S.formErr=err.message; S.formDraft=payload; }
+  finally{ busy(false); }
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('article[data-skema]'))e.target.click()});
-document.addEventListener('change',e=>{
+document.addEventListener('change',async e=>{
   if(e.target.name==='jd'){S.jadwal=Number(e.target.value);render()}
   if(e.target.id==='ctx'){S.lspCtx=e.target.value;render()}
+  if(e.target.id==='switch'){
+    try{ applyMe(await api('auth/switch',{membership_id:Number(e.target.value)})); await enterApp(); toast('Konteks diganti.'); }
+    catch(err){ toast(err.message); render(); }
+  }
 });
 document.addEventListener('input',e=>{if(e.target.id==='cq'){S.q=e.target.value;const pos=e.target.selectionStart;render();const n=$('#cq');n.focus();n.setSelectionRange(pos,pos)}});
-document.addEventListener('submit',e=>{
+document.addEventListener('submit',async e=>{
   e.preventDefault();
-  if(e.target.id==='heroSearch'){S.q=$('#hq').value;S.filter='Semua';go('cari')}
-  if(e.target.id==='verifForm'){S.verif=true;render();toast('Sertifikat ditemukan')}
-  if(e.target.id==='listingForm'){addListing('menunggu')}
+  const id=e.target.id;
+  if(id==='heroSearch'){S.q=$('#hq').value;S.filter='Semua';go('cari')}
+  if(id==='verifForm'){S.verif=true;render();toast('Sertifikat ditemukan')}
+  if(id==='listingForm'){await saveListing('menunggu')}
+  if(id==='loginForm'){
+    const email=$('#lg-email').value.trim(), password=$('#lg-pass').value;
+    S.loginEmail=email;
+    if(!email||!password){S.loginErr='Email dan password wajib diisi.';render();return}
+    S.loginErr=''; busy(true);
+    try{ applyMe(await api('auth/login',{email,password})); S.busy=false; await enterApp(); toast('Selamat datang, '+ME.user.nama+'.'); }
+    catch(err){ S.loginErr=err.message; busy(false); }
+  }
+  if(id==='pwForm'){
+    const cur=$('#pw-cur').value, nw=$('#pw-new').value, nw2=$('#pw-new2').value;
+    if(nw!==nw2){S.pwErr='Ulangi password baru dengan benar.';render();return}
+    S.pwErr=''; busy(true);
+    try{ applyMe(await api('auth/password',{current:cur,new:nw})); S.busy=false; S.appPage='dashboard'; await loadForPage('dashboard'); render(); toast('Password berhasil diganti.'); }
+    catch(err){ S.pwErr=err.message; busy(false); }
+  }
+  if(id==='userForm'){
+    const payload={nama:$('#uf-nama').value,email:$('#uf-email').value,role:$('#uf-role').value,password:$('#uf-pass').value};
+    busy(true);
+    try{ await api('users',payload); S.userForm=false; S.userErr=''; S.userDraft=null; await loadUsers(); toast('Pengguna ditambahkan. Ia wajib mengganti password saat pertama masuk.'); }
+    catch(err){ S.userErr=err.message; S.userDraft={nama:payload.nama,email:payload.email,role:payload.role}; }
+    finally{ busy(false); }
+  }
 });
-render();
-</script>
 
-</body>
-</html>
+/* ===================== Mulai ===================== */
+(async function boot(){
+  render();
+  try{
+    const d=await loadMe();
+    await loadCatalog();
+    if(ME){ await enterApp(); }
+    else { if(d.expired) { S.loginErr='Sesi Anda berakhir. Silakan masuk lagi.'; } render(); }
+  }catch(e){ toast(e.message); render(); }
+})();
