@@ -226,11 +226,27 @@ Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform*, *Pu
 | Manajemen data TUK (sewaktu, tempat kerja, mandiri) | ✅ | P1 |
 | Manajemen data asesor (No. Reg MET, masa berlaku sertifikat asesor, bidang/skema yang dikuasai) | ✅ | P1 |
 | Manajemen akun pengguna | ✅ | P1 |
+| **Manajemen data pemohon/asesi** (sisi admin): daftar pemohon, cek & verifikasi berkas, terima / tolak / minta perbaikan dengan catatan, riwayat permohonan | ✅ | P1 |
+| **Database alumni**: arsip per alumni berisi rekaman dokumen asesmen (APL, FR, bukti, keputusan, sertifikat), bisa dicari & difilter (skema, tahun, TUK, instansi) | ✅ | P1 |
 | **Pengingat masa berlaku**: lisensi LSP, sertifikat asesor (MET), sertifikat kompetensi asesor, verifikasi TUK | 🆕 | P1 |
 | **Ketersediaan / kalender asesor** (asesor mengisi tanggal tersedia) | 🆕 | P2 |
 | **Deklarasi konflik kepentingan** asesor per asesi/jadwal (blok otomatis jika asesor pernah melatih asesi atau satu instansi) | 🆕 | P1 |
 | **Inventaris sarana-prasarana TUK** per skema (alat, bahan, ruang) | 🆕 | P2 |
 | Rotasi asesor & beban kerja asesor | 🆕 | P3 |
+
+### 2.1 Hak akses Admin TUK
+
+Admin TUK memakai web yang sama dengan Admin LSP, tetapi menunya terbatas dan **datanya hanya untuk TUK miliknya** (di dalam LSP-nya). Fitur bertanda * di deck NAS:
+
+| Fitur | Admin LSP | Admin TUK |
+|---|---|---|
+| Manajemen data LSP, asesor, skema, akun pengguna, pleno, laporan BNSP | ✅ | ❌ |
+| Manajemen data TUK (profil, sarana-prasarana, dokumen verifikasi) | ✅ semua TUK | ✅ TUK sendiri |
+| Manajemen data pemohon | ✅ semua | ✅ pemohon yang mendaftar di TUK-nya |
+| Group chat asesmen | ✅ semua jadwal | ✅ jadwal di TUK-nya |
+| Tinjau proses sertifikasi | ✅ semua | ✅ asesi di TUK-nya |
+| Database alumni | ✅ semua | ✅ alumni yang diuji di TUK-nya |
+| Usulan jadwal asesmen (disetujui Admin LSP) | ✅ | ✅ |
 
 ## 3. Modul Skema Sertifikasi
 
@@ -238,6 +254,7 @@ Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform*, *Pu
 |---|---|---|
 | Upload skema: unit kompetensi (kode SKKNI/SKK Khusus/Internasional), elemen, KUK, persyaratan dasar | ✅ | P1 |
 | Upload MUK (Materi Uji Kompetensi) per skema | ✅ | P1 |
+| Status lisensi skema (termasuk ruang lingkup lisensi BNSP atau belum) & masa berlakunya | ✅ | P1 |
 | **Workflow penyusunan skema**: draft → kaji komite skema → validasi → pengajuan ke BNSP → aktif → kaji ulang berkala | 🆕 | P2 |
 | **Versi skema & MUK** (riwayat perubahan; asesmen lama tetap merujuk versi yang dipakai saat itu) | 🆕 | P1 |
 | **Biaya per skema** & per jenis asesmen (baru / RPL / perpanjangan) | 🆕 | P1 |
@@ -252,6 +269,8 @@ Semua role di bawah **terikat ke satu LSP**, kecuali *Super Admin Platform*, *Pu
 | Upload berkas persyaratan & pendukung | ✅ | P1 |
 | Asesmen mandiri (FR.APL.02) | ✅ | P1 |
 | Status asesmen real-time | ✅ | P1 |
+| **Tinjau pra-asesmen oleh asesor**: asesor melihat daftar peserta uji di jadwalnya, meninjau APL.01/APL.02 & bukti, lalu memberi rekomendasi (asesmen dapat dilanjutkan / tidak / perlu bukti tambahan) | ✅ | P1 |
+| **Tinjau proses sertifikasi** (sisi admin): timeline tahap tiap asesi (daftar → verifikasi berkas → bayar → pra-asesmen → asesmen → pleno → sertifikat), dengan penanda yang tertahan terlalu lama | ✅ | P1 |
 | **Verifikasi identitas**: OCR KTP/ijazah, cek NIK (format & duplikasi), swafoto | 🆕 | P2 |
 | **Cek kelengkapan berkas otomatis** (berkas kurang/buram/kedaluwarsa ditandai sebelum ke admin) | 🆕 | P2 |
 | **Pendaftaran massal** via template Excel / tautan undangan untuk mitra (program Pemda, CSR, BUMN, kampus) | 🆕 | P1 |
@@ -287,6 +306,7 @@ Mendukung tiga metode: **paper-based, paperless, dan Sertifikasi Jarak Jauh (SJJ
 | Asesor membaca & mengisi dokumen MUK | ✅ | P1 |
 | Metode uji observasi demonstrasi, tanya jawab, verifikasi portofolio, wawancara | ✅ | P1 |
 | Integrasi virtual meeting & rekaman | ✅ | P1 |
+| **Rekaman virtual meeting tersimpan di database/cloud LSP** dan **otomatis terlampir** di berkas asesi sebagai kelengkapan pengajuan jadwal pleno (wajib untuk SJJ) | ✅ | P1 |
 | Group chat asesmen | ✅ | P2 |
 | Asesmen ulang | ✅ | P1 |
 | **Paket formulir lengkap**: FR.APL.01–02, FR.MAPA.01–02, FR.AK.01–07, FR.IA.01–11 | 🆕 (NAS hanya menyebut "MUK") | P1 |
@@ -496,6 +516,19 @@ Untuk pengelola aplikasi menjual langganan ke LSP:
 | **Job board / talent pool** pemegang sertifikat (dengan persetujuan asesi) | 🆕 | P3 |
 | **API publik & webhook** untuk integrasi HRIS/LMS mitra | 🆕 | P3 |
 
+### 15.1 Paket langganan & layanan support
+
+Deck NAS menyebut "*untuk paket Basic*", artinya fitur dibedakan per paket. Aplikasi perlu mendukung ini sejak awal.
+
+| Fitur | Status | Prioritas |
+|---|---|---|
+| **Paket langganan** (contoh: Basic / Pro / Enterprise) dengan batas kuota (asesi per tahun, storage, jumlah TUK, jumlah user) | ✅ (tersirat) | P1 |
+| **Feature flag per paket**: modul (mis. SJJ, CRM lanjutan, modul mutu, website, e-commerce, LMS) bisa dinyalakan/dimatikan per LSP sesuai paket | 🆕 | P1 |
+| Upgrade/downgrade paket, masa trial, tagihan langganan otomatis | 🆕 | P2 |
+| **Tim support** dengan jam layanan per paket (mis. Basic 08.00–17.00 WIB setiap hari; paket lebih tinggi bisa 24 jam / prioritas) | ✅ | P1 (operasional) |
+| SLA respons tiket support per paket, tercatat di helpdesk | 🆕 | P2 |
+| Pusat bantuan: panduan, video tutorial per role, FAQ | 🆕 | P2 |
+
 ## 16. Keamanan, Kepatuhan & Infrastruktur
 
 | Fitur | Status | Prioritas |
@@ -542,3 +575,73 @@ Untuk pengelola aplikasi menjual langganan ke LSP:
 - **PDF**: generator template FR & sertifikat sisi server
 
 > Catatan: nomor pedoman dan kode formulir BNSP perlu dicek ulang terhadap versi terbaru yang berlaku (BNSP rutin memperbarui pedoman & format MUK).
+
+---
+
+## Lampiran A. Pemetaan fitur NAS → dokumen ini
+
+Semua fitur di slide "Fitur Sistem" dan "Ekosistem NAS" sudah tercakup.
+
+### Web Admin LSP & TUK
+
+| Fitur NAS | Bagian |
+|---|---|
+| Manajemen Data LSP (Organisasi, SDM, Dokumentasi, Jadwal) | 0.2, 2, 10 |
+| Manajemen Data TUK* | 2, 2.1, 6 |
+| Manajemen Data Asesor | 2, 0.8 |
+| Manajemen Data Pemohon* | 2, 2.1 |
+| Manajemen Akun Pengguna | 0.3, 2 |
+| Upload data Skema (Unit Kompetensi, MUK, Lisensi) | 3 |
+| Create Jadwal Asesmen | 5 |
+| Group Chat Asesmen* | 7, 13 |
+| Penentuan Komite Pleno | 8 |
+| Create Jadwal & Perekaman Dokumen Banding | 5, 9 |
+| Tinjau Proses Sertifikasi* | 4, 2.1 |
+| Database Alumni (Rekaman Dokumen Asesmen)* | 2, 2.1 |
+| Integrasi Database (Rekaman Virtual Meeting) | 7 |
+| Auto Generate Template Report BNSP | 8 |
+
+### Mobile Apps & Web Asesor
+
+| Fitur NAS | Bagian |
+|---|---|
+| Register Data Asesor | 0.8 |
+| Jadwal Asesmen, Pleno, dan Banding | 0.8, 5 |
+| Daftar Peserta Uji (Tinjau Pra-Asesmen) | 4 |
+| Membaca & Mengisi dokumen MUK | 7 |
+| Tinjau & Pemberian Status Keputusan Hasil Uji (Pleno) | 8 |
+| Group chat Assessment | 7, 13 |
+| Integrasi Virtual Meeting | 7 |
+| Riwayat Asesmen | 0.8 |
+| Asesmen Ulang | 7 |
+
+### Mobile Apps & Web Asesi
+
+| Fitur NAS | Bagian |
+|---|---|
+| Pengajuan Skema | 4, 0.9 |
+| Upload Berkas Persyaratan & Pendukung | 4, 0.9 |
+| Mengisi Dokumen MUK | 4, 7 |
+| Real-Time Status Asesmen | 4, 0.9 |
+| Notifikasi Proses Asesmen s.d. Habis Masa Berlaku Sertifikat | 9, 13 |
+| Group chat Assessment | 7, 13 |
+| Integrasi Virtual Meeting | 7 |
+| Riwayat Asesmen | 0.9 |
+| Asesmen Ulang | 7 |
+| Informasi Surveillance Asesi & Re-Lisensi | 9 |
+
+### Ekosistem NAS
+
+| Fitur NAS | Bagian |
+|---|---|
+| Kerja sama B2B Pemerintah (Program Pemda, CSR) | 14.3, 15 |
+| Kerja sama B2B BUMN, Perusahaan Swasta, Kampus | 14.3, 15 |
+| Event calon asesi (Job Fair, Seminar) | 14.2 |
+| Proses Uji Kompetensi (APL01 – Generate BAPS) | 4–8 |
+| Website LSP | 15 |
+| E-Commerce | 15 |
+| LMS Bimtek | 15 |
+| Calon Asesi | 14.2 |
+| Asesor & TUK terhubung ke LSP | 0.8, 2, 6 |
+| Tim Support 08.00–17.00 WIB setiap hari | 15.1 |
+| Paket Basic | 15.1 |
