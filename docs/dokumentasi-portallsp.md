@@ -5,7 +5,7 @@ Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran peng
 - **Alamat produksi:** https://lsp.semestateknologiutama.com
 - **Kode sumber:** folder `app/` di repositori ini
 - **Rancangan fitur awal:** [`docs/rancangan-fitur.md`](rancangan-fitur.md)
-- **Versi terpasang:** v9 (10 Oktober 2026): audit RBAC, keamanan, dan hardening
+- **Versi terpasang:** v10 (10 Oktober 2026): CRUD lengkap semua data, audit keamanan putaran 2, hardening
 
 ---
 
@@ -262,11 +262,38 @@ Aturan yang ditegakkan server:
   - asesor tidak melihat pra-asesmen, asesmen, atau pleno berkasnya sendiri.
 - Penugasan asesor dicek bentrok jadwal, termasuk saat tanggal jadwal diubah.
 - Ubah jadwal: skema tidak bisa diganti bila sudah ada peserta, kuota tidak boleh di bawah jumlah peserta, tanggal baru tidak boleh di masa lalu, dan status `selesai`/`batal` bersifat final (asesornya pun tidak bisa diubah lagi).
-- Dokumen wajib: KTP, ijazah, pas foto (PDF/JPG/PNG, maks. 2 MB). Dokumen disimpan sekali dan dipakai ulang untuk pendaftaran berikutnya. Dokumen **terkunci** (tidak bisa diganti) selama ada permohonan berstatus `menunggu_bayar`, `pra_asesmen`, `siap_uji`, atau `menunggu_pleno`.
+- Dokumen wajib: KTP, ijazah, pas foto (PDF/JPG/PNG, maks. 2 MB). Dokumen disimpan sekali dan dipakai ulang untuk pendaftaran berikutnya. Dokumen **terkunci** (tidak bisa diganti) selama ada permohonan berstatus `menunggu_bayar`, `pra_asesmen`, `siap_uji`, atau `menunggu_pleno`. Bila dokumen diganti setelah pernah dipakai mendaftar, berkas lama **tetap disimpan** sebagai bukti LSP (jejaknya di log audit `dokumen.ganti`).
+- **Biaya uji dikunci saat mendaftar** (`permohonan.harga`). Tagihan memakai biaya itu, walaupun biaya skema diubah kemudian.
+- **Sertifikat menyimpan salinan** nama skema, kode skema, nama LSP, dan nama pemegang saat terbit, sehingga sertifikat lama tidak ikut berubah bila data master diganti.
+- Skema yang sudah dipakai (pendaftaran atau sertifikat): kode, nama, dan level KKNI tidak bisa diubah; unit kompetensinya juga tidak diganti.
+- Bila isi publik skema (nama, kode, KKNI, bidang, biaya, deskripsi, persyaratan) diubah, listing etalase yang sedang tayang **otomatis ditarik ke status menunggu** dan Admin Platform diberi notifikasi untuk meninjau ulang.
 
 ---
 
 ## 6. Menu dan fitur per peran
+
+### Operasi data (CRUD) per menu
+
+| Data | Buat | Lihat | Ubah | Hapus / nonaktif | Siapa |
+|---|---|---|---|---|---|
+| Listing etalase | ✓ (draf/ajukan) | ✓ | Draf & perlu revisi | Hapus: draf, perlu revisi, ditolak. Listing tayang: **Turunkan** (kembali draf). Menunggu: **Tarik**. Kelas yang sudah punya peserta tidak bisa dihapus. | Admin LSP, Marketing |
+| Skema | ✓ | ✓ | ✓ (kode/nama/KKNI terkunci bila sudah dipakai) | Hapus bila belum dipakai jadwal, pendaftaran, sertifikat, atau etalase; selain itu status nonaktif | Admin LSP |
+| TUK | ✓ | ✓ | ✓ | Hapus (beserta sarananya) bila belum punya jadwal atau akun Admin TUK; selain itu nonaktif | Admin LSP |
+| Asesor | ✓ (akun baru atau akun terdaftar) | ✓ | — | Aktif/nonaktif langsung dari tab Asesor | Admin LSP |
+| Jadwal | ✓ | ✓ | ✓ (tervalidasi) | Hapus bila belum ada pendaftar; selain itu status batal | Admin LSP |
+| Pengguna LSP | ✓ | ✓ | — | Aktif/nonaktif (riwayat tetap tersimpan) | Admin LSP |
+| CRM | ✓ | ✓ | ✓ + pindah tahap | Hapus | Admin LSP, Marketing |
+| Mutu | ✓ | ✓ | ✓ | Hapus bila belum selesai (item selesai = rekaman mutu) | Admin LSP, Manajer Mutu |
+| Sarana & prasarana | ✓ | ✓ | ✓ | Hapus | Admin TUK, Admin LSP |
+| Pustaka SKKNI | ✓ | ✓ | ✓ (judul, sektor) | Hapus (skema yang memakainya tidak berubah) | Admin Platform |
+| Blog | ✓ | ✓ | ✓ | Hapus (kecuali artikel yang diturunkan, hanya Admin Platform) | Admin LSP, Marketing, Admin Platform |
+| Tiket support | ✓ | ✓ | Balas, ubah status (platform) | — (riwayat) | Admin LSP, Admin Platform |
+| LSP klien | ✓ (+ Admin LSP) | ✓ | Pengaturan, paket | Aktif/nonaktif | Admin Platform |
+| Profil LSP | — | ✓ | ✓ (nama LSP dan lisensi hanya Admin Platform) | — | Admin LSP |
+| Profil asesi | Saat daftar (atau dilengkapi di profil bila belum ada) | ✓ | No. HP & persetujuan info kapan saja; nama, tanggal lahir, jenis kelamin hanya sebelum ada pendaftaran berjalan/sertifikat | — | Asesi |
+| Dokumen asesi | ✓ | ✓ | Ganti (terkunci saat diproses) | — | Asesi |
+
+Data yang menjadi bukti proses sertifikasi (permohonan, tagihan, sertifikat, log audit) tidak bisa dihapus dari aplikasi.
 
 ### Asesi
 
@@ -278,7 +305,7 @@ Aturan yang ditegakkan server:
 | Pembayaran | Tagihan dan pembayaran (simulasi bila `payment_simulation` aktif) |
 | Dompet Sertifikat | Sertifikat milik sendiri: cetak/unduh, tautan verifikasi |
 | Kelas Saya | Kelas pelatihan (LMS): daftar, catat progres |
-| Profil & Dokumen | Data diri, unggah dan lihat dokumen (terkunci selama permohonan diproses) |
+| Profil & Dokumen | Data diri (tombol **Ubah profil**), unggah dan lihat dokumen (terkunci selama permohonan diproses) |
 
 ### Asesor
 
@@ -303,7 +330,7 @@ Aturan yang ditegakkan server:
 | | Pleno & Sertifikat | Memutus pleno dan menerbitkan sertifikat |
 | Data | Skema, Asesor, TUK | Master skema dan unit kompetensi (format `KODE \| Judul` per baris), asesor, TUK |
 | | Database Alumni | Pemegang sertifikat LSP |
-| Manajemen | Etalase & Pelatihan | Listing skema/kelas ke portal publik (wajib disetujui Admin Platform) |
+| Manajemen | Etalase & Pelatihan | Listing skema/kelas ke portal publik (wajib disetujui Admin Platform). Ubah, hapus, tarik, dan turunkan listing. |
 | | Blog (CMS) | Menulis, menjadwalkan, dan mengelola artikel blog LSP (lihat bagian 8) |
 | | Mutu (Pedoman 201) | Audit internal, kaji ulang manajemen, tindakan perbaikan |
 | | Keuangan | Daftar tagihan, konfirmasi pelunasan manual |
@@ -337,7 +364,7 @@ Staf non-admin hanya melihat menu yang sesuai haknya. Contoh: Keuangan hanya mel
 | Blog (CMS) | Artikel platform dan semua LSP; menulis atas nama platform/LSP mana pun; menurunkan dan memulihkan artikel |
 | LSP Klien | Onboarding LSP baru (sekaligus membuat Admin LSP), aktif/nonaktif, masa berlaku lisensi |
 | Paket & Tagihan | Paket langganan dan kuota per LSP |
-| Pustaka SKKNI | Daftar unit kompetensi acuan |
+| Pustaka SKKNI | Daftar unit kompetensi acuan: tambah, ubah, hapus |
 | Tiket Support | Membalas tiket dari LSP |
 | Log Akses Support | Log audit (login, akses ditolak, perubahan data, akses dokumen) |
 | Peran & Hak Akses | Matriks RBAC |
@@ -359,7 +386,7 @@ Bisa diakses tanpa login:
 - **Verifikasi sertifikat:** buka `/?cek=KODE` atau isi formulir verifikasi.
   - Dengan **kode verifikasi** (10 karakter, tercetak di sertifikat): nama pemegang tampil lengkap.
   - Dengan **nomor sertifikat**: keabsahan tampil, tetapi nama disamarkan (mis. `R*** K****** S***`), agar nomor yang berurutan tidak bisa dipakai mengumpulkan nama orang.
-  - Dibatasi 30 permintaan per 10 menit per IP dan 3.000 per jam untuk seluruh pengunjung.
+  - Dibatasi 30 permintaan per 10 menit per IP (IPv6 dihitung per blok /64).
 - **Pendaftaran asesi mandiri** dengan verifikasi email (`/?verifikasi=TOKEN`). Dibatasi 30 percobaan per IP per jam; kirim ulang email verifikasi maks. 5 kali per 24 jam.
 
 Halaman publik tidak membuat cookie sesi bagi pengunjung yang belum pernah login.
@@ -480,26 +507,29 @@ Aturan pengiriman:
 | Sesi | Cookie `HttpOnly`, `Secure`, `SameSite=Lax`. ID sesi diganti saat login, ganti konteks, dan ganti password. Ganti password langsung mengakhiri semua sesi lain akun itu (kolom `users.sess_ver`). Idle timeout 30 menit, maksimal 8 jam. File sesi di luar docroot; halaman publik tanpa cookie tidak membuat sesi. |
 | CSRF | Token per sesi di header `X-CSRF-Token` + cek `Origin` untuk setiap POST |
 | Brute force | Kunci setelah 5 gagal per email atau 20 per IP dalam 15 menit. Pesan error sama untuk email terdaftar maupun tidak. Pendaftaran asesi maks. 30 percobaan per IP per jam; pesan NIK ganda dibuat umum agar tidak bisa dipakai menebak NIK; kirim ulang email verifikasi maks. 5 per 24 jam. |
-| RBAC | Dari tabel `roles` / `permissions` / `role_permissions`, diperiksa di setiap endpoint. Matriks 1.091 kombinasi peran × endpoint diuji otomatis (`tests/rbac-matrix.test.mjs`). |
+| RBAC | Dari tabel `roles` / `permissions` / `role_permissions`, diperiksa di setiap endpoint. Matriks 1.190 kombinasi peran × endpoint diuji otomatis (`tests/rbac-matrix.test.mjs`); rute baru tanpa aturan akses membuat uji gagal. |
 | Konflik kepentingan | Asesor tidak bisa menguji, mem-pra-asesmen, atau memutus pleno berkasnya sendiri; tidak bisa ditugaskan pada jadwal yang ia ikuti sebagai peserta; tidak bisa mendaftar sebagai peserta di jadwal yang ia uji. Penguji tidak boleh memutus pleno asesinya. |
-| Integritas proses | Status permohonan berpindah dengan kondisi `WHERE status = ...` (aman dari klik ganda). Kuota jadwal dicek atomik saat pendaftaran. Dokumen tidak bisa diganti selama permohonan diproses. Jadwal: skema tidak bisa diganti bila sudah ada peserta, kuota ≥ peserta, status `selesai`/`batal` final, bentrok asesor dicek ulang saat tanggal berubah. Masa berlaku lisensi BNSP hanya diubah Admin Platform. Minimal satu Admin Platform aktif selalu dijaga. |
+| Integritas proses | Status permohonan berpindah dengan kondisi `WHERE status = ...` (aman dari klik ganda). Kuota jadwal dicek atomik saat pendaftaran. Dokumen tidak bisa diganti selama permohonan diproses. Jadwal: skema tidak bisa diganti bila sudah ada peserta, kuota ≥ peserta, status `selesai`/`batal` final, bentrok asesor dicek ulang saat tanggal berubah. Masa berlaku lisensi BNSP dan nama LSP hanya diubah Admin Platform. Minimal satu Admin Platform aktif selalu dijaga. Biaya uji dikunci saat mendaftar; sertifikat menyimpan salinan nama skema/LSP/pemegang; perubahan isi publik skema menarik listing tayang untuk ditinjau ulang. Penghapusan data master dicek terhadap data yang masih merujuknya. |
 | Isolasi LSP | `lsp_id` selalu dari sesi; data LSP lain dibalas 404 (lihat bagian 4) |
 | Akun nonaktif | Akun dan keanggotaan dibaca ulang dari DB setiap permintaan, sehingga akses langsung hilang. Asesi yang dinonaktifkan LSP tidak bisa mendaftar lagi ke LSP itu; asesor dari LSP nonaktif kehilangan akses berkasnya. |
 | Data pribadi | NIK asesi dienkripsi AES-256-GCM dengan kunci `storage/app.key` (kunci ini wajib dicadangkan; tanpa kunci, NIK tidak bisa dibaca) |
 | Unggahan | Disimpan di `storage/uploads` (di luar docroot). Jenis berkas dicek dari isi (magic bytes: PDF/PNG/JPEG), maks. 2 MB, nama berkas acak. Disajikan dengan header CSP `sandbox` dan `nosniff`. |
 | Ekspor CSV | Sel yang diawali `=`, `+`, `-`, `@` diberi awalan `'` (mencegah formula injection) |
 | Frontend | CSP `script-src 'self'`; semua teks dari server di-escape |
-| Transport | HTTPS (TLS 1.3) + HSTS 1 tahun termasuk subdomain, header keamanan di `.htaccess` |
+| Transport | HTTPS (TLS 1.2 dan 1.3; 1.0/1.1 ditolak) + HSTS 1 tahun termasuk subdomain. Header di `.htaccess`: CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy, Cross-Origin-Resource-Policy, X-Permitted-Cross-Domain-Policies. |
 | Audit | Login/logout, akses ditolak, perubahan listing, kurasi, manajemen pengguna, akses dokumen, keputusan pleno |
-| Rate limit publik | Verifikasi sertifikat 30 per 10 menit per IP dan 3.000 per jam total; cek dengan nomor sertifikat hanya menampilkan nama tersamar (nama lengkap hanya dengan kode verifikasi). Asisten AI per pengguna dan per hari, kuota dicatat sebelum memanggil API sehingga tidak bisa dilewati dengan permintaan paralel; asesi wajib verifikasi email dulu. |
+| Rate limit | IP dihitung per alamat IPv4 atau per blok IPv6 /64. Verifikasi sertifikat 30 per 10 menit per IP (tanpa batas global agar tidak bisa dipakai memblokir semua pengguna); cek dengan nomor sertifikat hanya menampilkan nama tersamar (nama lengkap hanya dengan kode verifikasi). Asisten AI per pengguna dan per hari, kuota dicatat sebelum memanggil API sehingga tidak bisa dilewati dengan permintaan paralel; asesi wajib verifikasi email dulu. |
 | Data publik | Catatan internal jadwal (mis. tautan rapat SJJ) tidak ikut di API publik |
+| Banjir pesan | Group chat maks. 30 pesan per 5 menit per pengguna; tiket support maks. 5 per jam, balasan maks. 30 per 10 menit |
 | Pembayaran | `payment_simulation` (default `true`) mengizinkan asesi menandai lunas sendiri untuk demo. Set `false` saat LSP nyata beroperasi; pelunasan lalu hanya dikonfirmasi Keuangan LSP. |
 
 ### Audit keamanan (Oktober 2026)
 
 Audit RBAC, keamanan aplikasi, dan hardening server menemukan dan memperbaiki: asesor yang juga asesi bisa memplenokan berkasnya sendiri, asesi nonaktif masih bisa mendaftar, kebocoran catatan jadwal di API publik, pendaftaran melewati kuota saat bersamaan, nomor sertifikat membuka nama lengkap, pesan NIK ganda bisa dipakai menebak NIK, sesi lain tetap hidup setelah ganti password, batas AI bisa dilewati dengan permintaan paralel, dan validasi ubah jadwal yang kurang. Semua dibuktikan oleh `tests/security.test.mjs`.
 
-Hardening server (diperiksa): HTTP dialihkan ke HTTPS, hanya TLS 1.3, sertifikat berlaku s.d. Jan 2027, semua header keamanan aktif, `X-Powered-By` tidak tampil, berkas sensitif (`config.php`, database, `storage/`, `src/`, `.git`) tidak bisa diakses dari web, metode TRACE/PUT/DELETE/OPTIONS ditolak, izin berkas `config.php` dan database 600, folder `storage` 700.
+Audit putaran 2 (review independen seluruh endpoint) tidak menemukan IDOR, SQL injection, XSS, atau celah CSRF. Yang diperbaiki: biaya tagihan dan isi publik skema bisa diubah setelah disetujui, sertifikat ikut berubah bila nama skema/LSP diganti, Admin LSP bisa mengganti nama LSP sendiri, dokumen lama terhapus saat diganti, pembatas laju bisa dilewati dengan rotasi IPv6 dan batas global verifikasi bisa memblokir semua pengguna, serta tidak ada batas pesan chat/tiket. Listing yang ditolak Admin Platform kini final (hanya bisa dihapus).
+
+Hardening server (diperiksa ulang 10 Okt 2026): HTTP dialihkan ke HTTPS, TLS 1.0/1.1 ditolak, sertifikat Let's Encrypt berlaku s.d. Jan 2027, semua header keamanan aktif, `X-Powered-By` tidak tampil, berkas sensitif (`config.php`, database, `storage/`, `src/`, `.git`) tidak bisa diakses dari web, metode TRACE/PUT/DELETE/OPTIONS ditolak, izin berkas `config.php` dan database 600, folder `storage` 700.
 
 ---
 
@@ -517,7 +547,7 @@ Hardening server (diperiksa): HTTP dialihkan ke HTTPS, hanya TLS 1.3, sertifikat
 | `email_verifications` | Token verifikasi email pendaftaran mandiri |
 | `login_attempts` | Catatan gagal login (penguncian) |
 | `audit_logs` | Log audit; juga dipakai sebagai catatan pembatas laju (cek sertifikat, percobaan pendaftaran) |
-| `schema_migrations` | Versi migrasi (terbaru: 8) |
+| `schema_migrations` | Versi migrasi (terbaru: 9) |
 
 ### Tabel sertifikasi
 
@@ -526,10 +556,10 @@ Hardening server (diperiksa): HTTP dialihkan ke HTTPS, hanya TLS 1.3, sertifikat
 | `skema`, `skema_units` | Skema sertifikasi dan unit kompetensinya |
 | `skkni` | Pustaka unit SKKNI acuan |
 | `jadwal` | Jadwal uji (skema, TUK, tanggal, kuota, asesor) |
-| `permohonan` | Pendaftaran asesi: status, APL.02, rekomendasi pra-asesmen, hasil per unit, keputusan pleno |
+| `permohonan` | Pendaftaran asesi: status, APL.02, rekomendasi pra-asesmen, hasil per unit, keputusan pleno, biaya uji saat mendaftar (`harga`) |
 | `dokumen` | Dokumen asesi (KTP, ijazah, foto, CV) |
 | `tagihan` | Tagihan per permohonan (nomor invoice, status bayar) |
-| `sertifikat` | Sertifikat terbit (nomor, kode verifikasi, masa berlaku) |
+| `sertifikat` | Sertifikat terbit (nomor, kode verifikasi, masa berlaku) + salinan `skema_nama`, `skema_kode`, `lsp_nama`, `nama_pemegang` saat terbit |
 | `listings` | Etalase skema/pelatihan di portal publik (dengan status kurasi) |
 | `kelas_peserta` | Peserta kelas pelatihan dan progresnya |
 
@@ -565,14 +595,14 @@ Semua endpoint: `api.php?r=<rute>`.
 | `auth/switch` | Ganti konteks (LSP / peran) |
 | `auth/password` | Ganti password |
 | `auth/register`, `auth/verify`, `auth/resend-verification` | Pendaftaran asesi mandiri dan verifikasi email |
-| `profile` | Profil asesi |
+| `profile` | Profil asesi (GET), ubah profil / lengkapi NIK (POST) |
 
 ### Listing, pengguna, platform
 
 | Rute | Hak | Fungsi |
 |---|---|---|
 | `catalog` | publik | Katalog listing tayang |
-| `listings`, `listings/submit`, `listings/withdraw` | `listing.manage` | Etalase LSP |
+| `listings` (GET/POST; `id` = ubah), `listings/submit`, `listings/withdraw`, `listings/hapus`, `listings/turunkan` | `listing.manage` | Etalase LSP |
 | `reviews`, `reviews/decide` | `listing.review` | Kurasi listing |
 | `users`, `users/status` | `user.manage` | Pengguna LSP |
 | `rbac` | `rbac.view` | Matriks peran |
@@ -580,7 +610,7 @@ Semua endpoint: `api.php?r=<rute>`.
 | `platform/dashboard` | `platform.dashboard` | Ringkasan platform |
 | `platform/lsp`, `platform/lsp/status` | `lsp.manage` | LSP klien |
 | `platform/paket` | `lsp.manage` | Paket dan kuota |
-| `skkni` | `lsp.manage` | Pustaka SKKNI |
+| `skkni` (POST; `ubah: true` = ubah), `skkni/hapus` | `lsp.manage` | Pustaka SKKNI |
 | `tiket`, `tiket/balas` | login | Tiket support |
 | `audit` | `lsp.manage` | Log audit |
 
@@ -626,15 +656,15 @@ Semua endpoint: `api.php?r=<rute>`.
 |---|---|
 | `lsp/dashboard` | `lsp.dashboard` |
 | `lsp/pendaftaran`, `lsp/pendaftaran/putus` | `registration.verify` |
-| `lsp/jadwal`, `lsp/jadwal/asesor` | `schedule.manage` |
+| `lsp/jadwal`, `lsp/jadwal/asesor`, `lsp/jadwal/hapus` | `schedule.manage` |
 | `lsp/asesmen` | `assessment.monitor` |
 | `lsp/hasil` | `decision.manage` |
-| `lsp/skema`, `lsp/asesor`, `lsp/tuk`, `lsp/opsi` | `master.manage` |
+| `lsp/skema`, `lsp/skema/hapus`, `lsp/asesor`, `lsp/tuk`, `lsp/tuk/hapus`, `lsp/opsi` | `master.manage` |
 | `lsp/alumni` | `alumni.view` |
 | `lsp/keuangan`, `lsp/keuangan/lunas` | `finance.manage` |
 | `lsp/laporan` (+ `&format=csv`) | `report.bnsp` |
-| `lsp/crm`, `lsp/crm/tahap` | `crm.manage` |
-| `lsp/mutu` | `quality.manage` |
+| `lsp/crm`, `lsp/crm/tahap`, `lsp/crm/hapus` | `crm.manage` |
+| `lsp/mutu`, `lsp/mutu/hapus` | `quality.manage` |
 | `lsp/pengaturan` | `settings.manage` |
 
 ### TUK
@@ -644,7 +674,7 @@ Semua endpoint: `api.php?r=<rute>`.
 | `tuk/dashboard` | `tuk.dashboard` |
 | `tuk/pemohon` | `tuk.applicants` |
 | `tuk/jadwal` | `tuk.schedule` |
-| `tuk/sarpras` | `tuk.facility` |
+| `tuk/sarpras`, `tuk/sarpras/hapus` | `tuk.facility` |
 | `tuk/alumni` | `tuk.alumni` |
 
 ### Blog (CMS)
@@ -738,6 +768,7 @@ Riwayat versi di produksi:
 | v7 | CMS blog (migrasi 7): menu Blog (CMS), halaman Blog publik, moderasi Admin Platform, 6 artikel contoh. |
 | v8 | Responsif HP & tablet: laci menu, header ringkas, tabel adaptif menjadi kartu, grid tablet, target sentuh. |
 | v9 | Audit RBAC, keamanan, dan hardening (migrasi 8: `users.sess_ver`). Dideploy 10 Okt 2026, uji asap produksi lulus. Lihat bagian 11. |
+| v10 | CRUD lengkap (ubah/hapus/turunkan listing, hapus skema/TUK/jadwal/CRM/mutu/sarpras, ubah/hapus SKKNI, ubah profil asesi, nonaktifkan asesor dari menu Master), audit keamanan putaran 2, header isolasi lintas-origin (migrasi 9: `permohonan.harga`, salinan data di `sertifikat`). |
 
 ### Rollback
 
@@ -771,20 +802,22 @@ node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server ti
 node tests/platform.test.mjs        # 23 uji: akses penuh Admin Platform + isolasi Admin LSP
 node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
 node tests/blog.test.mjs            # 83 uji: CMS blog (akses, isolasi, terjadwal, moderasi, sampul, API publik)
-node tests/rbac-matrix.test.mjs     # 1.091 uji: setiap peran × setiap endpoint sesuai hak akses
-node tests/security.test.mjs        # 39 uji: regresi temuan audit keamanan
+node tests/rbac-matrix.test.mjs     # 1.190 uji: setiap peran × setiap endpoint sesuai hak akses
+node tests/crud.test.mjs            # 89 uji: buat/baca/ubah/hapus semua data + penjaga rujukan, cakupan LSP, hak akses
+node tests/security.test.mjs        # 49 uji: regresi temuan audit keamanan (putaran 1 dan 2)
 
 NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # uji browser: daftar asesi s.d. sertifikat terverifikasi
 NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs  # uji browser: buka semua menu untuk 7 peran
 NODE_PATH=$(npm root -g) node tests/ui/blog.cjs        # uji browser: tulis, pratinjau, terbitkan, sampul, baca, moderasi
 NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs   # audit responsif: semua halaman × 7 peran × 4 ukuran layar
+NODE_PATH=$(npm root -g) node tests/ui/crud.cjs        # uji browser tombol ubah/hapus/turunkan, nonaktif asesor, ubah profil
 ```
 
 Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php` lalu hapus `storage/test.sqlite`). Suite berbagi data (mis. NIK contoh) dan batas login per IP, sehingga menjalankan semuanya berturut-turut pada satu database bisa memicu kegagalan palsu. `tests/ui/alur-asesi.cjs` membuat jadwal "hari ini", jadi jalankan dengan `TZ=Asia/Jakarta`.
 
-Hasil terakhir (10 Oktober 2026, v9):
+Hasil terakhir (10 Oktober 2026, v10):
 
-- Semua 1.469 uji API lulus pada database baru (termasuk 1.091 uji matriks RBAC dan 39 uji keamanan), plus 24 uji browser blog.
+- Semua 1.667 uji API lulus pada database baru (termasuk 1.190 uji matriks RBAC, 89 uji CRUD, dan 49 uji keamanan), plus 24 uji browser blog dan 12 uji browser CRUD.
 - Uji browser alur asesi (daftar → verifikasi → bayar → pra-asesmen → asesmen → pleno → sertifikat → verifikasi publik) lulus.
 - Uji browser membuka semua menu di 7 peran tanpa error JavaScript dan tanpa halaman kosong/placeholder.
 - Audit responsif: 548 tampilan (halaman publik + semua menu 7 peran, termasuk formulir dan panel detail) di lebar 360, 390, 768, dan 1024 px; tidak ada elemen yang keluar layar dan tidak ada scroll horizontal.

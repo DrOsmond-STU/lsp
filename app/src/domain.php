@@ -83,10 +83,14 @@ function random_code(int $n = 10): string
 
 function issue_certificate(array $p): array
 {
-    $info = q('SELECT s.kode AS sk, l.kode AS lk, l.id AS lid FROM skema s JOIN lsp l ON l.id = s.lsp_id WHERE s.id = ?', [$p['skema_id']])->fetch();
+    $info = q('SELECT s.kode AS sk, s.nama AS sn, l.kode AS lk, l.nama AS ln, l.id AS lid, u.nama AS un FROM skema s JOIN lsp l ON l.id = s.lsp_id
+               JOIN users u ON u.id = ? WHERE s.id = ?', [$p['asesi_id'], $p['skema_id']])->fetch();
     $kode = random_code();
-    q('INSERT INTO sertifikat (lsp_id, permohonan_id, user_id, skema_id, nomor, kode, terbit, berlaku, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [$p['lsp_id'], $p['id'], $p['asesi_id'], $p['skema_id'], 'TMP-' . $kode, $kode, today(), date('Y-m-d', strtotime('+3 years')), 'aktif', now()]);
+    // Nama skema, LSP, dan pemegang disalin saat terbit: sertifikat tidak ikut berubah bila data master diganti kemudian.
+    q('INSERT INTO sertifikat (lsp_id, permohonan_id, user_id, skema_id, nomor, kode, terbit, berlaku, status, created_at, skema_nama, skema_kode, lsp_nama, nama_pemegang)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [$p['lsp_id'], $p['id'], $p['asesi_id'], $p['skema_id'], 'TMP-' . $kode, $kode, today(), date('Y-m-d', strtotime('+3 years')), 'aktif', now(),
+         $info['sn'], $info['sk'], $info['ln'], $info['un']]);
     $id = (int)db()->lastInsertId();
     $nomor = sprintf('LSP-%s/%s/%s/%05d', $info['lk'] ?: ('L' . $info['lid']), $info['sk'], date('Y'), $id);
     q('UPDATE sertifikat SET nomor = ? WHERE id = ?', [$nomor, $id]);
@@ -101,7 +105,7 @@ function lsp_name(int $id): string
 /** Baris permohonan lengkap untuk tampilan. */
 function permohonan_sql(): string
 {
-    return "SELECT p.*, s.nama AS skema_nama, s.kode AS skema_kode, s.harga, l.nama AS lsp_nama, u.nama AS asesi_nama, u.email AS asesi_email,
+    return "SELECT p.*, s.nama AS skema_nama, s.kode AS skema_kode, COALESCE(p.harga, s.harga) AS harga, l.nama AS lsp_nama, u.nama AS asesi_nama, u.email AS asesi_email,
                    j.tanggal, j.jam, j.metode, j.asesor_id AS jadwal_asesor_id, j.status AS jadwal_status, t.nama AS tuk_nama, t.id AS tuk_id,
                    a.nama AS asesor_nama, pa.nama AS penguji_nama, po.nama AS pleno_nama
             FROM permohonan p JOIN skema s ON s.id = p.skema_id JOIN lsp l ON l.id = p.lsp_id JOIN users u ON u.id = p.asesi_id
@@ -237,7 +241,12 @@ function r_dokumen_upload(): void
     $old = q('SELECT id, path FROM dokumen WHERE user_id = ? AND jenis = ?', [$uid, $jenis])->fetch();
     if ($old) {
         q('UPDATE dokumen SET nama_file = ?, path = ?, mime = ?, ukuran = ?, created_at = ? WHERE id = ?', [$nama, $rel, $mime, (int)$f['size'], now(), $old['id']]);
-        if (strpos($old['path'], 'uploads/contoh/') !== 0) {
+        // Berkas lama dihapus hanya bila belum pernah dipakai di pendaftaran mana pun. Bila sudah, berkas tetap disimpan
+        // sebagai bukti LSP (jejaknya di log audit), supaya penggantian dokumen tidak menghilangkan bukti sertifikasi.
+        $dipakai = q('SELECT 1 FROM permohonan WHERE asesi_id = ?', [$uid])->fetch();
+        if ($dipakai) {
+            audit('dokumen.ganti', $jenis . ' lama:' . $old['path']);
+        } elseif (strpos($old['path'], 'uploads/contoh/') !== 0) {
             @unlink(APP_ROOT . '/storage/' . $old['path']);
         }
     } else {
@@ -350,10 +359,10 @@ function r_asesi_apply(): void
         if (!$mem) {
             q('INSERT INTO memberships (user_id, lsp_id, role, status, created_at) VALUES (?, ?, ?, ?, ?)', [$uid, $j['lsp_id'], 'asesi', 'aktif', $t]);
         }
-        $ins = q("INSERT INTO permohonan (lsp_id, asesi_id, skema_id, jadwal_id, status, tujuan, apl02, created_at, updated_at, diajukan_at)
-           SELECT ?, ?, ?, ?, 'diajukan', ?, ?, ?, ?, ? FROM jadwal WHERE id = ?
+        $ins = q("INSERT INTO permohonan (lsp_id, asesi_id, skema_id, jadwal_id, status, tujuan, apl02, created_at, updated_at, diajukan_at, harga)
+           SELECT ?, ?, ?, ?, 'diajukan', ?, ?, ?, ?, ?, ? FROM jadwal WHERE id = ?
              AND kuota > (SELECT COUNT(*) FROM permohonan WHERE jadwal_id = ? AND status IN (" . in_list_sql(P_AKTIF) . "))",
-            array_merge([$j['lsp_id'], $uid, $j['skema_id'], $j['id'], $tujuan, $apl, $t, $t, $t, $j['id'], $j['id']], P_AKTIF));
+            array_merge([$j['lsp_id'], $uid, $j['skema_id'], $j['id'], $tujuan, $apl, $t, $t, $t, (int)$j['harga'], $j['id'], $j['id']], P_AKTIF));
         if ($ins->rowCount() !== 1) {
             db()->rollBack();
             fail('Kuota jadwal ini sudah penuh. Pilih jadwal lain.', 409);
@@ -503,7 +512,8 @@ function sertifikat_row(array $s): array
 
 function sertifikat_sql(): string
 {
-    return 'SELECT c.*, s.nama AS skema_nama, l.nama AS lsp_nama, u.nama AS nama FROM sertifikat c JOIN skema s ON s.id = c.skema_id
+    return 'SELECT c.*, COALESCE(c.skema_nama, s.nama) AS skema_nama, COALESCE(c.lsp_nama, l.nama) AS lsp_nama, COALESCE(c.nama_pemegang, u.nama) AS nama
+            FROM sertifikat c JOIN skema s ON s.id = c.skema_id
             JOIN lsp l ON l.id = c.lsp_id JOIN users u ON u.id = c.user_id';
 }
 
@@ -882,6 +892,7 @@ function r_chat_kirim(): void
     if ($isi === '') {
         fail('Tulis pesan.', 422);
     }
+    limit_per_user('chat_pesan', 'user_id', 30, 300, 'Terlalu banyak pesan dalam waktu singkat. Coba lagi beberapa menit lagi.');
     q('INSERT INTO chat_pesan (lsp_id, jadwal_id, user_id, isi, created_at) VALUES (?, ?, ?, ?, ?)', [$j['lsp_id'], $j['id'], uid(), $isi, now()]);
     json_out(['ok' => true], 201);
 }

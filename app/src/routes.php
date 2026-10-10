@@ -18,6 +18,8 @@ function dispatch(string $route): void
         'listings' => 'r_listings',
         'listings/submit' => 'r_listing_submit',
         'listings/withdraw' => 'r_listing_withdraw',
+        'listings/hapus' => 'r_listing_hapus',
+        'listings/turunkan' => 'r_listing_turunkan',
         'reviews' => 'r_reviews',
         'reviews/decide' => 'r_review_decide',
         'users' => 'r_users',
@@ -49,7 +51,9 @@ function dispatch(string $route): void
         'lsp/asesmen' => 'r_lsp_asesmen', 'lsp/hasil' => 'r_lsp_hasil', 'lsp/jadwal' => 'r_lsp_jadwal', 'lsp/jadwal/asesor' => 'r_lsp_jadwal_asesor',
         'lsp/asesor' => 'r_lsp_asesor', 'lsp/skema' => 'r_lsp_skema', 'lsp/tuk' => 'r_lsp_tuk', 'lsp/opsi' => 'r_lsp_opsi',
         'lsp/alumni' => 'r_lsp_alumni', 'lsp/keuangan' => 'r_lsp_keuangan', 'lsp/keuangan/lunas' => 'r_lsp_keuangan_lunas',
-        'lsp/laporan' => 'r_lsp_laporan', 'lsp/crm' => 'r_lsp_crm', 'lsp/crm/tahap' => 'r_lsp_crm_tahap', 'lsp/mutu' => 'r_lsp_mutu',
+        'lsp/laporan' => 'r_lsp_laporan', 'lsp/crm' => 'r_lsp_crm', 'lsp/crm/tahap' => 'r_lsp_crm_tahap', 'lsp/mutu' => 'r_lsp_mutu', 'lsp/mutu/hapus' => 'r_lsp_mutu_hapus', 'lsp/crm/hapus' => 'r_lsp_crm_hapus',
+        'lsp/skema/hapus' => 'r_lsp_skema_hapus', 'lsp/tuk/hapus' => 'r_lsp_tuk_hapus', 'lsp/jadwal/hapus' => 'r_lsp_jadwal_hapus',
+        'tuk/sarpras/hapus' => 'r_tuk_sarpras_hapus', 'skkni/hapus' => 'r_skkni_hapus',
         'lsp/pengaturan' => 'r_lsp_pengaturan',
         'tuk/dashboard' => 'r_tuk_dashboard', 'tuk/pemohon' => 'r_tuk_pemohon', 'tuk/jadwal' => 'r_tuk_jadwal', 'tuk/sarpras' => 'r_tuk_sarpras',
         'tuk/alumni' => 'r_tuk_alumni',
@@ -151,8 +155,15 @@ function r_listings(): void
     }
     require_method('POST');
     csrf_check();
-    $lspId = is_platform($m) ? (int)target_lsp()['id'] : (int)scope_lsp($m);
-    $tipe = str_in('tipe', 20);
+    // Ubah listing: hanya draf atau perlu revisi. Listing tayang diturunkan dulu, yang menunggu ditarik dulu.
+    // Penolakan Admin Platform bersifat final: listing ditolak hanya bisa dihapus.
+    $edit = int_in('id') ? own_listing(int_in('id'), $m) : null;
+    if ($edit && !in_array($edit['status'], ['draf', 'revisi'], true)) {
+        fail($edit['status'] === 'tayang' ? 'Turunkan listing dari portal dulu sebelum mengubahnya.'
+            : ($edit['status'] === 'ditolak' ? 'Listing yang ditolak tidak bisa diubah. Hapus lalu buat listing baru yang sesuai ketentuan.' : 'Tarik pengajuan dulu sebelum mengubah listing.'), 409);
+    }
+    $lspId = $edit ? (int)$edit['lsp_id'] : (is_platform($m) ? (int)target_lsp()['id'] : (int)scope_lsp($m));
+    $tipe = $edit ? $edit['tipe'] : str_in('tipe', 20);
     $judul = str_in('judul', 150, 'Judul');
     $bidang = str_in('bidang', 40);
     $kota = str_in('kota', 100, 'Kota');
@@ -177,15 +188,57 @@ function r_listings(): void
         fail('Skema master tidak ditemukan di LSP ini.', 422);
     }
     $t = now();
-    q('INSERT INTO listings (lsp_id, tipe, judul, bidang, kota, format, harga, deskripsi, status, created_by, submitted_at, created_at, updated_at, skema_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [$lspId, $tipe, $judul, $bidang, $kota, $format, $harga, $desc, $status, (int)current_user()['id'], $status === 'menunggu' ? $t : null, $t, $t, $skemaId ?: null]);
-    $id = (int)db()->lastInsertId();
-    audit($status === 'menunggu' ? 'listing.submitted' : 'listing.drafted', 'listing:' . $id);
+    if ($edit) {
+        $id = (int)$edit['id'];
+        if ($tipe === 'skema' && !int_in('skema_id')) {
+            $skemaId = (int)($edit['skema_id'] ?? 0);
+        }
+        // Catatan Admin Platform tetap disimpan sampai listing diajukan ulang, agar LSP bisa merujuknya.
+        q('UPDATE listings SET judul = ?, bidang = ?, kota = ?, format = ?, harga = ?, deskripsi = ?, status = ?, skema_id = ?, submitted_at = ?,
+           catatan = ?, updated_at = ? WHERE id = ? AND lsp_id = ?',
+            [$judul, $bidang, $kota, $format, $harga, $desc, $status, $skemaId ?: null, $status === 'menunggu' ? $t : $edit['submitted_at'],
+             $status === 'menunggu' ? null : $edit['catatan'], $t, $id, $lspId]);
+    } else {
+        q('INSERT INTO listings (lsp_id, tipe, judul, bidang, kota, format, harga, deskripsi, status, created_by, submitted_at, created_at, updated_at, skema_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$lspId, $tipe, $judul, $bidang, $kota, $format, $harga, $desc, $status, (int)current_user()['id'], $status === 'menunggu' ? $t : null, $t, $t, $skemaId ?: null]);
+        $id = (int)db()->lastInsertId();
+    }
+    audit($status === 'menunggu' ? 'listing.submitted' : ($edit ? 'listing.updated' : 'listing.drafted'), 'listing:' . $id);
     if ($status === 'menunggu') {
         notify_listing_submitted($id);
     }
-    json_out(['id' => $id], 201);
+    json_out(['id' => $id], $edit ? 200 : 201);
+}
+
+function r_listing_hapus(): void
+{
+    require_method('POST');
+    csrf_check();
+    $m = require_perm('listing.manage');
+    $row = own_listing(int_in('id'), $m);
+    if (!in_array($row['status'], ['draf', 'revisi', 'ditolak'], true)) {
+        fail($row['status'] === 'tayang' ? 'Turunkan listing dari portal dulu sebelum menghapus.' : 'Tarik pengajuan dulu sebelum menghapus.', 409);
+    }
+    if (q('SELECT 1 FROM kelas_peserta WHERE listing_id = ?', [$row['id']])->fetch()) {
+        fail('Kelas ini sudah punya peserta, jadi tidak bisa dihapus. Biarkan sebagai draf.', 409);
+    }
+    q('DELETE FROM listings WHERE id = ? AND lsp_id = ?', [$row['id'], $row['lsp_id']]);
+    audit('listing.deleted', 'listing:' . $row['id'], null, (int)$row['lsp_id']);
+    json_out(['ok' => true]);
+}
+
+/** LSP menurunkan listing yang sedang tayang (mis. skema tidak lagi dibuka). Kembali menjadi draf. */
+function r_listing_turunkan(): void
+{
+    require_method('POST');
+    csrf_check();
+    $m = require_perm('listing.manage');
+    $row = own_listing(int_in('id'), $m);
+    if ($row['status'] !== 'tayang') fail('Hanya listing yang sedang tayang yang bisa diturunkan.', 409);
+    q("UPDATE listings SET status = 'draf', updated_at = ? WHERE id = ? AND lsp_id = ? AND status = 'tayang'", [now(), $row['id'], $row['lsp_id']]);
+    audit('listing.unpublished', 'listing:' . $row['id'], null, (int)$row['lsp_id']);
+    json_out(['ok' => true]);
 }
 
 function r_listing_submit(): void

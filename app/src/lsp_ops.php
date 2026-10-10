@@ -339,8 +339,23 @@ function r_lsp_skema(): void
     db()->beginTransaction();
     try {
         if ($id) {
+            $old = q('SELECT * FROM skema WHERE id = ?', [$id])->fetch();
+            $dipakai = q('SELECT 1 FROM permohonan WHERE skema_id = ?', [$id])->fetch() || q('SELECT 1 FROM sertifikat WHERE skema_id = ?', [$id])->fetch();
+            if ($dipakai && ($kode !== $old['kode'] || $nama !== $old['nama'] || $kkni !== $old['kkni'])) {
+                fail('Kode, nama, dan level KKNI tidak bisa diubah karena skema ini sudah dipakai di pendaftaran atau sertifikat. Buat skema baru bila perlu.', 409);
+            }
             q('UPDATE skema SET kode = ?, nama = ?, bidang = ?, kkni = ?, harga = ?, deskripsi = ?, persyaratan = ?, status = ?, updated_at = ? WHERE id = ?',
                 [$kode, $nama, $bidang, $kkni, $harga, $desk, $syarat, $status, now(), $id]);
+            // Data skema tampil di portal publik lewat listing yang sudah disetujui. Perubahan isi publik wajib ditinjau ulang Admin Platform.
+            $publik = $kode !== $old['kode'] || $nama !== $old['nama'] || $kkni !== $old['kkni'] || $bidang !== $old['bidang'] || $harga !== (int)$old['harga']
+                || $desk !== (string)$old['deskripsi'] || $syarat !== (string)$old['persyaratan'];
+            $tinjau = [];
+            if ($publik) {
+                $tinjau = array_map('intval', array_column(q("SELECT id FROM listings WHERE skema_id = ? AND status = 'tayang'", [$id])->fetchAll(), 'id'));
+                foreach ($tinjau as $lid) {
+                    q("UPDATE listings SET status = 'menunggu', catatan = NULL, submitted_at = ?, updated_at = ? WHERE id = ?", [now(), now(), $lid]);
+                }
+            }
             // Unit hanya diganti bila belum ada permohonan (rekaman asesmen lama merujuk unit lama).
             if (!q('SELECT 1 FROM permohonan WHERE skema_id = ?', [$id])->fetch()) {
                 q('DELETE FROM skema_units WHERE skema_id = ?', [$id]);
@@ -358,7 +373,11 @@ function r_lsp_skema(): void
         throw $e;
     }
     audit('skema.simpan', 'skema:' . $id, null, $lsp);
-    json_out(['id' => $id], 201);
+    foreach ($tinjau ?? [] as $lid) {
+        audit('listing.submitted', 'listing:' . $lid, null, $lsp);
+        notify_listing_submitted($lid);
+    }
+    json_out(['id' => $id, 'ditinjau_ulang' => count($tinjau ?? [])], 201);
 }
 
 function r_lsp_tuk(): void
@@ -595,7 +614,10 @@ function r_lsp_pengaturan(): void
     }
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         csrf_check();
-        $nama = str_in('nama', 190, 'Nama LSP');
+        // Nama LSP tercetak di sertifikat dan tampil di portal publik: hanya Admin Platform yang boleh mengubahnya
+        // (mencegah LSP meniru nama LSP lain). Admin LSP mengajukan perubahan lewat tiket support.
+        $cur = q('SELECT nama FROM lsp WHERE id = ?', [$id])->fetch();
+        $nama = is_platform($m) ? str_in('nama', 190, 'Nama LSP') : (string)($cur['nama'] ?? '');
         if (text_len($nama) < 5) fail('Nama LSP minimal 5 karakter.', 422);
         $email = str_in('email', 190, 'Email');
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) fail('Format email tidak valid.', 422);
@@ -713,7 +735,7 @@ function r_tuk_alumni(): void
     require_method('GET');
     $m = require_perm('tuk.alumni');
     [$w, $p] = tuk_where($m, 'j.tuk_id', 'c.lsp_id');
-    $rows = q('SELECT c.*, s.nama AS skema_nama, l.nama AS lsp_nama, u.nama AS nama FROM sertifikat c JOIN skema s ON s.id = c.skema_id JOIN lsp l ON l.id = c.lsp_id
+    $rows = q('SELECT c.*, COALESCE(c.skema_nama, s.nama) AS skema_nama, COALESCE(c.lsp_nama, l.nama) AS lsp_nama, COALESCE(c.nama_pemegang, u.nama) AS nama FROM sertifikat c JOIN skema s ON s.id = c.skema_id JOIN lsp l ON l.id = c.lsp_id
                JOIN users u ON u.id = c.user_id JOIN permohonan p ON p.id = c.permohonan_id JOIN jadwal j ON j.id = p.jadwal_id WHERE 1=1' . $w . ' ORDER BY c.terbit DESC', $p)->fetchAll();
     json_out(['items' => array_map('sertifikat_row', $rows)]);
 }
@@ -814,7 +836,14 @@ function r_skkni(): void
         $judul = str_in('judul', 255, 'Judul unit');
         $sektor = str_in('sektor', 60, 'Sektor');
         if ($kode === '' || text_len($judul) < 5) fail('Isi kode dan judul unit.', 422);
-        if (q('SELECT 1 FROM skkni WHERE kode = ?', [$kode])->fetch()) fail('Kode unit sudah ada.', 409);
+        $ada = (bool)q('SELECT 1 FROM skkni WHERE kode = ?', [$kode])->fetch();
+        if ((body()['ubah'] ?? false) === true) {
+            if (!$ada) fail('Unit tidak ditemukan.', 404);
+            q('UPDATE skkni SET judul = ?, sektor = ? WHERE kode = ?', [$judul, $sektor ?: 'Lainnya', $kode]);
+            audit('skkni.ubah', $kode);
+            json_out(['ok' => true]);
+        }
+        if ($ada) fail('Kode unit sudah ada.', 409);
         q('INSERT INTO skkni (kode, judul, sektor) VALUES (?, ?, ?)', [$kode, $judul, $sektor ?: 'Lainnya']);
         audit('skkni.tambah', $kode);
         json_out(['ok' => true], 201);
@@ -840,6 +869,7 @@ function r_tiket(): void
         $prio = str_in('prioritas', 20) ?: 'normal';
         if (text_len($judul) < 5 || text_len($isi) < 10) fail('Isi judul (min. 5) dan uraian (min. 10 karakter).', 422);
         if (!in_array($prio, ['rendah', 'normal', 'tinggi'], true)) fail('Prioritas tidak valid.', 422);
+        limit_per_user('tiket', 'user_id', 5, 3600, 'Maksimal 5 tiket per jam. Tambahkan informasi di tiket yang sudah ada.');
         $lsp = $platform ? scope_lsp($m) : (int)$m['lsp_id'];
         q('INSERT INTO tiket (lsp_id, user_id, judul, isi, prioritas, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [$lsp, uid(), $judul, $isi, $prio, 'terbuka', now(), now()]);
         $id = (int)db()->lastInsertId();
@@ -868,6 +898,7 @@ function r_tiket_balas(): void
     if (!$t || (!$platform && (!can('settings.manage') || (int)$t['lsp_id'] !== (int)$m['lsp_id']))) {
         fail('Tiket tidak ditemukan.', 404);
     }
+    limit_per_user('tiket_balasan', 'user_id', 30, 600, 'Terlalu banyak balasan dalam waktu singkat. Coba lagi beberapa menit lagi.');
     $isi = str_in('isi', 4000, 'Balasan');
     $status = str_in('status', 20);
     if ($isi === '' && $status === '') fail('Tulis balasan.', 422);
@@ -969,10 +1000,10 @@ function r_pub_verify(): void
     if (strlen($qq) < 6) {
         fail('Masukkan nomor sertifikat atau kode verifikasi.', 422);
     }
-    // Batasi percobaan per IP dan total per jam agar nomor/kode tidak bisa ditebak massal.
+    // Batasi percobaan per IP (IPv6 per /64). Kode verifikasi acak 10 karakter tidak bisa ditebak, dan pencarian
+    // dengan nomor hanya menampilkan nama tersamar, jadi tidak perlu batas global yang bisa memblokir semua pengguna.
     $n = (int)q("SELECT COUNT(*) FROM audit_logs WHERE action = 'sertifikat.cek' AND ip = ? AND created_at >= ?", [client_ip(), date('Y-m-d H:i:s', time() - 600)])->fetchColumn();
-    $total = (int)q("SELECT COUNT(*) FROM audit_logs WHERE action = 'sertifikat.cek' AND created_at >= ?", [date('Y-m-d H:i:s', time() - 3600)])->fetchColumn();
-    if ($n >= 30 || $total >= 3000) {
+    if ($n >= 30) {
         fail('Terlalu banyak pencarian. Coba lagi dalam 10 menit.', 429);
     }
     audit('sertifikat.cek', cut($qq, 60), null, null);
@@ -991,4 +1022,133 @@ function r_pub_verify(): void
     $nama = $byKode ? $c['nama'] : implode(' ', array_map(function ($w) { return cut($w, 1) . str_repeat('*', max(2, text_len($w) - 1)); }, preg_split('/\s+/u', trim($c['nama']))));
     json_out(['found' => true, 'nomor' => $c['nomor'], 'nama' => $nama, 'nama_disamarkan' => !$byKode, 'skema' => $c['skema_nama'], 'lsp' => $c['lsp_nama'],
         'terbit' => $c['terbit'], 'berlaku' => $c['berlaku'], 'status' => $status]);
+}
+
+/* =========================== Hapus data master & operasional =========================== */
+
+/** Jalankan penghapusan; bila masih dirujuk data lain (foreign key), balas 409 dengan pesan yang jelas. */
+function delete_or_409(callable $fn, string $msg): void
+{
+    db()->beginTransaction();
+    try {
+        $fn();
+        db()->commit();
+    } catch (PDOException $e) {
+        db()->rollBack();
+        if ((string)$e->getCode() === '23000' || str_contains($e->getMessage(), 'FOREIGN KEY')) {
+            fail($msg, 409);
+        }
+        throw $e;
+    }
+}
+
+function r_lsp_skema_hapus(): void
+{
+    require_method('POST');
+    csrf_check();
+    $m = require_perm('master.manage');
+    $row = scoped_row('skema', int_in('id'), $m);
+    $id = (int)$row['id'];
+    $msg = 'Skema ini sudah dipakai (jadwal, pendaftaran, sertifikat, atau etalase). Ubah statusnya menjadi nonaktif.';
+    if (q('SELECT 1 FROM jadwal WHERE skema_id = ?', [$id])->fetch() || q('SELECT 1 FROM permohonan WHERE skema_id = ?', [$id])->fetch()
+        || q('SELECT 1 FROM listings WHERE skema_id = ?', [$id])->fetch() || q('SELECT 1 FROM sertifikat WHERE skema_id = ?', [$id])->fetch()) {
+        fail($msg, 409);
+    }
+    delete_or_409(function () use ($id) {
+        q('DELETE FROM skema_units WHERE skema_id = ?', [$id]);
+        q('DELETE FROM skema WHERE id = ?', [$id]);
+    }, $msg);
+    audit('skema.hapus', 'skema:' . $id, null, (int)$row['lsp_id']);
+    json_out(['ok' => true]);
+}
+
+function r_lsp_tuk_hapus(): void
+{
+    require_method('POST');
+    csrf_check();
+    $m = require_perm('master.manage');
+    $row = scoped_row('tuk', int_in('id'), $m);
+    $id = (int)$row['id'];
+    $msg = 'TUK ini sudah dipakai (jadwal atau akun Admin TUK). Ubah statusnya menjadi nonaktif.';
+    if (q('SELECT 1 FROM jadwal WHERE tuk_id = ?', [$id])->fetch() || q('SELECT 1 FROM memberships WHERE tuk_id = ?', [$id])->fetch()) {
+        fail($msg, 409);
+    }
+    delete_or_409(function () use ($id) {
+        q('DELETE FROM sarpras WHERE tuk_id = ?', [$id]);
+        q('DELETE FROM tuk WHERE id = ?', [$id]);
+    }, $msg);
+    audit('tuk.hapus', 'tuk:' . $id, null, (int)$row['lsp_id']);
+    json_out(['ok' => true]);
+}
+
+function r_lsp_jadwal_hapus(): void
+{
+    require_method('POST');
+    csrf_check();
+    $m = require_perm('schedule.manage');
+    $row = scoped_row('jadwal', int_in('id'), $m);
+    $id = (int)$row['id'];
+    $msg = 'Jadwal ini sudah punya pendaftar. Ubah statusnya menjadi batal agar riwayatnya tetap tersimpan.';
+    if (q('SELECT 1 FROM permohonan WHERE jadwal_id = ?', [$id])->fetch()) {
+        fail($msg, 409);
+    }
+    delete_or_409(function () use ($id) {
+        q('DELETE FROM chat_pesan WHERE jadwal_id = ?', [$id]);
+        q('DELETE FROM jadwal WHERE id = ?', [$id]);
+    }, $msg);
+    audit('jadwal.hapus', 'jadwal:' . $id, null, (int)$row['lsp_id']);
+    json_out(['ok' => true]);
+}
+
+function r_lsp_crm_hapus(): void
+{
+    require_method('POST');
+    csrf_check();
+    $m = require_perm('crm.manage');
+    $row = scoped_row('crm_leads', int_in('id'), $m);
+    q('DELETE FROM crm_leads WHERE id = ?', [$row['id']]);
+    audit('crm.hapus', 'lead:' . $row['id'], null, (int)$row['lsp_id']);
+    json_out(['ok' => true]);
+}
+
+function r_lsp_mutu_hapus(): void
+{
+    require_method('POST');
+    csrf_check();
+    $m = require_perm('quality.manage');
+    $row = scoped_row('mutu', int_in('id'), $m);
+    // Item yang sudah selesai adalah rekaman mutu (bukti untuk asesor lisensi BNSP), jadi tidak boleh dihapus.
+    if ($row['status'] === 'selesai') fail('Item mutu yang sudah selesai disimpan sebagai rekaman dan tidak bisa dihapus.', 409);
+    q('DELETE FROM mutu WHERE id = ?', [$row['id']]);
+    audit('mutu.hapus', 'mutu:' . $row['id'], null, (int)$row['lsp_id']);
+    json_out(['ok' => true]);
+}
+
+function r_tuk_sarpras_hapus(): void
+{
+    require_method('POST');
+    csrf_check();
+    $m = require_perm('tuk.facility');
+    [$w, $p] = tuk_where($m, 's.tuk_id', 's.lsp_id');
+    $row = q("SELECT s.* FROM sarpras s WHERE s.id = ?$w", array_merge([int_in('id')], $p))->fetch();
+    if (!$row) {
+        audit('access.denied', 'sarpras:' . int_in('id'));
+        fail('Data tidak ditemukan.', 404);
+    }
+    q('DELETE FROM sarpras WHERE id = ?', [$row['id']]);
+    audit('sarpras.hapus', 'sarpras:' . $row['id'], null, (int)$row['lsp_id']);
+    json_out(['ok' => true]);
+}
+
+function r_skkni_hapus(): void
+{
+    require_method('POST');
+    csrf_check();
+    require_perm('lsp.manage');
+    $kode = strtoupper(str_in('kode', 40, 'Kode unit'));
+    if (!q('SELECT 1 FROM skkni WHERE kode = ?', [$kode])->fetch()) fail('Unit tidak ditemukan.', 404);
+    // Unit di skema LSP disalin sebagai teks, jadi menghapus pustaka tidak mengubah skema yang ada.
+    q('DELETE FROM skkni WHERE kode = ?', [$kode]);
+    audit('skkni.hapus', $kode);
+    json_out(['ok' => true]);
 }

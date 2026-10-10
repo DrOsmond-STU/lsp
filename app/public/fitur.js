@@ -167,6 +167,8 @@ document.addEventListener('submit', async e => {
 });
 const AFTER = {
   alumniCari: async () => { await reloadPage(); },
+  skemaSimpan: async r => { await reloadPage(); if (r && r.ditinjau_ulang) toast('Skema disimpan. Listing yang tayang ditarik sementara dan menunggu ditinjau ulang Admin Platform.'); },
+  profil: async () => { await loadProfile(); if (ME && S.profile) ME.user.nama = S.profile.nama; await reloadPage(); },
 };
 document.addEventListener('click', async e => {
   const t = e.target.closest('[data-act],[data-tab],[data-sel],[data-edit],[data-close],[data-x]');
@@ -279,6 +281,16 @@ const X = {
   cekPublik(t) { S.inApp = false; S.cekQ = t.dataset.kode; delete PUB.cek; go('verif'); },
   async kelasNext(t) { await api('asesi/kelas/progres', {id: Number(t.dataset.id), progres: Math.min(100, Number(t.dataset.p) + 20)}); toast('Progres disimpan.'); await reloadPage(); },
   async alumniCari() { S.alumniQ = (document.getElementById('alumni-q') || {}).value || ''; await reloadPage(); },
+  async skkniUbah(t) {
+    const judul = prompt('Judul unit ' + t.dataset.kode, t.dataset.judul);
+    if (judul === null) return;
+    const sektor = prompt('Sektor', t.dataset.sektor);
+    if (sektor === null) return;
+    busy(true);
+    try { await api('skkni', {kode: t.dataset.kode, judul, sektor, ubah: true}); toast('Unit diperbarui.'); await reloadPage(); }
+    catch (x) { toast(x.message); render(); }
+    finally { S.busy = false; }
+  },
   async skkniCari() { S.skkniQ = (document.getElementById('skkni-q') || {}).value || ''; await reloadPage(); },
   skkniPakai(t) { const ta = document.querySelector('textarea[name="units_text"]'); if (!ta) { toast('Buka form skema dulu.'); return; } ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + unesc(t.dataset.kode) + ' | ' + unesc(t.dataset.judul); toast('Unit ditambahkan ke form skema.'); },
   logbook() {
@@ -466,7 +478,11 @@ function pProfil() {
   const have = Object.fromEntries((D.items || []).map(x => [x.jenis, x]));
   return `${phead('Profil global', 'Profil & Dokumen')}
   <div class="alert info">${ic('shield')}<span>Profil dan dokumen ini dipakai ulang di semua LSP. NIK disimpan terenkripsi. LSP hanya bisa membuka dokumen Anda bila Anda mendaftar skema di LSP tersebut.</span></div>
-  <div class="card">${infoGrid(rows)}</div>
+  ${S.edit === 'profil' ? `<div class="card" id="editor" style="border:2px solid var(--brand-b)"><h3 style="margin-bottom:.4rem">Ubah profil</h3><p class="muted" style="font-size:.85rem;margin-bottom:.8rem">Nama, tanggal lahir, dan jenis kelamin hanya bisa diubah sebelum Anda punya pendaftaran yang berjalan atau sertifikat. NIK tidak bisa diubah sendiri.</p>${form('profile', `<div class="grid g2">
+    ${fld('Nama lengkap (sesuai KTP)', inp('nama', p.nama, 'maxlength="120" autocomplete="name"'), true)}${p.nik ? '' : fld('NIK (16 digit, sesuai KTP)', inp('nik', '', 'inputmode="numeric" maxlength="16" class="mono"'), true)}${fld('Tanggal lahir', inp('tanggal_lahir', p.tanggal_lahir || '', 'type="date"'))}${fld('Jenis kelamin', sel('jenis_kelamin', [['L', 'Laki-laki'], ['P', 'Perempuan']], p.jenis_kelamin))}
+    ${fld('Nomor HP', inp('no_hp', p.no_hp || '', 'inputmode="tel" maxlength="20" autocomplete="tel"'))}</div>
+    <label class="row" style="gap:.5rem;font-size:.88rem;flex-wrap:nowrap"><input type="checkbox" name="consent_marketing" ${p.consent_marketing ? 'checked' : ''} style="width:auto">Saya bersedia menerima info skema dan pelatihan dari LSP.</label>${p.nik ? '' : `<label class="row" style="gap:.5rem;font-size:.88rem;flex-wrap:nowrap"><input type="checkbox" name="consent_privacy" style="width:auto">Saya menyetujui kebijakan privasi: NIK disimpan terenkripsi dan hanya dibagikan ke LSP tempat saya mendaftar.</label>`}`, {ok: 'Profil diperbarui.', after: 'profil', cancel: true})}</div>` : ''}
+  <div class="card">${infoGrid(rows)}${S.edit === 'profil' ? '' : `<div class="row" style="justify-content:flex-end;margin-top:.8rem"><button class="btn sm ghost" data-edit="profil">${ic('users')}Ubah profil</button></div>`}</div>
   <div class="card stack"><h3>Dokumen pribadi</h3>${Object.entries(D.jenis).map(([k, l]) => docRow(k, l, have[k], D.wajib.includes(k))).join('')}<p class="muted" style="font-size:.82rem">PDF, JPG, atau PNG, maksimal 2 MB per berkas.</p></div>`;
 }
 
@@ -611,7 +627,7 @@ function pJadwalA() {
   ${tabs('jadwalA', [['akan', 'Akan datang'], ['lalu', 'Sudah lewat'], ['semua', 'Semua']])}
   <div class="card">${table(['Tanggal', 'Skema', 'TUK / metode', 'Peserta', 'Asesor', 'Status', ''], items.map(j => tr([`<b>${fmtHari(j.tanggal)}</b><div class="muted" style="font-size:.75rem">${j.jam}</div>`, j.skema_nama + (isPlatform() ? `<div class="muted" style="font-size:.75rem">${j.lsp_nama}</div>` : ''), `${j.tuk_nama || '—'}<div class="muted" style="font-size:.75rem">${j.metode}</div>`,
     `<span class="chip ${j.sisa ? 'ok' : 'bad'}">${j.peserta}/${j.kuota}</span>`, sel('asesor', asOpts(j), j.asesor_id || 0, `data-assign="${j.id}" aria-label="Asesor" style="min-width:170px"`), `<span class="chip ${j.status === 'dibuka' ? 'ok' : j.status === 'batal' ? 'bad' : 'plain'}">${j.status}</span>`,
-    `<button class="btn sm ghost" data-edit="${j.id}">Ubah</button>`])), 'Belum ada jadwal.')}
+    `<div class="row" style="gap:.3rem;flex-wrap:nowrap"><button class="btn sm ghost" data-edit="${j.id}">Ubah</button>${j.peserta ? '' : btnAct('lsp/jadwal/hapus', {id: j.id}, 'Hapus', 'sm ghost', 'data-confirm="Hapus jadwal ini?" data-ok="Jadwal dihapus."')}</div>`])), 'Belum ada jadwal.')}
   <p class="muted" style="font-size:.8rem;margin-top:.6rem">Sistem menolak penugasan bila asesor sudah bertugas di jadwal lain pada tanggal yang sama. Asesor menerima notifikasi penugasan.</p></div>`;
 }
 function pAsesmenA() {
@@ -645,17 +661,18 @@ function pMaster() {
       ${fld('Biaya uji (Rp)', inp('harga', e ? e.harga : 750000, 'type="number" min="0" step="1000"'))}${fld('Status', sel('status', [['aktif', 'Aktif'], ['nonaktif', 'Nonaktif']], e && e.status))}
       ${fld('Deskripsi', txa('deskripsi', e ? (e.deskripsi || '') : '', 'rows="2" maxlength="2000"'), true)}${fld('Persyaratan (satu per baris)', txa('persyaratan', e ? (e.persyaratan || '') : '', 'rows="3" maxlength="2000"'), true)}
       ${fld('Unit kompetensi (satu per baris: KODE | Judul unit)', txa('units_text', e ? e.units.map(u => u.kode + ' | ' + u.judul).join('\n') : '', 'rows="6" class="mono" style="font-size:.82rem"'), true)}</div>
-      <p class="muted" style="font-size:.8rem">Cari unit di tab Pustaka SKKNI lalu klik "Pakai" untuk menambahkannya. Unit skema yang sudah punya permohonan tidak diubah agar rekaman asesmen tetap utuh.</p>`, {ok: 'Skema disimpan.', cancel: true})}</div>`) : '';
-    body = `<div class="row" style="justify-content:flex-end"><button class="btn" data-edit="new">${ic('cert')}Skema baru</button></div>${editor}<div class="card">${table(['Kode', 'Skema', 'KKNI', 'Unit', 'Biaya', 'Status', 'Portal', ''], D.s.map(s => tr([`<span class="mono">${s.kode}</span>`, s.nama + (isPlatform() ? `<div class="muted" style="font-size:.75rem">${s.lsp_nama}</div>` : ''), s.kkni, s.units.length, fmtRp(s.harga), `<span class="chip ${s.status === 'aktif' ? 'ok' : 'plain'}">${s.status}</span>`, s.tayang ? '<span class="chip ok">Tayang</span>' : `<button class="btn sm ghost" data-go-app="etalase">Ajukan ke etalase</button>`, `<button class="btn sm ghost" data-edit="${s.id}">Ubah</button>`])))}</div>`;
+      <p class="muted" style="font-size:.8rem">Cari unit di tab Pustaka SKKNI lalu klik "Pakai" untuk menambahkannya. Unit skema yang sudah punya permohonan tidak diubah agar rekaman asesmen tetap utuh.</p>`, {ok: 'Skema disimpan.', cancel: true, after: 'skemaSimpan'})}</div>`) : '';
+    body = `<div class="row" style="justify-content:flex-end"><button class="btn" data-edit="new">${ic('cert')}Skema baru</button></div>${editor}<div class="card">${table(['Kode', 'Skema', 'KKNI', 'Unit', 'Biaya', 'Status', 'Portal', ''], D.s.map(s => tr([`<span class="mono">${s.kode}</span>`, s.nama + (isPlatform() ? `<div class="muted" style="font-size:.75rem">${s.lsp_nama}</div>` : ''), s.kkni, s.units.length, fmtRp(s.harga), `<span class="chip ${s.status === 'aktif' ? 'ok' : 'plain'}">${s.status}</span>`, s.tayang ? '<span class="chip ok">Tayang</span>' : `<button class="btn sm ghost" data-go-app="etalase">Ajukan ke etalase</button>`, `<div class="row" style="gap:.3rem;flex-wrap:nowrap"><button class="btn sm ghost" data-edit="${s.id}">Ubah</button>${btnAct('lsp/skema/hapus', {id: s.id}, 'Hapus', 'sm ghost', 'data-confirm="Hapus skema ini?" data-ok="Skema dihapus."')}</div>`])))}</div>`;
   } else if (t === 'tuk') {
     const e = S.edit && S.edit !== 'new' ? D.t.find(x => x.id === Number(S.edit)) : null;
     const editor = S.edit ? (needLspPick() && !e ? pickLspNote('menambah TUK') : `<div class="card" id="editor" style="border:2px solid var(--brand-b)"><h3 style="margin-bottom:.8rem">${e ? 'Ubah TUK' : 'TUK baru'}</h3>${form('lsp/tuk', `${e ? hid('id', e.id) : ''}<div class="grid g2">
       ${fld('Nama TUK', inp('nama', e ? e.nama : '', 'maxlength="190"'), true)}${fld('Jenis', sel('jenis', ['Sewaktu', 'Tempat Kerja', 'Mandiri'], e && e.jenis))}${fld('Kapasitas', inp('kapasitas', e ? e.kapasitas : 20, 'type="number" min="1"'))}
       ${fld('Alamat', inp('alamat', e ? (e.alamat || '') : '', 'maxlength="255"'), true)}${fld('Verifikasi berlaku s.d.', inp('verif_sampai', e ? (e.verif_sampai || '') : '', 'type="date"'))}${fld('Status', sel('status', [['aktif', 'Aktif'], ['nonaktif', 'Nonaktif']], e && e.status))}</div>`, {ok: 'TUK disimpan.', cancel: true})}</div>`) : '';
-    body = `<div class="row" style="justify-content:flex-end"><button class="btn" data-edit="new">${ic('build')}TUK baru</button></div>${editor}<div class="card">${table(['TUK', 'Jenis', 'Kapasitas', 'Verifikasi', 'Jadwal mendatang', 'Status', ''], D.t.map(x => tr([`<b>${x.nama}</b><div class="muted" style="font-size:.75rem">${x.alamat || ''}${isPlatform() ? ' · ' + x.lsp_nama : ''}</div>`, x.jenis, x.kapasitas, x.verif_sampai ? `<span class="chip ${daysTo(x.verif_sampai) < 60 ? 'warn' : 'ok'}">s.d. ${fmtTgl(x.verif_sampai)}</span>` : '—', x.jadwal_mendatang, `<span class="chip ${x.status === 'aktif' ? 'ok' : 'plain'}">${x.status}</span>`, `<button class="btn sm ghost" data-edit="${x.id}">Ubah</button>`])))}</div>`;
+    body = `<div class="row" style="justify-content:flex-end"><button class="btn" data-edit="new">${ic('build')}TUK baru</button></div>${editor}<div class="card">${table(['TUK', 'Jenis', 'Kapasitas', 'Verifikasi', 'Jadwal mendatang', 'Status', ''], D.t.map(x => tr([`<b>${x.nama}</b><div class="muted" style="font-size:.75rem">${x.alamat || ''}${isPlatform() ? ' · ' + x.lsp_nama : ''}</div>`, x.jenis, x.kapasitas, x.verif_sampai ? `<span class="chip ${daysTo(x.verif_sampai) < 60 ? 'warn' : 'ok'}">s.d. ${fmtTgl(x.verif_sampai)}</span>` : '—', x.jadwal_mendatang, `<span class="chip ${x.status === 'aktif' ? 'ok' : 'plain'}">${x.status}</span>`, `<div class="row" style="gap:.3rem;flex-wrap:nowrap"><button class="btn sm ghost" data-edit="${x.id}">Ubah</button>${btnAct('lsp/tuk/hapus', {id: x.id}, 'Hapus', 'sm ghost', 'data-confirm="Hapus TUK ini?" data-ok="TUK dihapus."')}</div>`])))}</div>`;
   } else if (t === 'asesor') {
     const editor = S.edit ? (needLspPick() ? pickLspNote('menambah asesor') : `<div class="card" id="editor" style="border:2px solid var(--brand-b)"><h3 style="margin-bottom:.4rem">Tambah asesor</h3><p class="muted" style="font-size:.85rem;margin-bottom:.8rem">Bila email sudah terdaftar sebagai asesor di LSP lain, cukup isi email (asesor boleh aktif di banyak LSP). Bila belum, isi nama dan password awal.</p>${form('lsp/asesor', `<div class="grid g2">${fld('Email', inp('email', '', 'type="email" maxlength="190"'), true)}${fld('Nama lengkap (akun baru)', inp('nama', '', 'maxlength="120"'))}${fld('Password awal (akun baru)', inp('password', '', 'type="password" autocomplete="new-password"'))}</div>`, {ok: 'Asesor ditambahkan.', cancel: true})}</div>`) : '';
-    body = `<div class="row" style="justify-content:flex-end"><button class="btn" data-edit="new">${ic('users')}Tambah asesor</button></div>${editor}<div class="card">${table(['Asesor', 'Email', 'Jadwal mendatang', 'Sudah menguji', 'Status'], D.a.map(a => tr([`<b>${a.nama}</b>${isPlatform() ? `<div class="muted" style="font-size:.75rem">${a.lsp_nama}</div>` : ''}`, a.email, a.jadwal_mendatang, a.diuji, `<span class="chip ${a.status === 'aktif' ? 'ok' : 'bad'}">${a.status}</span>`])))}<p class="muted" style="font-size:.8rem;margin-top:.6rem">Nonaktifkan asesor lewat menu Pengguna & Hak Akses.</p></div>`;
+    body = `<div class="row" style="justify-content:flex-end"><button class="btn" data-edit="new">${ic('users')}Tambah asesor</button></div>${editor}<div class="card">${table(['Asesor', 'Email', 'Jadwal mendatang', 'Sudah menguji', 'Status', ''], D.a.map(a => tr([`<b>${a.nama}</b>${isPlatform() ? `<div class="muted" style="font-size:.75rem">${a.lsp_nama}</div>` : ''}`, a.email, a.jadwal_mendatang, a.diuji, `<span class="chip ${a.status === 'aktif' ? 'ok' : 'bad'}">${a.status}</span>`,
+      can('user.manage') ? btnAct('users/status', {membership_id: a.membership_id, status: a.status === 'aktif' ? 'nonaktif' : 'aktif'}, a.status === 'aktif' ? 'Nonaktifkan' : 'Aktifkan', 'sm ghost', `data-confirm="${a.status === 'aktif' ? 'Nonaktifkan asesor ini di LSP ini? Jadwal yang sudah ditugaskan tetap perlu dialihkan.' : 'Aktifkan kembali asesor ini?'}" data-ok="Status asesor diperbarui."`) : ''])))}<p class="muted" style="font-size:.8rem;margin-top:.6rem">Asesor yang dinonaktifkan tidak bisa lagi melihat jadwal dan berkas LSP ini. Riwayat asesmennya tetap tersimpan.</p></div>`;
   } else {
     body = pustakaView();
   }
@@ -666,7 +683,8 @@ function pustakaView() {
   if (S.appPage === 'master' && !S.d.masterSkkni) { S.d.masterSkkni = {items: []}; api('skkni' + (S.skkniQ ? '?q=' + encodeURIComponent(S.skkniQ) : '')).then(r => { S.d.masterSkkni = r; render(); }); }
   const items = (D || {items: []}).items;
   return `<div class="card stack"><div class="row" style="flex-wrap:nowrap"><input id="skkni-q" placeholder="Cari kode atau judul unit, mis. data, kopi, listrik" value="${esc(S.skkniQ || '')}" style="flex:1"><button class="btn" data-x="skkniCari">${ic('search')}Cari</button></div>
-    ${table(['Kode unit', 'Judul unit', 'Sektor', ''], items.map(u => tr([`<span class="mono">${u.kode}</span>`, u.judul, u.sektor, S.appPage === 'master' ? `<button class="btn sm ghost" data-x="skkniPakai" data-kode="${u.kode}" data-judul="${u.judul}">Pakai</button>` : ''])), 'Tidak ada unit yang cocok.')}</div>`;
+    ${table(['Kode unit', 'Judul unit', 'Sektor', ''], items.map(u => tr([`<span class="mono">${u.kode}</span>`, u.judul, u.sektor, S.appPage === 'master' ? `<button class="btn sm ghost" data-x="skkniPakai" data-kode="${u.kode}" data-judul="${u.judul}">Pakai</button>`
+      : can('lsp.manage') ? `<div class="row" style="gap:.3rem;flex-wrap:nowrap"><button class="btn sm ghost" data-x="skkniUbah" data-kode="${u.kode}" data-judul="${u.judul}" data-sektor="${u.sektor}">Ubah</button>${btnAct('skkni/hapus', {kode: u.kode}, 'Hapus', 'sm ghost', 'data-confirm="Hapus unit ini dari pustaka? Skema yang sudah memakainya tidak berubah." data-ok="Unit dihapus."')}</div>` : ''])), 'Tidak ada unit yang cocok.')}</div>`;
 }
 function pAlumni() {
   const D = S.d.alumni;
@@ -689,7 +707,7 @@ function pMutu() {
   const late = D.items.filter(x => x.status !== 'selesai' && x.tenggat && daysTo(x.tenggat) < 0).length;
   return `${phead(ctxName() + ' · Pedoman BNSP 201', 'Sistem manajemen mutu', `<button class="btn" data-edit="new">${ic('shield')}Catat item</button>`)}
   <div class="grid g4">${kpi('bell', 'orange', n('terbuka'), 'Terbuka')}${kpi('cal', 'blue', n('proses'), 'Dalam proses')}${kpi('check', 'green', n('selesai'), 'Selesai')}${kpi('shield', 'red', late, 'Lewat tenggat')}</div>${editor}
-  <div class="card">${table(['Jenis', 'Judul', 'PIC', 'Tenggat', 'Status', ''], D.items.map(x => tr([`<span class="chip plain">${x.jenis}</span>`, `<b>${x.judul}</b>${x.deskripsi ? `<div class="muted" style="font-size:.78rem">${x.deskripsi}</div>` : ''}`, x.pic || '—', x.tenggat ? `<span class="chip ${x.status !== 'selesai' && daysTo(x.tenggat) < 0 ? 'bad' : 'plain'}">${fmtTgl(x.tenggat)}</span>` : '—', `<span class="chip ${x.status === 'selesai' ? 'ok' : x.status === 'proses' ? 'info' : 'warn'}">${x.status}</span>`, `<button class="btn sm ghost" data-edit="${x.id}">Ubah</button>`])), 'Belum ada catatan mutu.')}</div>`;
+  <div class="card">${table(['Jenis', 'Judul', 'PIC', 'Tenggat', 'Status', ''], D.items.map(x => tr([`<span class="chip plain">${x.jenis}</span>`, `<b>${x.judul}</b>${x.deskripsi ? `<div class="muted" style="font-size:.78rem">${x.deskripsi}</div>` : ''}`, x.pic || '—', x.tenggat ? `<span class="chip ${x.status !== 'selesai' && daysTo(x.tenggat) < 0 ? 'bad' : 'plain'}">${fmtTgl(x.tenggat)}</span>` : '—', `<span class="chip ${x.status === 'selesai' ? 'ok' : x.status === 'proses' ? 'info' : 'warn'}">${x.status}</span>`, `<div class="row" style="gap:.3rem;flex-wrap:nowrap"><button class="btn sm ghost" data-edit="${x.id}">Ubah</button>${x.status === 'selesai' ? '' : btnAct('lsp/mutu/hapus', {id: x.id}, 'Hapus', 'sm ghost', 'data-confirm="Hapus item mutu ini?" data-ok="Item mutu dihapus."')}</div>`])), 'Belum ada catatan mutu.')}</div>`;
 }
 function pKeuangan() {
   const D = S.d.keuangan;
@@ -719,7 +737,7 @@ function pCrm() {
   <div class="grid g3">${kpi('chart', 'blue', fmtRp(pipe), 'Nilai pipeline')}${kpi('check', 'green', fmtRp(won), 'Menang')}${kpi('bell', 'orange', due, 'Follow-up jatuh tempo')}</div>${editor}
   <div style="display:grid;grid-template-columns:repeat(5,minmax(200px,1fr));gap:.8rem;overflow-x:auto">${D.tahap.map((th, i) => `<div class="card stack" style="gap:.6rem;padding:.9rem;background:var(--surface-2)"><div class="spread"><b>${TAHAP[th][0]}</b><span class="chip plain">${D.items.filter(x => x.tahap === th).length}</span></div>
     ${D.items.filter(x => x.tahap === th).map(x => `<div class="card" style="padding:.75rem"><b style="font-size:.9rem">${x.organisasi || x.nama}</b><p class="muted" style="font-size:.78rem">${x.nama}${x.kontak ? ' · ' + x.kontak : ''}</p>${x.nilai ? `<p class="num" style="font-size:.85rem;font-weight:700;margin-top:.2rem">${fmtRp(x.nilai)}</p>` : ''}${x.followup ? `<p style="font-size:.75rem;margin-top:.2rem" class="${daysTo(x.followup) <= 0 ? '' : 'muted'}">${daysTo(x.followup) <= 0 ? '⚠ ' : ''}Follow-up ${fmtTgl(x.followup)}</p>` : ''}
-      <div class="row" style="gap:.3rem;margin-top:.5rem">${i > 0 ? btnAct('lsp/crm/tahap', {id: x.id, tahap: D.tahap[i - 1]}, '←', 'sm ghost', 'aria-label="Mundur tahap" data-ok="Tahap diubah."') : ''}${i < D.tahap.length - 1 ? btnAct('lsp/crm/tahap', {id: x.id, tahap: D.tahap[i + 1]}, '→', 'sm ghost', 'aria-label="Maju tahap" data-ok="Tahap diubah."') : ''}<button class="btn sm ghost" data-edit="${x.id}">Ubah</button></div></div>`).join('')}</div>`).join('')}</div>`;
+      <div class="row" style="gap:.3rem;margin-top:.5rem">${i > 0 ? btnAct('lsp/crm/tahap', {id: x.id, tahap: D.tahap[i - 1]}, '←', 'sm ghost', 'aria-label="Mundur tahap" data-ok="Tahap diubah."') : ''}${i < D.tahap.length - 1 ? btnAct('lsp/crm/tahap', {id: x.id, tahap: D.tahap[i + 1]}, '→', 'sm ghost', 'aria-label="Maju tahap" data-ok="Tahap diubah."') : ''}<button class="btn sm ghost" data-edit="${x.id}">Ubah</button>${btnAct('lsp/crm/hapus', {id: x.id}, 'Hapus', 'sm ghost', 'data-confirm="Hapus lead ini?" data-ok="Lead dihapus."')}</div></div>`).join('')}</div>`).join('')}</div>`;
 }
 function pLaporan() {
   const D = S.d.laporan;
@@ -737,7 +755,7 @@ function pSetting() {
   if (!D) return loading();
   const l = D.lsp;
   return `${phead(l.nama, 'Profil LSP & pengaturan')}
-  <div class="card">${form('lsp/pengaturan', `<div class="grid g2">${fld('Nama LSP', inp('nama', l.nama, 'maxlength="190"'), true)}${fld('Kota', inp('kota', l.kota, 'maxlength="100"'))}${fld('Telepon', inp('telepon', l.telepon || '', 'maxlength="30"'))}
+  <div class="card">${form('lsp/pengaturan', `<div class="grid g2">${fld('Nama LSP' + (isPlatform() ? '' : ' <span class="muted">(diubah oleh Admin Platform lewat tiket support)</span>'), inp('nama', l.nama, 'maxlength="190"' + (isPlatform() ? '' : ' disabled')), true)}${fld('Kota', inp('kota', l.kota, 'maxlength="100"'))}${fld('Telepon', inp('telepon', l.telepon || '', 'maxlength="30"'))}
     ${fld('Alamat', inp('alamat', l.alamat || '', 'maxlength="255"'), true)}${fld('Email', inp('email', l.email || '', 'type="email" maxlength="190"'))}${fld('Website', inp('website', l.website || '', 'maxlength="190" placeholder="https://"'))}
     ${fld('Deskripsi di halaman profil portal', txa('deskripsi', l.deskripsi || '', 'rows="3" maxlength="2000"'), true)}${fld('Lisensi BNSP berlaku s.d.' + (isPlatform() ? '' : ' <span class="muted">(diubah oleh Admin Platform)</span>'), inp('lisensi_sampai', l.lisensi_sampai || '', 'type="date"' + (isPlatform() ? '' : ' disabled')))}${fld('Honor asesor per asesi (Rp)', inp('honor_per_asesi', l.honor_per_asesi, 'type="number" min="0" step="5000"'))}</div>
     <p class="muted" style="font-size:.82rem">Jenis LSP: ${l.jenis} · Paket: ${l.paket} · Status: ${l.status}</p>`, {ok: 'Pengaturan disimpan.'})}</div>
@@ -784,7 +802,7 @@ function pSarpras() {
     ${!e && ME.active.role !== 'admin_tuk' ? fld('TUK', sel('tuk_id', tukOpt, '', 'data-num'), true) : ''}${fld('Nama alat / fasilitas', inp('nama', e ? e.nama : '', 'maxlength="150"'), true)}
     ${fld('Jumlah', inp('jumlah', e ? e.jumlah : 1, 'type="number" min="0"'))}${fld('Kondisi', sel('kondisi', [['baik', 'Baik'], ['perlu perbaikan', 'Perlu perbaikan'], ['rusak', 'Rusak']], e && e.kondisi))}${fld('Catatan', inp('catatan', e ? (e.catatan || '') : '', 'maxlength="255"'), true)}</div>`, {ok: 'Data sarana disimpan.', cancel: true})}</div>` : '';
   return `${phead(ME.active.tuk_nama || ctxName(), 'Sarana & prasarana', `<button class="btn" data-edit="new">${ic('build')}Tambah alat</button>`)}${editor}
-  <div class="card">${table(['TUK', 'Alat / fasilitas', 'Jumlah', 'Kondisi', 'Catatan', 'Diperbarui', ''], D.s.map(x => tr([x.tuk_nama, `<b>${x.nama}</b>`, x.jumlah, `<span class="chip ${x.kondisi === 'baik' ? 'ok' : x.kondisi === 'rusak' ? 'bad' : 'warn'}">${x.kondisi}</span>`, x.catatan || '—', fmtTgl(x.updated_at), `<button class="btn sm ghost" data-edit="${x.id}">Ubah</button>`])), 'Belum ada data sarana.')}</div>`;
+  <div class="card">${table(['TUK', 'Alat / fasilitas', 'Jumlah', 'Kondisi', 'Catatan', 'Diperbarui', ''], D.s.map(x => tr([x.tuk_nama, `<b>${x.nama}</b>`, x.jumlah, `<span class="chip ${x.kondisi === 'baik' ? 'ok' : x.kondisi === 'rusak' ? 'bad' : 'warn'}">${x.kondisi}</span>`, x.catatan || '—', fmtTgl(x.updated_at), `<div class="row" style="gap:.3rem;flex-wrap:nowrap"><button class="btn sm ghost" data-edit="${x.id}">Ubah</button>${btnAct('tuk/sarpras/hapus', {id: x.id}, 'Hapus', 'sm ghost', 'data-confirm="Hapus alat ini?" data-ok="Alat dihapus."')}</div>`])), 'Belum ada data sarana.')}</div>`;
 }
 function pChat() {
   const D = S.d.chat;

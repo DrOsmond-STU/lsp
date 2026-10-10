@@ -59,9 +59,32 @@ function int_in(string $key): int
     return 0;
 }
 
+/**
+ * Alamat klien untuk log dan pembatas laju. IPv6 dikelompokkan per /64 (satu pelanggan biasanya mendapat
+ * satu blok /64), sehingga berganti alamat di dalam blok yang sama tidak bisa dipakai melewati batas.
+ */
 function client_ip(): string
 {
-    return substr((string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'), 0, 45);
+    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+    if (stripos($ip, '::ffff:') === 0 && filter_var(substr($ip, 7), FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        return substr($ip, 7);
+    }
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        $bin = inet_pton($ip);
+        if ($bin !== false) {
+            return inet_ntop(substr($bin, 0, 8) . str_repeat("\0", 8)) . '/64';
+        }
+    }
+    return substr($ip, 0, 45);
+}
+
+/** Pembatas laju per pengguna berdasarkan jumlah baris tabel dalam jendela waktu tertentu. */
+function limit_per_user(string $table, string $userCol, int $max, int $seconds, string $msg): void
+{
+    $n = (int)q("SELECT COUNT(*) FROM $table WHERE $userCol = ? AND created_at >= ?", [uid(), date('Y-m-d H:i:s', time() - $seconds)])->fetchColumn();
+    if ($n >= $max) {
+        fail($msg, 429);
+    }
 }
 
 function require_method(string $method): void

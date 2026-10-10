@@ -265,9 +265,69 @@ function do_resend_verification(): void
 /** Profil milik pengguna yang sedang masuk saja; NIK selalu disamarkan. */
 function r_profile(): void
 {
-    require_method('GET');
     $m = require_perm('profile.own');
     $u = current_user();
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        csrf_check();
+        $p = q('SELECT * FROM asesi_profiles WHERE user_id = ?', [$u['id']])->fetch();
+        $hp = normalize_phone(str_in('no_hp', 20, 'Nomor HP'));
+        if (!preg_match('/^08\d{8,12}$/', $hp)) fail('Nomor HP harus diawali 08 dan berisi 10–14 digit.', 422);
+        $marketing = (body()['consent_marketing'] ?? false) === true ? 1 : 0;
+        $nama = str_in('nama', 120, 'Nama');
+        $tgl = str_in('tanggal_lahir', 10, 'Tanggal lahir');
+        $jk = str_in('jenis_kelamin', 1);
+        $nik = null;
+        if (!$p) {
+            // Akun asesi tanpa profil (mis. dibuat sebelum pendaftaran mandiri) melengkapi NIK sekali di sini.
+            $nik = preg_replace('/\s+/', '', str_in('nik', 32, 'NIK'));
+            if (!valid_nik($nik)) fail('NIK harus 16 digit sesuai KTP.', 422);
+            if ((body()['consent_privacy'] ?? false) !== true) fail('Setujui kebijakan privasi untuk menyimpan data diri.', 422);
+            if (q('SELECT 1 FROM asesi_profiles WHERE nik_hash = ?', [nik_index($nik)])->fetch()) {
+                audit('register.nik_conflict');
+                fail('Data ini tidak dapat disimpan. Hubungi admin PortalLSP.', 409);
+            }
+        }
+        $namaBerubah = $nama !== $u['nama'];
+        $lahirBerubah = !$p || $tgl !== (string)$p['tanggal_lahir'] || $jk !== (string)$p['jenis_kelamin'];
+        // Data identitas yang sudah ada dipakai di berkas LSP dan tercetak di sertifikat, jadi hanya boleh diubah sebelum ada pendaftaran yang berjalan.
+        if ($namaBerubah || ($p && $lahirBerubah)) {
+            if (q("SELECT 1 FROM permohonan WHERE asesi_id = ? AND status NOT IN ('dibatalkan','ditolak')", [$u['id']])->fetch()
+                || q('SELECT 1 FROM sertifikat WHERE user_id = ?', [$u['id']])->fetch()
+                || ($namaBerubah && (q('SELECT 1 FROM permohonan WHERE asesor_id = ? OR pleno_oleh = ?', [$u['id'], $u['id']])->fetch()
+                    || q('SELECT 1 FROM jadwal WHERE asesor_id = ?', [$u['id']])->fetch()))) {
+                fail('Nama, tanggal lahir, dan jenis kelamin tidak bisa diubah karena sudah dipakai di pendaftaran atau sertifikat. Hubungi LSP terkait untuk koreksi data.', 409);
+            }
+        }
+        if ($namaBerubah && (text_len($nama) < 3 || !preg_match("/^[\\p{L} .,'-]+$/u", $nama))) fail('Nama lengkap minimal 3 huruf dan hanya berisi huruf.', 422);
+        if ($lahirBerubah) {
+            $d = DateTime::createFromFormat('!Y-m-d', $tgl);
+            if (!$d || $d->format('Y-m-d') !== $tgl) fail('Tanggal lahir tidak valid.', 422);
+            $age = (int)$d->diff(new DateTime('today'))->y;
+            if ($d > new DateTime('today') || $age < MIN_AGE || $age > 100) fail('Usia minimal ' . MIN_AGE . ' tahun.', 422);
+            if (!in_array($jk, ['L', 'P'], true)) fail('Pilih jenis kelamin.', 422);
+        }
+        $t = now();
+        db()->beginTransaction();
+        try {
+            if ($namaBerubah) q('UPDATE users SET nama = ?, updated_at = ? WHERE id = ?', [$nama, $t, $u['id']]);
+            if ($p) {
+                q('UPDATE asesi_profiles SET tanggal_lahir = ?, jenis_kelamin = ?, no_hp = ?, consent_marketing = ?, updated_at = ? WHERE user_id = ?',
+                    [$lahirBerubah ? $tgl : $p['tanggal_lahir'], $lahirBerubah ? $jk : $p['jenis_kelamin'], $hp, $marketing, $t, $u['id']]);
+            } else {
+                q('INSERT INTO asesi_profiles (user_id, nik_enc, nik_hash, tanggal_lahir, jenis_kelamin, no_hp, consent_privacy_at, consent_marketing, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [$u['id'], encrypt_text($nik), nik_index($nik), $tgl, $jk, $hp, $t, $marketing, $t, $t]);
+            }
+            db()->commit();
+        } catch (Throwable $e) {
+            db()->rollBack();
+            throw $e;
+        }
+        forget_user_cache();
+        audit('profil.ubah', 'user:' . $u['id']);
+        $u = current_user();
+    } else {
+        require_method('GET');
+    }
     $p = q('SELECT nik_enc, tanggal_lahir, jenis_kelamin, no_hp, consent_marketing FROM asesi_profiles WHERE user_id = ?', [$u['id']])->fetch();
     $lspCount = (int)q("SELECT COUNT(*) FROM memberships WHERE user_id = ? AND role = 'asesi' AND lsp_id IS NOT NULL AND status = 'aktif'", [$u['id']])->fetchColumn();
     json_out([

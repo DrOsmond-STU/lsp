@@ -24,7 +24,7 @@ class Client {
   }
 }
 const login = async (email, pw = PW) => { const c = new Client(); await c.req('auth/me'); const r = await c.req('auth/login', { email, password: pw }); if (r.status !== 200) throw new Error(email + ' ' + r.status); return c; };
-const sup = await login(E('superadmin')), tdn = await login(E('admin.tdn')), asr = await login(E('asesor')), rina = await login(E('asesi'));
+const sup = await login(E('superadmin')), tdn = await login(E('admin.tdn')), asr = await login(E('asesor')), rina = await login(E('asesi')), pbi = await login(E('admin.pbi'));
 const rinaId = (await rina.req('auth/me')).json.user.id;
 const pad = n => String(n).padStart(2, '0');
 const d = new Date(); const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -166,6 +166,52 @@ console.log('Asisten AI: asesi wajib verifikasi email');
   const reg = await c.req('auth/register', { nama: 'Uji Keamanan', nik: `31740552089${n.padStart(4, '0')}`.slice(0, 12) + n, tanggal_lahir: '1999-08-12', jenis_kelamin: 'P', email: `uji.ai.${Date.now()}@contoh.id`, no_hp: '081234567890', password: 'Kuat-Sekali-2026', consent_privacy: true });
   check('akun asesi baru (belum verifikasi email)', reg.status === 201, reg.json);
   check('AI ditolak sebelum verifikasi email (403)', (await c.req('ai/chat', { messages: [{ role: 'user', content: 'halo' }] })).status === 403);
+}
+
+console.log('Harga tagihan dikunci saat mendaftar; perubahan skema tayang ditinjau ulang');
+{
+  const p = (await tdn.req('lsp/pendaftaran')).json.items.find(x => x.status === 'diajukan');
+  if (!p) { console.log('  (lewati: tidak ada pendaftaran berstatus diajukan)'); } else {
+    const sk = (await tdn.req('lsp/skema')).json.items.find(s => s.id === p.skema_id);
+    const body = { id: sk.id, kode: sk.kode, nama: sk.nama, bidang: sk.bidang, kkni: sk.kkni, harga: sk.harga, deskripsi: sk.deskripsi || '', persyaratan: sk.persyaratan || '',
+      status: sk.status, units_text: sk.units.map(u => `${u.kode} | ${u.judul}`).join('\n') };
+    const naik = await tdn.req('lsp/skema', { ...body, harga: sk.harga + 4000000 });
+    check('biaya skema dinaikkan', naik.status === 201, naik.json);
+    if (sk.tayang) {
+      check('listing tayang otomatis ditarik untuk ditinjau ulang', naik.json.ditinjau_ulang >= 1
+        && (await tdn.req('listings')).json.items.filter(l => l.skema_id === sk.id).every(l => l.status !== 'tayang'));
+    }
+    check('nama skema yang sudah dipakai tidak bisa diganti (409)', (await tdn.req('lsp/skema', { ...body, nama: sk.nama + ' Senior' })).status === 409);
+    check('pendaftaran diterima', (await tdn.req('lsp/pendaftaran/putus', { id: p.id, aksi: 'terima', catatan: '' })).status === 200);
+    const tg = (await tdn.req('lsp/keuangan')).json.items.find(t => t.permohonan_id === p.id);
+    check('tagihan memakai harga saat mendaftar, bukan harga baru', tg && tg.jumlah === p.harga && tg.jumlah !== sk.harga + 4000000, tg);
+    await tdn.req('lsp/skema', body);
+    for (const l of (await sup.req('listings?lsp=1')).json.items.filter(l => l.skema_id === sk.id && l.status === 'menunggu')) await sup.req('reviews/decide', { id: l.id, decision: 'tayang', note: '' });
+  }
+}
+
+console.log('Sertifikat tidak ikut berubah bila nama LSP diganti; nama LSP hanya oleh Admin Platform');
+{
+  const cur = (await tdn.req('lsp/pengaturan')).json.lsp;
+  const body = { nama: 'LSP Tiruan Nama Lain', kota: cur.kota, alamat: cur.alamat || '', telepon: cur.telepon || '', email: cur.email || '', website: cur.website || '', deskripsi: cur.deskripsi || '', honor_per_asesi: cur.honor_per_asesi };
+  await tdn.req('lsp/pengaturan', body);
+  check('Admin LSP tidak bisa mengganti nama LSP', (await tdn.req('lsp/pengaturan')).json.lsp.nama === cur.nama);
+  check('Admin Platform bisa mengganti nama LSP', (await sup.req('lsp/pengaturan?lsp=1', { ...body, lsp_id: 1, lisensi_sampai: cur.lisensi_sampai })).status === 200
+    && (await tdn.req('lsp/pengaturan')).json.lsp.nama === 'LSP Tiruan Nama Lain');
+  const v = (await new Client().req('pub/verify?q=TDN7K3P9QX')).json;
+  check('sertifikat lama tetap memakai nama LSP saat terbit', v.found && v.lsp === cur.nama, v);
+  await sup.req('lsp/pengaturan?lsp=1', { ...body, nama: cur.nama, lsp_id: 1, lisensi_sampai: cur.lisensi_sampai });
+}
+
+console.log('Pembatas laju chat dan tiket');
+{
+  const ruang = (await asr.req('chat/ruang')).json.items[0];
+  let kena = false;
+  for (let i = 0; i < 35 && ruang; i++) { const r = await asr.req('chat/kirim', { jadwal_id: ruang.id, isi: 'Pesan uji ' + i }); if (r.status === 429) { kena = true; break; } }
+  check('chat dibatasi (429 setelah 30 pesan / 5 menit)', kena);
+  let t429 = false;
+  for (let i = 0; i < 7; i++) { const r = await pbi.req('tiket', { judul: 'Tiket banjir ' + i, isi: 'Uji pembatas laju tiket.', prioritas: 'rendah' }); if (r.status === 429) { t429 = true; break; } }
+  check('tiket dibatasi (429 setelah 5 per jam)', t429);
 }
 
 console.log(`\n${pass} lulus, ${failN} gagal`);

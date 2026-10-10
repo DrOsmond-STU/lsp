@@ -597,10 +597,10 @@ function pEtalase(){
   const isSkema=S.form==='skema';
   const fd=S.formDraft||{};
   const form=S.form?`<form class="card stack" id="listingForm" style="gap:.9rem;border:2px solid var(--brand-b)" novalidate>
-      <div class="spread"><h3>${isSkema?'Tambah skema ke etalase':'Tambah kelas pelatihan'}</h3><button type="button" class="btn ghost sm" data-closeform="1">Batal</button></div>
+      <div class="spread"><h3>${S.editListing?'Ubah listing':isSkema?'Tambah skema ke etalase':'Tambah kelas pelatihan'}</h3><button type="button" class="btn ghost sm" data-closeform="1">Batal</button></div>
       ${S.formErr?`<p class="alert bad" role="alert">${esc(S.formErr)}</p>`:''}
       <div class="grid g2">
-        ${isPlatform()?`<label class="f" style="grid-column:1/-1">LSP pemilik listing<select id="lf-lsp">${S.lsps.filter(l=>l.status==='aktif').map(l=>`<option value="${l.id}" ${(fd.lsp_id??S.lspFilter)===l.id?'selected':''}>${l.nama}</option>`).join('')}</select></label>`:''}
+        ${isPlatform()&&!S.editListing?`<label class="f" style="grid-column:1/-1">LSP pemilik listing<select id="lf-lsp">${S.lsps.filter(l=>l.status==='aktif').map(l=>`<option value="${l.id}" ${(fd.lsp_id??S.lspFilter)===l.id?'selected':''}>${l.nama}</option>`).join('')}</select></label>`:''}
         <label class="f">Judul<input id="lf-judul" required maxlength="150" value="${esc(fd.judul??(isSkema?'Analis Data Junior (jadwal Desember)':'Kelas Persiapan Analis Data'))}"></label>
         <label class="f">Bidang<select id="lf-bidang">${['TIK','Pariwisata','Konstruksi','Bisnis','Kesehatan'].map(b=>`<option ${fd.bidang===b?'selected':''}>${b}</option>`).join('')}</select></label>
         <label class="f">Harga (Rp)<input id="lf-harga" type="number" min="0" max="100000000" step="1000" value="${esc(fd.harga??(isSkema?950000:400000))}"></label>
@@ -608,6 +608,7 @@ function pEtalase(){
         <label class="f">Kota<input id="lf-kota" maxlength="100" value="${esc(fd.kota??'Jakarta')}"></label>
       </div>
       <label class="f">Deskripsi<textarea id="lf-desc" rows="3" maxlength="2000">${esc(fd.deskripsi??(isSkema?'Uji kompetensi analis data junior. TUK Sewaktu Kuningan atau daring.':'Kelas persiapan 4 sesi. Tidak wajib untuk mendaftar uji kompetensi.'))}</textarea></label>
+      ${S.editListing&&fd.catatan?`<p class="alert warn" style="font-size:.85rem">${ic('shield')}<span>Catatan Admin Platform: ${fd.catatan}</span></p>`:''}
       ${S.form==='pelatihan'?`<label class="row" style="gap:.5rem;font-size:.88rem;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="lf-ack" checked style="width:auto">Saya menyatakan kelas ini bukan syarat wajib uji, dan instruktur tidak akan menjadi asesor pesertanya.</label>`:''}
       <div class="row" style="justify-content:flex-end"><button type="button" class="btn ghost" data-savedraft="1" ${S.busy?'disabled':''}>Simpan draf</button><button type="submit" class="btn green" ${S.busy?'disabled':''}>${ic('check')}Ajukan persetujuan</button></div>
     </form>`:'';
@@ -619,8 +620,12 @@ function pEtalase(){
     <div class="tabs" style="margin-bottom:.8rem">${tabs.map(([k,l])=>`<button class="fchip ${S.etab===k?'on':''}" data-etab="${k}">${l} <span class="num">(${count(k)})</span></button>`).join('')}</div>
     <div class="table-wrap"><table><thead><tr><th>Judul</th><th>Jenis</th><th>Harga</th><th>Status</th><th>Catatan Admin Platform</th><th>Aksi</th></tr></thead><tbody>
     ${list.map(l=>`<tr><td><b>${l.judul}</b><div class="muted" style="font-size:.76rem">${isPlatform()?l.lsp_nama+' · ':''}${l.submitted_at?'Diajukan '+fmtTgl(l.submitted_at):'Belum diajukan'}</div></td><td><span class="chip ${l.tipe==='skema'?'info':'plain'}">${l.tipe==='skema'?'Skema uji':'Pelatihan'}</span></td><td class="num">${l.harga?rp(l.harga):'—'}</td><td><span class="chip ${ST[l.status][0]}">${ST[l.status][1]}</span></td><td style="max-width:280px;font-size:.84rem" class="${l.catatan?'':'muted'}">${l.catatan||'—'}</td><td>${
-      l.status==='draf'||l.status==='revisi'?`<button class="btn sm green" data-submit="${l.id}">Ajukan</button>`:
-      l.status==='menunggu'?`<button class="btn sm ghost" data-withdraw="${l.id}">Tarik</button>`:'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Belum ada listing dengan status ini.</td></tr>'}
+      `<div class="row" style="gap:.3rem;flex-wrap:nowrap">${
+      l.status==='draf'||l.status==='revisi'?`<button class="btn sm green" data-submit="${l.id}">Ajukan</button>`:''}${
+      ['draf','revisi'].includes(l.status)?`<button class="btn sm ghost" data-ledit="${l.id}">Ubah</button>`:''}${
+      ['draf','revisi','ditolak'].includes(l.status)?`<button class="btn sm ghost" data-lhapus="${l.id}">Hapus</button>`:''}${
+      l.status==='menunggu'?`<button class="btn sm ghost" data-withdraw="${l.id}">Tarik</button>`:''}${
+      l.status==='tayang'?`<button class="btn sm ghost" data-lturun="${l.id}">Turunkan</button>`:''}</div>`}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Belum ada listing dengan status ini.</td></tr>'}
     </tbody></table></div>
   </div>`;
 }
@@ -890,8 +895,14 @@ document.addEventListener('click',async e=>{
       toast('Pembayaran berhasil (simulasi). Permohonan masuk ke LSP.');await enterApp();return}
     if(d.go){S.inApp=false;go(d.go,d.verif?{verif:true}:{loginErr:''});return}
     if(d.etab){S.etab=d.etab;render();return}
-    if(d.newform){S.form=d.newform;S.formErr='';S.formDraft=null;render();return}
-    if(d.closeform){S.form=null;render();return}
+    if(d.newform){S.form=d.newform;S.editListing=null;S.formErr='';S.formDraft=null;render();return}
+    if(d.closeform){S.form=null;S.editListing=null;render();return}
+    if(d.ledit){const l=S.listings.find(x=>x.id===Number(d.ledit)); if(!l) return;
+      const un=v=>{const t=document.createElement('textarea');t.innerHTML=v??'';return t.value;};
+      S.form=l.tipe;S.editListing=l.id;S.formErr='';S.formDraft={judul:un(l.judul),bidang:un(l.bidang),harga:l.harga,format:un(l.format),kota:un(l.kota),deskripsi:un(l.deskripsi),catatan:l.catatan};
+      render();const f=$('#listingForm');if(f)f.scrollIntoView({behavior:'smooth',block:'start'});return}
+    if(d.lhapus){if(!confirm('Hapus listing ini?'))return;busy(true);try{await api('listings/hapus',{id:Number(d.lhapus)});toast('Listing dihapus.');await loadListings();}finally{busy(false)}return}
+    if(d.lturun){if(!confirm('Turunkan listing ini dari portal publik? Listing kembali menjadi draf dan perlu disetujui lagi sebelum tayang.'))return;busy(true);try{await api('listings/turunkan',{id:Number(d.lturun)});toast('Listing diturunkan dari portal.');await loadListings();}finally{busy(false)}return}
     if(d.savedraft){await saveListing('draf');return}
     if(d.submit){busy(true);try{await api('listings/submit',{id:Number(d.submit)});toast('Diajukan ke Admin Platform untuk ditinjau.');await loadListings();}finally{busy(false)}return}
     if(d.withdraw){busy(true);try{await api('listings/withdraw',{id:Number(d.withdraw)});toast('Pengajuan ditarik, kembali menjadi draf.');await loadListings();}finally{busy(false)}return}
@@ -926,11 +937,11 @@ document.addEventListener('click',async e=>{
 });
 async function saveListing(status){
   const f=S.form;
-  const payload={tipe:f,lsp_id:$('#lf-lsp')?Number($('#lf-lsp').value):undefined,judul:$('#lf-judul').value,bidang:$('#lf-bidang').value,harga:Number($('#lf-harga').value)||0,format:$('#lf-format').value,kota:$('#lf-kota').value,deskripsi:$('#lf-desc').value,status,ack:f==='pelatihan'?$('#lf-ack').checked:false};
+  const payload={id:S.editListing||undefined,tipe:f,lsp_id:$('#lf-lsp')?Number($('#lf-lsp').value):undefined,judul:$('#lf-judul').value,bidang:$('#lf-bidang').value,harga:Number($('#lf-harga').value)||0,format:$('#lf-format').value,kota:$('#lf-kota').value,deskripsi:$('#lf-desc').value,status,ack:f==='pelatihan'?$('#lf-ack').checked:false};
   busy(true);
   try{
     await api('listings',payload);
-    S.form=null;S.formErr='';S.formDraft=null;S.etab='semua';await loadListings();
+    S.form=null;S.editListing=null;S.formErr='';S.formDraft=null;S.etab='semua';await loadListings();
     toast(status==='draf'?'Disimpan sebagai draf.':'Diajukan. Tampil di portal setelah disetujui Admin Platform.');
   }catch(err){ S.formErr=err.message; S.formDraft=payload; }
   finally{ busy(false); }

@@ -135,6 +135,19 @@ function migrations(): array
             // Versi sesi per pengguna: naik saat password diganti sehingga semua sesi lain berakhir.
             db()->exec('ALTER TABLE users ADD COLUMN sess_ver INT NOT NULL DEFAULT 0');
         },
+        9 => function (): void {
+            // Harga uji dikunci saat asesi mendaftar; sertifikat menyimpan nama skema/LSP/pemegang saat terbit.
+            db()->exec('ALTER TABLE permohonan ADD COLUMN harga INT NULL');
+            db()->exec('UPDATE permohonan SET harga = (SELECT s.harga FROM skema s WHERE s.id = permohonan.skema_id) WHERE harga IS NULL');
+            db()->exec('ALTER TABLE sertifikat ADD COLUMN skema_nama VARCHAR(190) NULL');
+            db()->exec('ALTER TABLE sertifikat ADD COLUMN skema_kode VARCHAR(40) NULL');
+            db()->exec('ALTER TABLE sertifikat ADD COLUMN lsp_nama VARCHAR(190) NULL');
+            db()->exec('ALTER TABLE sertifikat ADD COLUMN nama_pemegang VARCHAR(120) NULL');
+            db()->exec('UPDATE sertifikat SET skema_nama = (SELECT s.nama FROM skema s WHERE s.id = sertifikat.skema_id),
+                skema_kode = (SELECT s.kode FROM skema s WHERE s.id = sertifikat.skema_id),
+                lsp_nama = (SELECT l.nama FROM lsp l WHERE l.id = sertifikat.lsp_id),
+                nama_pemegang = (SELECT u.nama FROM users u WHERE u.id = sertifikat.user_id) WHERE skema_nama IS NULL');
+        },
     ];
 }
 
