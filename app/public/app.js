@@ -1011,7 +1011,10 @@ document.addEventListener('submit',async e=>{
 });
 
 /* ===================== Mulai ===================== */
-(function loadCss(){ const l=document.createElement('link'); l.rel='stylesheet'; l.href='fitur.css'; document.head.appendChild(l); })();
+// Versi aset diambil dari ?v= pada tag script app.js di index.html. Proxy hosting menyimpan JS/CSS sebagai immutable,
+// jadi setiap rilis menaikkan angka itu agar browser tidak memakai berkas lama.
+const ASSET_V=(()=>{try{return new URL(document.currentScript.src).searchParams.get('v')||'1'}catch(e){return '1'}})();
+(function loadCss(){ const l=document.createElement('link'); l.rel='stylesheet'; l.href='fitur.css?v='+ASSET_V; document.head.appendChild(l); })();
 /* Cek notifikasi baru tiap 60 detik saat tab terlihat. Permintaan ini tidak memperpanjang sesi. */
 setInterval(async()=>{
   if(!ME||!S.inApp||document.visibilityState!=='visible') return;
@@ -1019,7 +1022,7 @@ setInterval(async()=>{
 },60000);
 function loadScript(src){ return new Promise(r=>{ const s=document.createElement('script'); s.src=src; s.onload=r; s.onerror=r; document.head.appendChild(s); }); }
 (async function boot(){
-  await loadScript('fitur.js');   // layar kerja semua menu
+  await loadScript('fitur.js?v='+ASSET_V);   // layar kerja semua menu
   const cek=new URLSearchParams(location.search).get('cek');
   if(cek){ S.page='verif'; S.cekQ=cek; history.replaceState(null,'',location.pathname); }
   render();

@@ -755,6 +755,8 @@ File `app/config.php` (di luar docroot, **tidak di-commit**) berisi array beriku
 4. Migrasi database berjalan otomatis pada permintaan berikutnya.
 5. Baca keluaran, uji asap dari server (header, API publik, verifikasi), lalu hapus cron sementara dan berkas patch.
 
+> Cache aset: proxy hosting menyimpan berkas JS/CSS sebagai `public, immutable` selama 30 hari. Karena itu `index.html` memuat `app.js?v=<versi>`, dan `app.js` memuat `fitur.js` serta `fitur.css` dengan versi yang sama. **Setiap rilis yang mengubah JS/CSS wajib menaikkan angka `?v=` di `index.html`**, supaya browser pengguna mengambil berkas baru.
+
 > Catatan cron cPanel: tanda `%` di perintah cron dianggap baris baru. Untuk perintah yang memakai `%` (mis. `curl -w '%{http_code}'`), taruh di skrip `.sh` lalu panggil skripnya dari cron.
 
 Riwayat versi di produksi:
@@ -768,7 +770,7 @@ Riwayat versi di produksi:
 | v7 | CMS blog (migrasi 7): menu Blog (CMS), halaman Blog publik, moderasi Admin Platform, 6 artikel contoh. |
 | v8 | Responsif HP & tablet: laci menu, header ringkas, tabel adaptif menjadi kartu, grid tablet, target sentuh. |
 | v9 | Audit RBAC, keamanan, dan hardening (migrasi 8: `users.sess_ver`). Dideploy 10 Okt 2026, uji asap produksi lulus. Lihat bagian 11. |
-| v10 | CRUD lengkap (ubah/hapus/turunkan listing, hapus skema/TUK/jadwal/CRM/mutu/sarpras, ubah/hapus SKKNI, ubah profil asesi, nonaktifkan asesor dari menu Master), audit keamanan putaran 2, header isolasi lintas-origin (migrasi 9: `permohonan.harga`, salinan data di `sertifikat`). |
+| v10 | CRUD lengkap (ubah/hapus/turunkan listing, hapus skema/TUK/jadwal/CRM/mutu/sarpras, ubah/hapus SKKNI, ubah profil asesi, nonaktifkan asesor dari menu Master), audit keamanan putaran 2, header isolasi lintas-origin, versi aset `?v=10` untuk menembus cache proxy (migrasi 9: `permohonan.harga`, salinan data di `sertifikat`). Dideploy 10 Okt 2026, cadangan database `storage/backup-db-pra-v10.sqlite`. |
 
 ### Rollback
 
