@@ -328,7 +328,19 @@ function r_user_status(): void
         $admins = (int)q("SELECT COUNT(*) FROM memberships WHERE role = 'platform_admin' AND status = 'aktif'")->fetchColumn();
         if ($admins <= 1) fail('Platform harus punya minimal satu Admin Platform aktif.', 409);
     }
-    q('UPDATE memberships SET status = ? WHERE id = ?', [$status, $mid]);
+    // Syarat "minimal satu admin aktif" diperiksa lagi di dalam UPDATE yang sama agar dua admin yang saling menonaktifkan bersamaan tidak lolos.
+    $guard = '';
+    $gp = [];
+    if ($status === 'nonaktif' && $row['role'] === 'admin_lsp') {
+        $guard = " AND (SELECT n FROM (SELECT COUNT(*) AS n FROM memberships WHERE lsp_id = ? AND role = 'admin_lsp' AND status = 'aktif') x) > 1";
+        $gp = [(int)$row['lsp_id']];
+    } elseif ($status === 'nonaktif' && $row['role'] === 'platform_admin') {
+        $guard = " AND (SELECT n FROM (SELECT COUNT(*) AS n FROM memberships WHERE role = 'platform_admin' AND status = 'aktif') x) > 1";
+    }
+    $st = q('UPDATE memberships SET status = ? WHERE id = ?' . $guard, array_merge([$status, $mid], $gp));
+    if ($guard !== '' && $st->rowCount() === 0 && $row['status'] !== $status) {
+        fail('Harus tetap ada minimal satu admin aktif.', 409);
+    }
     audit('membership.' . $status, 'membership:' . $mid);
     if ($row['status'] !== $status) {
         notify([(int)$row['user_id']], $row['lsp_id'] === null ? null : (int)$row['lsp_id'], 'akun.akses_' . $status,

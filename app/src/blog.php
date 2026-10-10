@@ -214,6 +214,9 @@ function r_blog_hapus(): void
     csrf_check();
     $m = require_perm('blog.manage');
     $r = own_blog_post(int_in('id'), $m);
+    if ($r['status'] === 'diturunkan' && !is_platform($m)) {
+        fail('Artikel yang diturunkan Admin Platform tidak bisa dihapus oleh LSP. Perbaiki isinya lalu minta ditayangkan kembali.', 409);
+    }
     q('DELETE FROM blog_posts WHERE id = ?', [$r['id']]);
     blog_delete_cover($r['cover_path']);
     audit('blog.hapus', 'blog:' . $r['id'] . ' ' . cut($r['judul'], 80));
@@ -347,9 +350,9 @@ function r_pub_blog_post(): void
     if (!$r) {
         fail('Artikel tidak ditemukan atau belum terbit.', 404);
     }
-    // Hitung pembaca sekali per sesi.
+    // Hitung pembaca sekali per sesi; permintaan tanpa sesi (bot tanpa cookie) tidak dihitung.
     $seen = $_SESSION['blog_seen'] ?? [];
-    if (!in_array((int)$r['id'], $seen, true)) {
+    if (session_status() === PHP_SESSION_ACTIVE && !in_array((int)$r['id'], $seen, true)) {
         q('UPDATE blog_posts SET dibaca = dibaca + 1 WHERE id = ?', [$r['id']]);
         $seen[] = (int)$r['id'];
         $_SESSION['blog_seen'] = array_slice($seen, -200);

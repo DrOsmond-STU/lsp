@@ -204,6 +204,11 @@ function r_dokumen_upload(): void
     if (!isset(DOK_JENIS[$jenis])) {
         fail('Jenis dokumen tidak valid.', 422);
     }
+    // Berkas yang sudah diverifikasi LSP tidak boleh ditukar diam-diam sebelum asesmen selesai.
+    if (q("SELECT 1 FROM dokumen WHERE user_id = ? AND jenis = ?", [$uid, $jenis])->fetch()
+        && q("SELECT 1 FROM permohonan WHERE asesi_id = ? AND status IN ('menunggu_bayar','pra_asesmen','siap_uji','menunggu_pleno')", [$uid])->fetch()) {
+        fail('Dokumen terkunci selama ada permohonan yang sedang diproses LSP. Hubungi LSP bila perlu mengganti dokumen.', 409);
+    }
     $f = $_FILES['file'] ?? null;
     if (is_array($f) && in_array($f['error'] ?? 0, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
         fail('Ukuran berkas maksimal 2 MB.', 422);
@@ -254,12 +259,13 @@ function can_view_docs_of(int $ownerId): bool
         return true;
     }
     if ($m && $m['lsp_id'] !== null && (can('registration.verify') || can('assessment.monitor'))) {
-        if (q('SELECT 1 FROM permohonan WHERE asesi_id = ? AND lsp_id = ?', [$ownerId, $m['lsp_id']])->fetch()) {
+        if (q("SELECT 1 FROM permohonan WHERE asesi_id = ? AND lsp_id = ? AND status NOT IN ('dibatalkan','ditolak')", [$ownerId, $m['lsp_id']])->fetch()) {
             return true;
         }
     }
     return (bool)q("SELECT 1 FROM permohonan p JOIN jadwal j ON j.id = p.jadwal_id JOIN memberships m ON m.user_id = j.asesor_id AND m.lsp_id = p.lsp_id
-                    AND m.role = 'asesor' AND m.status = 'aktif' WHERE p.asesi_id = ? AND j.asesor_id = ?", [$ownerId, $me])->fetch();
+                    AND m.role = 'asesor' AND m.status = 'aktif' JOIN lsp l ON l.id = p.lsp_id AND l.status = 'aktif'
+                    WHERE p.asesi_id = ? AND j.asesor_id = ? AND p.status NOT IN ('dibatalkan','ditolak')", [$ownerId, $me])->fetch();
 }
 
 function r_dokumen_file(): void
@@ -308,6 +314,13 @@ function r_asesi_apply(): void
     if (!q("SELECT 1 FROM listings WHERE skema_id = ? AND status = 'tayang'", [$j['skema_id']])->fetch()) {
         fail('Skema ini belum dibuka untuk pendaftaran publik.', 422);
     }
+    if ((int)$j['asesor_id'] === $uid) {
+        fail('Anda adalah asesor pada jadwal ini. Pilih jadwal lain.', 409);
+    }
+    $nonaktif = q("SELECT 1 FROM memberships WHERE user_id = ? AND lsp_id = ? AND role = 'asesi' AND status <> 'aktif'", [$uid, $j['lsp_id']])->fetch();
+    if ($nonaktif) {
+        fail('Akses Anda di LSP ini dinonaktifkan. Hubungi LSP tersebut.', 403);
+    }
     if (jadwal_sisa((int)$j['id'], (int)$j['kuota']) < 1) {
         fail('Kuota jadwal ini sudah penuh. Pilih jadwal lain.', 409);
     }
@@ -337,8 +350,14 @@ function r_asesi_apply(): void
         if (!$mem) {
             q('INSERT INTO memberships (user_id, lsp_id, role, status, created_at) VALUES (?, ?, ?, ?, ?)', [$uid, $j['lsp_id'], 'asesi', 'aktif', $t]);
         }
-        q("INSERT INTO permohonan (lsp_id, asesi_id, skema_id, jadwal_id, status, tujuan, apl02, created_at, updated_at, diajukan_at)
-           VALUES (?, ?, ?, ?, 'diajukan', ?, ?, ?, ?, ?)", [$j['lsp_id'], $uid, $j['skema_id'], $j['id'], $tujuan, $apl, $t, $t, $t]);
+        $ins = q("INSERT INTO permohonan (lsp_id, asesi_id, skema_id, jadwal_id, status, tujuan, apl02, created_at, updated_at, diajukan_at)
+           SELECT ?, ?, ?, ?, 'diajukan', ?, ?, ?, ?, ? FROM jadwal WHERE id = ?
+             AND kuota > (SELECT COUNT(*) FROM permohonan WHERE jadwal_id = ? AND status IN (" . in_list_sql(P_AKTIF) . "))",
+            array_merge([$j['lsp_id'], $uid, $j['skema_id'], $j['id'], $tujuan, $apl, $t, $t, $t, $j['id'], $j['id']], P_AKTIF));
+        if ($ins->rowCount() !== 1) {
+            db()->rollBack();
+            fail('Kuota jadwal ini sudah penuh. Pilih jadwal lain.', 409);
+        }
         $pid = (int)db()->lastInsertId();
         db()->commit();
     } catch (Throwable $e) {
@@ -459,6 +478,10 @@ function r_asesi_bayar(): void
     require_method('POST');
     csrf_check();
     require_perm('payment.own');
+    global $CONFIG;
+    if (($CONFIG['payment_simulation'] ?? true) !== true) {
+        fail('Pembayaran online belum tersedia. Silakan transfer sesuai instruksi LSP; bagian keuangan LSP akan mengonfirmasi pembayaran Anda.', 403);
+    }
     $t = q('SELECT * FROM tagihan WHERE id = ? AND user_id = ?', [int_in('id'), uid()])->fetch();
     if (!$t) {
         fail('Tagihan tidak ditemukan.', 404);
@@ -539,7 +562,7 @@ function r_asesi_kelas_daftar(): void
     require_method('POST');
     csrf_check();
     require_perm('class.own');
-    $l = q("SELECT * FROM listings WHERE id = ? AND tipe = 'pelatihan' AND status = 'tayang'", [int_in('listing_id')])->fetch();
+    $l = q("SELECT x.* FROM listings x JOIN lsp s ON s.id = x.lsp_id AND s.status = 'aktif' WHERE x.id = ? AND x.tipe = 'pelatihan' AND x.status = 'tayang'", [int_in('listing_id')])->fetch();
     if (!$l) {
         fail('Kelas tidak ditemukan.', 404);
     }
@@ -575,7 +598,8 @@ function r_asesi_kelas_progres(): void
 /** LSP tempat pengguna aktif sebagai asesor. */
 function asesor_lsps(): array
 {
-    return array_map('intval', q("SELECT lsp_id FROM memberships WHERE user_id = ? AND role = 'asesor' AND status = 'aktif' AND lsp_id IS NOT NULL", [uid()])->fetchAll(PDO::FETCH_COLUMN));
+    return array_map('intval', q("SELECT m.lsp_id FROM memberships m JOIN lsp l ON l.id = m.lsp_id AND l.status = 'aktif'
+        WHERE m.user_id = ? AND m.role = 'asesor' AND m.status = 'aktif'", [uid()])->fetchAll(PDO::FETCH_COLUMN));
 }
 
 function in_list_sql(array $ids): string
@@ -601,8 +625,9 @@ function asesor_permohonan(array $statuses, int $id = 0): array
     if (!$l) {
         return [];
     }
-    $sql = permohonan_sql() . ' WHERE j.asesor_id = ? AND p.lsp_id IN (' . in_list_sql($l) . ') AND p.status IN (' . in_list_sql($statuses) . ')';
-    $params = array_merge([uid()], $l, $statuses);
+    // Asesor tidak pernah menangani permohonannya sendiri (pengguna yang juga asesi).
+    $sql = permohonan_sql() . ' WHERE j.asesor_id = ? AND p.asesi_id <> ? AND p.lsp_id IN (' . in_list_sql($l) . ') AND p.status IN (' . in_list_sql($statuses) . ')';
+    $params = array_merge([uid(), uid()], $l, $statuses);
     if ($id) {
         $sql .= ' AND p.id = ?';
         $params[] = $id;
@@ -678,8 +703,8 @@ function pleno_rows(int $id = 0): array
 {
     $m = active_membership();
     $me = uid();
-    $where = ["p.status = 'menunggu_pleno'", '(p.asesor_id IS NULL OR p.asesor_id <> ?)'];
-    $params = [$me];
+    $where = ["p.status = 'menunggu_pleno'", '(p.asesor_id IS NULL OR p.asesor_id <> ?)', 'p.asesi_id <> ?'];
+    $params = [$me, $me];
     if (can('decision.manage')) {
         $scope = scope_lsp($m);
         if ($scope !== null) {
@@ -708,7 +733,15 @@ function r_pleno(): void
         require_perm('decision.manage');
     }
     require_auth();
-    $items = array_map(function ($r) { return permohonan_row($r, true); }, pleno_rows());
+    // Detail pribadi (email, HP, tanggal lahir, dokumen) hanya untuk staf pleno LSP; asesor anggota pleno cukup hasil asesmennya.
+    $detail = can('decision.manage');
+    $items = array_map(function ($r) use ($detail) {
+        $x = permohonan_row($r, true);
+        if (!$detail) {
+            unset($x['asesi_email'], $x['asesi_nik'], $x['asesi_hp'], $x['asesi_tgl_lahir'], $x['dokumen']);
+        }
+        return $x;
+    }, pleno_rows());
     // Berkas yang diuji sendiri ditampilkan terpisah agar jelas mengapa tidak bisa diputuskan.
     $own = q(permohonan_sql() . " WHERE p.status = 'menunggu_pleno' AND p.asesor_id = ?", [uid()])->fetchAll();
     json_out(['items' => $items, 'diuji_sendiri' => array_map(function ($r) { return permohonan_row($r); }, $own)]);
@@ -723,10 +756,14 @@ function r_pleno_putus(): void
     }
     require_auth();
     $id = int_in('id');
-    $chk = q('SELECT asesor_id FROM permohonan WHERE id = ?', [$id])->fetch();
+    $chk = q('SELECT asesor_id, asesi_id FROM permohonan WHERE id = ?', [$id])->fetch();
     if ($chk && (int)$chk['asesor_id'] === uid()) {
         audit('pleno.ditolak_independensi', 'permohonan:' . $id);
         fail('Anda tidak boleh memutuskan pleno untuk asesmen yang Anda uji sendiri.', 403);
+    }
+    if ($chk && (int)$chk['asesi_id'] === uid()) {
+        audit('pleno.ditolak_independensi', 'permohonan:' . $id);
+        fail('Anda tidak boleh memutuskan pleno untuk permohonan Anda sendiri.', 403);
     }
     $rows = pleno_rows($id);
     if (!$rows) {
@@ -800,7 +837,7 @@ function can_chat(array $j): bool
 {
     $me = uid();
     $m = active_membership();
-    if (is_platform($m) || (int)$j['asesor_id'] === $me) {
+    if (is_platform($m) || ((int)$j['asesor_id'] === $me && in_array((int)$j['lsp_id'], asesor_lsps(), true))) {
         return true;
     }
     if (q("SELECT 1 FROM permohonan WHERE jadwal_id = ? AND asesi_id = ? AND status IN ('pra_asesmen','siap_uji','menunggu_pleno','kompeten','belum_kompeten')", [$j['id'], $me])->fetch()) {
@@ -864,8 +901,10 @@ function r_chat_ruang(): void
         $scope = scope_lsp($m);
         $rows = q("$sql" . ($scope === null ? '' : ' WHERE j.lsp_id = ?') . ' ORDER BY j.tanggal DESC LIMIT 50', $scope === null ? [] : [$scope])->fetchAll();
     } else {
-        $rows = q("$sql LEFT JOIN permohonan p ON p.jadwal_id = j.id WHERE j.asesor_id = ? OR (p.asesi_id = ? AND p.status IN ('pra_asesmen','siap_uji','menunggu_pleno','kompeten','belum_kompeten'))
-                   ORDER BY j.tanggal DESC LIMIT 50", [$me, $me])->fetchAll();
+        $l = asesor_lsps();
+        $rows = q("$sql LEFT JOIN permohonan p ON p.jadwal_id = j.id WHERE (j.asesor_id = ? AND j.lsp_id IN (" . in_list_sql($l) . "))
+                   OR (p.asesi_id = ? AND p.status IN ('pra_asesmen','siap_uji','menunggu_pleno','kompeten','belum_kompeten'))
+                   ORDER BY j.tanggal DESC LIMIT 50", array_merge([$me], $l, [$me]))->fetchAll();
     }
     json_out(['items' => array_map('jadwal_row', $rows)]);
 }

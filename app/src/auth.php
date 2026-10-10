@@ -17,6 +17,9 @@ function start_session(bool $touch = true): void
     session_name($CONFIG['session_name'] ?? 'lsp_sid');
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
+    // Bersihkan file sesi kedaluwarsa (default hosting: gc mati).
+    ini_set('session.gc_probability', '1');
+    ini_set('session.gc_divisor', '100');
     ini_set('session.gc_maxlifetime', (string)($CONFIG['absolute_timeout'] ?? 28800));
     session_set_cookie_params([
         'lifetime' => 0,
@@ -66,8 +69,9 @@ function current_user(): ?array
     if (isset($GLOBALS['__lsp_user']) && (int)$GLOBALS['__lsp_user']['id'] === $uid) {
         return $GLOBALS['__lsp_user'];
     }
-    $row = q('SELECT id, email, nama, status, must_change_password, email_verified_at FROM users WHERE id = ?', [$uid])->fetch();
-    if (!$row || $row['status'] !== 'aktif') {
+    $row = q('SELECT id, email, nama, status, must_change_password, email_verified_at, sess_ver FROM users WHERE id = ?', [$uid])->fetch();
+    // sess_ver naik setiap password diganti: semua sesi lain (mis. yang dicuri) langsung berakhir.
+    if (!$row || $row['status'] !== 'aktif' || (int)($_SESSION['sv'] ?? 0) !== (int)$row['sess_ver']) {
         clear_session();
         return null;
     }
@@ -157,8 +161,9 @@ function validate_new_password(string $pw, string $email = ''): void
     if (strlen($pw) < 10) {
         fail('Password minimal 10 karakter.', 422);
     }
-    if (strlen($pw) > 128) {
-        fail('Password maksimal 128 karakter.', 422);
+    if (strlen($pw) > 72) {
+        // bcrypt hanya memakai 72 byte pertama; tolak yang lebih panjang agar tidak ada bagian password yang diabaikan diam-diam.
+        fail('Password maksimal 72 karakter.', 422);
     }
     if (!preg_match('/[A-Za-z]/', $pw) || !preg_match('/\d/', $pw)) {
         fail('Password harus berisi huruf dan angka.', 422);
@@ -193,7 +198,7 @@ function do_login(): void
         fail('Terlalu banyak percobaan gagal. Coba lagi dalam 15 menit.', 429);
     }
 
-    $u = q('SELECT id, email, password_hash, status FROM users WHERE email = ?', [$email])->fetch();
+    $u = q('SELECT id, email, password_hash, status, sess_ver FROM users WHERE email = ?', [$email])->fetch();
     // Selalu jalankan password_verify agar waktu respons tidak membocorkan email terdaftar.
     $hash = $u ? $u['password_hash'] : '$2y$10$4wS7doSVkSIhYfrOJsYKYerM0/ZbzDaCp9Ek0se0qd1mgmOZ57VUK';
     $ok = password_verify($pass, $hash) && $u && $u['status'] === 'aktif';
@@ -219,6 +224,7 @@ function do_login(): void
     session_regenerate_id(true);
     $_SESSION = [
         'uid' => (int)$u['id'],
+        'sv' => (int)($u['sess_ver'] ?? 0),
         'born' => time(),
         'last' => time(),
         'csrf' => bin2hex(random_bytes(32)),
@@ -276,9 +282,11 @@ function do_change_password(): void
         fail('Password baru harus berbeda dari password lama.', 422);
     }
     validate_new_password($new, $u['email']);
-    q('UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?',
+    q('UPDATE users SET password_hash = ?, must_change_password = 0, sess_ver = sess_ver + 1, updated_at = ? WHERE id = ?',
         [password_hash($new, PASSWORD_DEFAULT), now(), $u['id']]);
     session_regenerate_id(true);
+    $_SESSION['sv'] = (int)q('SELECT sess_ver FROM users WHERE id = ?', [$u['id']])->fetchColumn();
+    forget_user_cache();
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
     audit('password.changed');
     notify([(int)$u['id']], null, 'akun.password_diubah', 'Password akun Anda diganti',

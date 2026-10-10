@@ -131,6 +131,10 @@ function migrations(): array
             // CMS blog: artikel platform dan LSP, moderasi Admin Platform, halaman blog publik.
             migrate_blog();
         },
+        8 => function (): void {
+            // Versi sesi per pengguna: naik saat password diganti sehingga semua sesi lain berakhir.
+            db()->exec('ALTER TABLE users ADD COLUMN sess_ver INT NOT NULL DEFAULT 0');
+        },
     ];
 }
 

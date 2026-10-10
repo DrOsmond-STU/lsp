@@ -108,6 +108,8 @@ console.log('Pengaturan kanal & pengiriman email/WhatsApp');
 
 console.log('Email keamanan selalu terkirim');
 {
+  // Hitung hanya email yang dikirim di bagian ini (mail.log bertambah terus antar-run).
+  const awal = existsSync(MAIL) ? readFileSync(MAIL, 'utf8').length : 0;
   const r = await tdn.req('users', { nama: 'Staf Notifikasi', email: 'staf.notif@demo.portallsp.id', role: 'marketing', password: 'Awal-Sementara-88' });
   check('akun baru dibuat', r.status === 201);
   const nu = new Client(); await nu.login('staf.notif@demo.portallsp.id', 'Awal-Sementara-88');
@@ -115,7 +117,7 @@ console.log('Email keamanan selalu terkirim');
   await nu.req('notifications/settings', { email_on: false, wa_on: false, wa_number: '' });
   await nu.req('auth/password', { current: 'Pribadi-Notif-2026', new: 'Pribadi-Notif-2027' });
   await worker();
-  const log = readFileSync(MAIL, 'utf8');
+  const log = readFileSync(MAIL, 'utf8').slice(awal);
   check('email "akun dibuat" tanpa password', log.includes('To: staf.notif@demo.portallsp.id\nSubject: PortalLSP: Akun PortalLSP Anda sudah dibuat') && !log.includes('Awal-Sementara-88'));
   check('email "password diganti" tetap terkirim walau email dimatikan', (log.match(/To: staf\.notif@demo\.portallsp\.id\nSubject: PortalLSP: Password akun Anda diganti/g) || []).length === 2);
 }

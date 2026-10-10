@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 const MIN_AGE = 15;
 const MAX_REGISTER_PER_IP_HOUR = 5;
+const MAX_REGISTER_TRIES_PER_IP_HOUR = 30;
 const VERIFY_TTL_SEC = 172800; // 48 jam
 
 /** Kunci aplikasi dibuat sekali di storage/ (di luar docroot). Tanpa kunci ini NIK tidak bisa dibaca. */
@@ -141,9 +142,12 @@ function do_register(): void
     $ip = client_ip();
     $hour = date('Y-m-d H:i:s', time() - 3600);
     $recent = (int)q("SELECT COUNT(*) FROM audit_logs WHERE action = 'register.success' AND ip = ? AND created_at >= ?", [$ip, $hour])->fetchColumn();
-    if ($recent >= MAX_REGISTER_PER_IP_HOUR) {
+    // Semua percobaan (bukan hanya yang berhasil) dibatasi, agar formulir tidak bisa dipakai menebak email/NIK terdaftar.
+    $tries = (int)q("SELECT COUNT(*) FROM audit_logs WHERE action = 'register.attempt' AND ip = ? AND created_at >= ?", [$ip, $hour])->fetchColumn();
+    if ($recent >= MAX_REGISTER_PER_IP_HOUR || $tries >= MAX_REGISTER_TRIES_PER_IP_HOUR) {
         fail('Terlalu banyak pendaftaran dari jaringan ini. Coba lagi dalam satu jam.', 429);
     }
+    audit('register.attempt', null, null, null);
     // Honeypot: kolom tersembunyi yang hanya diisi bot.
     if (str_in('website', 200) !== '') {
         audit('register.bot', null, null, null);
@@ -180,7 +184,8 @@ function do_register(): void
     $nikHash = nik_index($nik);
     if (q('SELECT user_id FROM asesi_profiles WHERE nik_hash = ?', [$nikHash])->fetch()) {
         audit('register.nik_conflict', null, null, null);
-        fail('NIK ini sudah terdaftar pada akun lain. Hubungi admin bila NIK ini milik Anda.', 409);
+        // Pesan umum: tidak mengonfirmasi bahwa NIK tertentu terdaftar di PortalLSP.
+        fail('Data ini tidak dapat didaftarkan. Bila Anda sudah punya akun, silakan masuk; bila tidak, hubungi admin PortalLSP.', 409);
     }
 
     $t = now();
@@ -248,6 +253,10 @@ function do_resend_verification(): void
     $last = q('SELECT MAX(created_at) FROM email_verifications WHERE user_id = ?', [$u['id']])->fetchColumn();
     if ($last && strtotime((string)$last) > time() - 300) {
         fail('Tunggu 5 menit sebelum mengirim ulang email verifikasi.', 429);
+    }
+    $sehari = (int)q('SELECT COUNT(*) FROM email_verifications WHERE user_id = ? AND created_at >= ?', [$u['id'], date('Y-m-d H:i:s', time() - 86400)])->fetchColumn();
+    if ($sehari >= 5) {
+        fail('Batas kirim ulang email verifikasi hari ini sudah tercapai. Coba lagi besok atau hubungi admin.', 429);
     }
     issue_verification((int)$u['id'], $u['email'], $u['nama']);
     json_out(['ok' => true]);

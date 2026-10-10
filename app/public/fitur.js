@@ -282,7 +282,9 @@ const X = {
   async skkniCari() { S.skkniQ = (document.getElementById('skkni-q') || {}).value || ''; await reloadPage(); },
   skkniPakai(t) { const ta = document.querySelector('textarea[name="units_text"]'); if (!ta) { toast('Buka form skema dulu.'); return; } ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + unesc(t.dataset.kode) + ' | ' + unesc(t.dataset.judul); toast('Unit ditambahkan ke form skema.'); },
   logbook() {
-    const rows = (S.d.riwayat.items || []).map(r => [r.diuji_at, r.lsp_nama, r.skema_nama, r.asesi_nama, r.rekomendasi, r.keputusan || '-'].map(v => '"' + unesc(String(v ?? '')).replace(/"/g, '""') + '"').join(','));
+    // Sel diawali = + - @ diberi awalan ' agar tidak dijalankan sebagai rumus oleh aplikasi spreadsheet.
+    const cell = v => { let t = unesc(String(v ?? '')); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; };
+    const rows = (S.d.riwayat.items || []).map(r => [r.diuji_at, r.lsp_nama, r.skema_nama, r.asesi_nama, r.rekomendasi, r.keputusan || '-'].map(cell).join(','));
     const blob = new Blob(['Tanggal uji,LSP,Skema,Asesi,Rekomendasi,Keputusan pleno\n' + rows.join('\n')], {type: 'text/csv'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'logbook-asesor.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   },
@@ -737,7 +739,7 @@ function pSetting() {
   return `${phead(l.nama, 'Profil LSP & pengaturan')}
   <div class="card">${form('lsp/pengaturan', `<div class="grid g2">${fld('Nama LSP', inp('nama', l.nama, 'maxlength="190"'), true)}${fld('Kota', inp('kota', l.kota, 'maxlength="100"'))}${fld('Telepon', inp('telepon', l.telepon || '', 'maxlength="30"'))}
     ${fld('Alamat', inp('alamat', l.alamat || '', 'maxlength="255"'), true)}${fld('Email', inp('email', l.email || '', 'type="email" maxlength="190"'))}${fld('Website', inp('website', l.website || '', 'maxlength="190" placeholder="https://"'))}
-    ${fld('Deskripsi di halaman profil portal', txa('deskripsi', l.deskripsi || '', 'rows="3" maxlength="2000"'), true)}${fld('Lisensi BNSP berlaku s.d.', inp('lisensi_sampai', l.lisensi_sampai || '', 'type="date"'))}${fld('Honor asesor per asesi (Rp)', inp('honor_per_asesi', l.honor_per_asesi, 'type="number" min="0" step="5000"'))}</div>
+    ${fld('Deskripsi di halaman profil portal', txa('deskripsi', l.deskripsi || '', 'rows="3" maxlength="2000"'), true)}${fld('Lisensi BNSP berlaku s.d.' + (isPlatform() ? '' : ' <span class="muted">(diubah oleh Admin Platform)</span>'), inp('lisensi_sampai', l.lisensi_sampai || '', 'type="date"' + (isPlatform() ? '' : ' disabled')))}${fld('Honor asesor per asesi (Rp)', inp('honor_per_asesi', l.honor_per_asesi, 'type="number" min="0" step="5000"'))}</div>
     <p class="muted" style="font-size:.82rem">Jenis LSP: ${l.jenis} · Paket: ${l.paket} · Status: ${l.status}</p>`, {ok: 'Pengaturan disimpan.'})}</div>
   <div class="card spread"><div><h3>Butuh bantuan?</h3><p class="muted" style="font-size:.86rem">Kirim tiket ke tim PortalLSP.</p></div><button class="btn purple" data-go-app="support">${ic('chat')}Tiket support</button></div>`;
 }
@@ -989,7 +991,7 @@ function pVerif() {
   return `<section class="block"><div class="wrap stack" style="max-width:760px"><div><p class="eyebrow">Verifikasi publik</p><h2>Verifikasi sertifikat kompetensi</h2></div>
   <form class="card row" id="cekForm"><input id="vnum" class="mono" style="flex:1 1 260px" value="${esc(q || '')}" placeholder="Nomor sertifikat atau kode verifikasi" aria-label="Nomor sertifikat"><button class="btn green" type="submit">${ic('check')}Verifikasi</button></form>
   ${!q ? '<p class="muted">Contoh kode untuk dicoba: <span class="mono">TDN7K3P9QX</span></p>' : !r ? loading() : r.error ? `<div class="alert bad">${esc(r.error)}</div>` : r.found ? `<div class="card stack" style="gap:.8rem;border:2px solid var(--ok)"><div class="spread"><h3>${ic('check')} Sertifikat terdaftar</h3><span class="chip ${ST[r.status][0]}">${ST[r.status][1]}</span></div>
-    ${infoGrid([['Nama', r.nama], ['Skema', r.skema], ['LSP penerbit', r.lsp], ['Nomor', `<span class="mono">${r.nomor}</span>`], ['Terbit', fmtTgl(r.terbit)], ['Berlaku sampai', fmtTgl(r.berlaku)]])}</div>`
+    ${infoGrid([['Nama', r.nama], ['Skema', r.skema], ['LSP penerbit', r.lsp], ['Nomor', `<span class="mono">${r.nomor}</span>`], ['Terbit', fmtTgl(r.terbit)], ['Berlaku sampai', fmtTgl(r.berlaku)]])}${r.nama_disamarkan ? '<p class="muted" style="font-size:.84rem">Nama disamarkan karena pencarian memakai nomor sertifikat. Masukkan <b>kode verifikasi</b> (10 karakter, tercetak di sertifikat) untuk melihat nama lengkap.</p>' : ''}</div>`
     : `<div class="card"><p class="alert bad">${ic('shield')}<span>Sertifikat dengan nomor/kode itu tidak ditemukan di PortalLSP. Pastikan penulisannya benar, atau hubungi LSP penerbit.</span></p></div>`}
   </div></section>`;
 }

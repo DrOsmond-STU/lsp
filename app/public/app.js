@@ -254,7 +254,7 @@ function pCari(){
   return `<section class="block"><div class="wrap stack">
     <div><p class="eyebrow">Marketplace skema</p><h2>Cari skema dari semua LSP</h2></div>
     <div class="card stack" style="gap:.8rem">
-      <div class="row"><input id="cq" placeholder="Cari nama skema" value="${S.q}" style="flex:1 1 260px" aria-label="Cari nama skema"><select style="flex:0 1 200px" aria-label="Lokasi"><option>Semua lokasi</option><option>Jakarta</option><option>Surabaya</option></select><select style="flex:0 1 200px" aria-label="Metode"><option>Semua metode</option><option>Tatap muka</option><option>SJJ (jarak jauh)</option></select></div>
+      <div class="row"><input id="cq" placeholder="Cari nama skema" value="${esc(S.q||'')}" style="flex:1 1 260px" aria-label="Cari nama skema"><select style="flex:0 1 200px" aria-label="Lokasi"><option>Semua lokasi</option><option>Jakarta</option><option>Surabaya</option></select><select style="flex:0 1 200px" aria-label="Metode"><option>Semua metode</option><option>Tatap muka</option><option>SJJ (jarak jauh)</option></select></div>
       <div class="filters">${bidang.map(b=>`<button class="fchip ${S.filter===b?'on':''}" data-filter="${b}">${b}</button>`).join('')}</div>
     </div>
     <div class="spread"><p class="muted"><b class="num" style="color:var(--fg)">${list.length}</b> skema ditemukan · diurutkan berdasarkan relevansi</p><span class="chip plain">Hanya skema berlisensi BNSP aktif</span></div>
@@ -518,7 +518,7 @@ function pDaftar(){
       </div>
       <p class="eyebrow">Keamanan</p>
       <div class="grid g2">
-        <label class="f">Password<input id="rg-pass" type="password" autocomplete="new-password" required minlength="10" maxlength="128"></label>
+        <label class="f">Password<input id="rg-pass" type="password" autocomplete="new-password" required minlength="10" maxlength="72"></label>
         <label class="f">Ulangi password<input id="rg-pass2" type="password" autocomplete="new-password" required></label>
       </div>
       <p class="muted" style="font-size:.82rem">Minimal 10 karakter, berisi huruf dan angka, dan tidak memuat nama email Anda.</p>
@@ -561,7 +561,7 @@ function pChangePassword(forced){
       ${S.pwErr?`<p class="alert bad" role="alert">${esc(S.pwErr)}</p>`:''}
       <input type="email" autocomplete="username" value="${ME.user.email}" hidden>
       <label class="f">Password saat ini<input id="pw-cur" type="password" autocomplete="current-password" required></label>
-      <label class="f">Password baru<input id="pw-new" type="password" autocomplete="new-password" required minlength="10" maxlength="128"></label>
+      <label class="f">Password baru<input id="pw-new" type="password" autocomplete="new-password" required minlength="10" maxlength="72"></label>
       <label class="f">Ulangi password baru<input id="pw-new2" type="password" autocomplete="new-password" required></label>
       <p class="muted" style="font-size:.82rem">Minimal 10 karakter, berisi huruf dan angka, dan tidak memuat nama email Anda.</p>
       <div class="row" style="justify-content:flex-end">${forced?'<button type="button" class="btn ghost" data-logout="1">Keluar</button>':'<button type="button" class="btn ghost" data-go-app="dashboard">Batal</button>'}<button class="btn green" type="submit" ${S.busy?'disabled':''}>${S.busy?'Menyimpan…':'Simpan password'}</button></div>
@@ -664,7 +664,7 @@ function pUsers(){
         <label class="f">Nama lengkap<input id="uf-nama" required maxlength="120" value="${esc(ud.nama??'')}"></label>
         <label class="f">Email<input id="uf-email" type="email" required maxlength="190" value="${esc(ud.email??'')}"></label>
         <label class="f">Peran<select id="uf-role">${S.assignable.map(r=>`<option value="${r.code}" ${ud.role===r.code?'selected':''}>${r.nama}</option>`).join('')}</select></label>
-        <label class="f">Password awal<input id="uf-pass" type="password" autocomplete="new-password" required minlength="10" maxlength="128"></label>
+        <label class="f">Password awal<input id="uf-pass" type="password" autocomplete="new-password" required minlength="10" maxlength="72"></label>
       </div>
       <p class="muted" style="font-size:.82rem">Pengguna wajib mengganti password awal saat pertama kali masuk. Asesor dan asesi tidak ditambahkan di sini; mereka bergabung lewat undangan dan pendaftaran.</p>
       <div class="row" style="justify-content:flex-end"><button class="btn green" type="submit" ${S.busy?'disabled':''}>${ic('check')}Simpan pengguna</button></div>

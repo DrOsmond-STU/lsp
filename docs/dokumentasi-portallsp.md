@@ -453,20 +453,30 @@ Aturan pengiriman:
 
 | Area | Penerapan |
 |---|---|
-| Password | `password_hash` (bcrypt) dengan rehash otomatis. Minimal 10 karakter, wajib huruf dan angka. Akun yang dibuat admin wajib ganti password saat login pertama. |
-| Sesi | Cookie `HttpOnly`, `Secure`, `SameSite=Lax`. ID sesi diganti saat login, ganti konteks, dan ganti password. Idle timeout 30 menit, maksimal 8 jam. File sesi di luar docroot. |
+| Password | `password_hash` (bcrypt) dengan rehash otomatis. Minimal 10 karakter (maks. 72 byte, batas bcrypt), wajib huruf dan angka. Akun yang dibuat admin wajib ganti password saat login pertama. |
+| Sesi | Cookie `HttpOnly`, `Secure`, `SameSite=Lax`. ID sesi diganti saat login, ganti konteks, dan ganti password. Ganti password langsung mengakhiri semua sesi lain akun itu (kolom `users.sess_ver`). Idle timeout 30 menit, maksimal 8 jam. File sesi di luar docroot; halaman publik tanpa cookie tidak membuat sesi. |
 | CSRF | Token per sesi di header `X-CSRF-Token` + cek `Origin` untuk setiap POST |
-| Brute force | Kunci setelah 5 gagal per email atau 20 per IP dalam 15 menit. Pesan error sama untuk email terdaftar maupun tidak. |
-| RBAC | Dari tabel `roles` / `permissions` / `role_permissions`, diperiksa di setiap endpoint |
+| Brute force | Kunci setelah 5 gagal per email atau 20 per IP dalam 15 menit. Pesan error sama untuk email terdaftar maupun tidak. Pendaftaran asesi maks. 30 percobaan per IP per jam; pesan NIK ganda dibuat umum agar tidak bisa dipakai menebak NIK; kirim ulang email verifikasi maks. 5 per 24 jam. |
+| RBAC | Dari tabel `roles` / `permissions` / `role_permissions`, diperiksa di setiap endpoint. Matriks 1.091 kombinasi peran × endpoint diuji otomatis (`tests/rbac-matrix.test.mjs`). |
+| Konflik kepentingan | Asesor tidak bisa menguji, mem-pra-asesmen, atau memutus pleno berkasnya sendiri; tidak bisa ditugaskan pada jadwal yang ia ikuti sebagai peserta; tidak bisa mendaftar sebagai peserta di jadwal yang ia uji. Penguji tidak boleh memutus pleno asesinya. |
+| Integritas proses | Status permohonan berpindah dengan kondisi `WHERE status = ...` (aman dari klik ganda). Kuota jadwal dicek atomik saat pendaftaran. Dokumen tidak bisa diganti selama permohonan diproses. Jadwal: skema tidak bisa diganti bila sudah ada peserta, kuota ≥ peserta, status `selesai`/`batal` final, bentrok asesor dicek ulang saat tanggal berubah. Masa berlaku lisensi BNSP hanya diubah Admin Platform. Minimal satu Admin Platform aktif selalu dijaga. |
 | Isolasi LSP | `lsp_id` selalu dari sesi; data LSP lain dibalas 404 (lihat bagian 4) |
-| Akun nonaktif | Akun dan keanggotaan dibaca ulang dari DB setiap permintaan, sehingga akses langsung hilang |
+| Akun nonaktif | Akun dan keanggotaan dibaca ulang dari DB setiap permintaan, sehingga akses langsung hilang. Asesi yang dinonaktifkan LSP tidak bisa mendaftar lagi ke LSP itu; asesor dari LSP nonaktif kehilangan akses berkasnya. |
 | Data pribadi | NIK asesi dienkripsi AES-256-GCM dengan kunci `storage/app.key` (kunci ini wajib dicadangkan; tanpa kunci, NIK tidak bisa dibaca) |
 | Unggahan | Disimpan di `storage/uploads` (di luar docroot). Jenis berkas dicek dari isi (magic bytes: PDF/PNG/JPEG), maks. 2 MB, nama berkas acak. Disajikan dengan header CSP `sandbox` dan `nosniff`. |
 | Ekspor CSV | Sel yang diawali `=`, `+`, `-`, `@` diberi awalan `'` (mencegah formula injection) |
 | Frontend | CSP `script-src 'self'`; semua teks dari server di-escape |
-| Transport | HTTPS + HSTS, header keamanan di `.htaccess` |
+| Transport | HTTPS (TLS 1.3) + HSTS 1 tahun termasuk subdomain, header keamanan di `.htaccess` |
 | Audit | Login/logout, akses ditolak, perubahan listing, kurasi, manajemen pengguna, akses dokumen, keputusan pleno |
-| Rate limit publik | Verifikasi sertifikat 30 per 10 menit per IP, asisten AI per pengguna |
+| Rate limit publik | Verifikasi sertifikat 30 per 10 menit per IP dan 3.000 per jam total; cek dengan nomor sertifikat hanya menampilkan nama tersamar (nama lengkap hanya dengan kode verifikasi). Asisten AI per pengguna dan per hari, kuota dicatat sebelum memanggil API sehingga tidak bisa dilewati dengan permintaan paralel; asesi wajib verifikasi email dulu. |
+| Data publik | Catatan internal jadwal (mis. tautan rapat SJJ) tidak ikut di API publik |
+| Pembayaran | `payment_simulation` (default `true`) mengizinkan asesi menandai lunas sendiri untuk demo. Set `false` saat LSP nyata beroperasi; pelunasan lalu hanya dikonfirmasi Keuangan LSP. |
+
+### Audit keamanan (Oktober 2026)
+
+Audit RBAC, keamanan aplikasi, dan hardening server menemukan dan memperbaiki: asesor yang juga asesi bisa memplenokan berkasnya sendiri, asesi nonaktif masih bisa mendaftar, kebocoran catatan jadwal di API publik, pendaftaran melewati kuota saat bersamaan, nomor sertifikat membuka nama lengkap, pesan NIK ganda bisa dipakai menebak NIK, sesi lain tetap hidup setelah ganti password, batas AI bisa dilewati dengan permintaan paralel, dan validasi ubah jadwal yang kurang. Semua dibuktikan oleh `tests/security.test.mjs`.
+
+Hardening server (diperiksa): HTTP dialihkan ke HTTPS, hanya TLS 1.3, sertifikat berlaku s.d. Jan 2027, semua header keamanan aktif, `X-Powered-By` tidak tampil, berkas sensitif (`config.php`, database, `storage/`, `src/`, `.git`) tidak bisa diakses dari web, metode TRACE/PUT/DELETE/OPTIONS ditolak, izin berkas `config.php` dan database 600, folder `storage` 700.
 
 ---
 
@@ -657,6 +667,7 @@ File `app/config.php` (di luar docroot, **tidak di-commit**) berisi array beriku
 | `wa_driver` | `''` (nonaktif), `fonnte`, atau `meta` |
 | `wa_token` | Token Fonnte / token WhatsApp Cloud API |
 | `wa_phone_number_id`, `wa_meta_template` | Khusus driver `meta` (template wajib disetujui Meta; `{{1}}` judul, `{{2}}` isi) |
+| `payment_simulation` | `true` (default) = tombol "Bayar" simulasi untuk asesi. Set `false` di operasi nyata. |
 | `seed_password_hashes` | Hash password akun demo. Kosongkan di produksi nyata. |
 
 > **Penting:**
@@ -699,6 +710,7 @@ Riwayat versi di produksi:
 | v6 | Semua menu dan fitur berfungsi: proses sertifikasi lengkap, portal publik dengan data nyata, data demo. Dideploy 9 Okt 2026, smoke test lulus. |
 | v7 | CMS blog (migrasi 7): menu Blog (CMS), halaman Blog publik, moderasi Admin Platform, 6 artikel contoh. |
 | v8 | Responsif HP & tablet: laci menu, header ringkas, tabel adaptif menjadi kartu, grid tablet, target sentuh. |
+| v9 | Audit RBAC, keamanan, dan hardening (migrasi 8: `users.sess_ver`). Lihat bagian 11. |
 
 ### Rollback
 
@@ -723,6 +735,8 @@ node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server ti
 node tests/platform.test.mjs        # 23 uji: akses penuh Admin Platform + isolasi Admin LSP
 node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
 node tests/blog.test.mjs            # 83 uji: CMS blog (akses, isolasi, terjadwal, moderasi, sampul, API publik)
+node tests/rbac-matrix.test.mjs     # 1.091 uji: setiap peran × setiap endpoint sesuai hak akses
+node tests/security.test.mjs        # 39 uji: regresi temuan audit keamanan
 
 NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # uji browser: daftar asesi s.d. sertifikat terverifikasi
 NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs  # uji browser: buka semua menu untuk 7 peran
@@ -734,7 +748,7 @@ Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php
 
 Hasil terakhir:
 
-- Semua 339 uji API lulus pada database baru (termasuk 83 uji blog), plus 24 uji browser blog.
+- Semua 1.469 uji API lulus pada database baru (termasuk 1.091 uji matriks RBAC dan 39 uji keamanan), plus 24 uji browser blog.
 - Uji browser membuka semua menu di 7 peran tanpa error JavaScript dan tanpa halaman kosong/placeholder.
 - Audit responsif: 548 tampilan (halaman publik + semua menu 7 peran, termasuk formulir dan panel detail) di lebar 360, 390, 768, dan 1024 px; tidak ada elemen yang keluar layar dan tidak ada scroll horizontal.
 
@@ -798,7 +812,7 @@ Contoh verifikasi sertifikat: buka `https://lsp.semestateknologiutama.com/?cek=T
 
 | Hal | Kondisi saat ini | Usulan |
 |---|---|---|
-| Pembayaran | Simulasi; konfirmasi manual oleh Keuangan | Integrasi payment gateway (mis. Midtrans/Xendit) + webhook |
+| Pembayaran | Simulasi (`payment_simulation`); konfirmasi manual oleh Keuangan | Integrasi payment gateway (mis. Midtrans/Xendit) + webhook |
 | Email | `mail()` server | SMTP/layanan transaksional dengan SPF/DKIM |
 | WhatsApp | Siap, tetapi token belum diisi | Isi `wa_driver` + `wa_token` di `config.php` |
 | Asisten AI | Siap, tetapi kunci belum diisi | Isi `ai_api_key` di `config.php` |
@@ -808,6 +822,10 @@ Contoh verifikasi sertifikat: buka `https://lsp.semestateknologiutama.com/?cek=T
 | LMS | Daftar kelas + progres | Materi, kuis, video |
 | Database | SQLite | Pindah ke MySQL bila beban tinggi (sudah didukung) |
 | Cadangan | Cadangan berkas saat patch | Cadangan DB terjadwal ke penyimpanan terpisah |
+| Verifikasi nomor HP | Nomor WA tidak diverifikasi | OTP WhatsApp sebelum notifikasi dikirim |
+| Tambah asesor | Admin LSP langsung menambahkan akun terdaftar | Undangan yang harus diterima asesor |
+| Kunci login per email | 5 gagal mengunci email 15 menit (bisa dipakai orang lain untuk mengganggu) | CAPTCHA setelah beberapa kegagalan |
+| Progres kelas | Diisi sendiri oleh asesi | Dihitung dari materi/kuis LMS |
 
 ---
 

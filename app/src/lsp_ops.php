@@ -178,13 +178,14 @@ function r_lsp_jadwal(): void
     require_method('POST');
     csrf_check();
     $id = int_in('id');
-    $lsp = $id ? (int)scoped_row('jadwal', $id, $m)['lsp_id'] : write_lsp($m);
+    $old = $id ? scoped_row('jadwal', $id, $m) : null;
+    $lsp = $old ? (int)$old['lsp_id'] : write_lsp($m);
     $skema = q("SELECT id FROM skema WHERE id = ? AND lsp_id = ? AND status = 'aktif'", [int_in('skema_id'), $lsp])->fetchColumn();
     if (!$skema) {
         fail('Pilih skema aktif milik LSP ini.', 422);
     }
     $tuk = int_in('tuk_id');
-    if ($tuk && !q('SELECT 1 FROM tuk WHERE id = ? AND lsp_id = ?', [$tuk, $lsp])->fetch()) {
+    if ($tuk && !q("SELECT 1 FROM tuk WHERE id = ? AND lsp_id = ? AND (status = 'aktif' OR id = ?)", [$tuk, $lsp, $old ? (int)$old['tuk_id'] : 0])->fetch()) {
         fail('TUK tidak valid untuk LSP ini.', 422);
     }
     $tgl = date_in('tanggal', 'Tanggal');
@@ -198,6 +199,18 @@ function r_lsp_jadwal(): void
     if (!in_array($status, ['dibuka', 'ditutup', 'selesai', 'batal'], true)) fail('Status tidak valid.', 422);
     if ($jam === '') $jam = '08.00–16.00';
     $catatan = str_in('catatan', 255, 'Catatan');
+    if ($old) {
+        $peserta = (int)q("SELECT COUNT(*) FROM permohonan WHERE jadwal_id = ? AND status NOT IN ('dibatalkan','ditolak')", [$id])->fetchColumn();
+        if ($peserta > 0 && (int)$skema !== (int)$old['skema_id']) fail('Skema tidak bisa diganti karena jadwal ini sudah punya peserta.', 409);
+        if ($kuota < $peserta) fail("Kuota tidak boleh lebih kecil dari jumlah peserta ($peserta).", 422);
+        if ($tgl !== $old['tanggal'] && $tgl < today()) fail('Tanggal baru tidak boleh di masa lalu.', 422);
+        $alur = ['dibuka' => ['dibuka', 'ditutup', 'selesai', 'batal'], 'ditutup' => ['ditutup', 'dibuka', 'selesai', 'batal'], 'selesai' => ['selesai'], 'batal' => ['batal']];
+        if (!in_array($status, $alur[$old['status']] ?? [$old['status']], true)) fail('Jadwal yang sudah selesai atau batal tidak bisa diubah statusnya.', 409);
+        if ($tgl !== $old['tanggal'] && $old['asesor_id']
+            && q("SELECT 1 FROM jadwal WHERE asesor_id = ? AND tanggal = ? AND id <> ? AND status <> 'batal'", [$old['asesor_id'], $tgl, $id])->fetch()) {
+            fail('Asesor jadwal ini sudah bertugas di jadwal lain pada tanggal baru tersebut.', 409);
+        }
+    }
     if ($id) {
         q('UPDATE jadwal SET skema_id = ?, tuk_id = ?, tanggal = ?, jam = ?, metode = ?, kuota = ?, status = ?, catatan = ?, updated_at = ? WHERE id = ?',
             [$skema, $tuk ?: null, $tgl, $jam, $metode, $kuota, $status, $catatan ?: null, now(), $id]);
@@ -217,12 +230,18 @@ function r_lsp_jadwal_asesor(): void
     $m = require_perm('schedule.manage');
     $j = scoped_row('jadwal', int_in('jadwal_id'), $m);
     $aid = int_in('asesor_id');
+    if (in_array($j['status'], ['selesai', 'batal'], true)) {
+        fail('Jadwal yang sudah selesai atau batal tidak bisa diubah asesornya.', 409);
+    }
     if ($aid === 0) {
         q('UPDATE jadwal SET asesor_id = NULL, updated_at = ? WHERE id = ?', [now(), $j['id']]);
         json_out(['ok' => true]);
     }
     if (!q("SELECT 1 FROM memberships WHERE user_id = ? AND lsp_id = ? AND role = 'asesor' AND status = 'aktif'", [$aid, $j['lsp_id']])->fetch()) {
         fail('Asesor tidak terdaftar aktif di LSP ini.', 422);
+    }
+    if (q("SELECT 1 FROM permohonan WHERE jadwal_id = ? AND asesi_id = ? AND status NOT IN ('dibatalkan','ditolak')", [$j['id'], $aid])->fetch()) {
+        fail('Asesor ini terdaftar sebagai peserta di jadwal ini (konflik kepentingan).', 409);
     }
     // Cek bentrok: asesor yang sama di tanggal yang sama (di LSP mana pun).
     if (q("SELECT 1 FROM jadwal WHERE asesor_id = ? AND tanggal = ? AND id <> ? AND status <> 'batal'", [$aid, $j['tanggal'], $j['id']])->fetch()) {
@@ -409,8 +428,8 @@ function r_lsp_alumni(): void
     [$w, $p] = scope_where($m, 'c.lsp_id', true);
     $qq = isset($_GET['q']) && is_string($_GET['q']) ? trim(cut($_GET['q'], 60)) : '';
     if ($qq !== '') {
-        $w .= ' AND (u.nama LIKE ? OR c.nomor LIKE ? OR s.nama LIKE ?)';
-        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $qq) . '%';
+        $w .= " AND (u.nama LIKE ? ESCAPE '!' OR c.nomor LIKE ? ESCAPE '!' OR s.nama LIKE ? ESCAPE '!')";
+        $like = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $qq) . '%';
         array_push($p, $like, $like, $like);
     }
     $rows = q(sertifikat_sql() . ' WHERE 1=1' . $w . ' ORDER BY c.terbit DESC LIMIT 500', $p)->fetchAll();
@@ -584,9 +603,13 @@ function r_lsp_pengaturan(): void
         if ($web !== '' && !preg_match('#^https?://#i', $web)) fail('Website harus diawali http:// atau https://', 422);
         $honor = int_in('honor_per_asesi');
         if ($honor < 0 || $honor > 10000000) fail('Honor tidak valid.', 422);
-        q('UPDATE lsp SET nama = ?, kota = ?, alamat = ?, telepon = ?, email = ?, website = ?, deskripsi = ?, honor_per_asesi = ?, lisensi_sampai = ? WHERE id = ?',
+        q('UPDATE lsp SET nama = ?, kota = ?, alamat = ?, telepon = ?, email = ?, website = ?, deskripsi = ?, honor_per_asesi = ? WHERE id = ?',
             [$nama, str_in('kota', 100, 'Kota'), str_in('alamat', 255, 'Alamat'), str_in('telepon', 30, 'Telepon'), $email, $web,
-                str_in('deskripsi', 2000, 'Deskripsi'), $honor, date_in('lisensi_sampai', 'Masa berlaku lisensi', false), $id]);
+                str_in('deskripsi', 2000, 'Deskripsi'), $honor, $id]);
+        // Masa berlaku lisensi BNSP tampil publik sebagai tanda kepercayaan: hanya Admin Platform yang boleh mengubahnya.
+        if (is_platform($m)) {
+            q('UPDATE lsp SET lisensi_sampai = ? WHERE id = ?', [date_in('lisensi_sampai', 'Masa berlaku lisensi', false), $id]);
+        }
         audit('lsp.pengaturan', 'lsp:' . $id, null, $id);
     }
     $l = q('SELECT * FROM lsp WHERE id = ?', [$id])->fetch();
@@ -800,8 +823,8 @@ function r_skkni(): void
     require_auth();
     if (!can('master.manage') && !can('lsp.manage')) require_perm('master.manage');
     $qq = isset($_GET['q']) && is_string($_GET['q']) ? trim(cut($_GET['q'], 60)) : '';
-    $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $qq) . '%';
-    $rows = q('SELECT kode, judul, sektor FROM skkni WHERE kode LIKE ? OR judul LIKE ? OR sektor LIKE ? ORDER BY kode LIMIT 200', [$like, $like, $like])->fetchAll();
+    $like = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $qq) . '%';
+    $rows = q("SELECT kode, judul, sektor FROM skkni WHERE kode LIKE ? ESCAPE '!' OR judul LIKE ? ESCAPE '!' OR sektor LIKE ? ESCAPE '!' ORDER BY kode LIMIT 200", [$like, $like, $like])->fetchAll();
     json_out(['items' => $rows]);
 }
 
@@ -904,7 +927,7 @@ function r_pub_skema(): void
             'deskripsi' => $sk['deskripsi'], 'persyaratan' => $sk['persyaratan'], 'units' => units_of((int)$sk['id'])] : null,
         'jadwal' => array_map(function ($j) {
             $r = jadwal_row($j);
-            unset($r['asesor_id'], $r['asesor_nama'], $r['peserta']);
+            unset($r['asesor_id'], $r['asesor_nama'], $r['peserta'], $r['catatan']);
             $r['tuk_alamat'] = $j['tuk_alamat'];
             return $r;
         }, $jadwal),
@@ -920,7 +943,7 @@ function r_pub_jadwal(): void
                WHERE j.status = 'dibuka' AND j.tanggal >= ? AND ls.status = 'aktif') z WHERE z.listing_id IS NOT NULL ORDER BY z.tanggal LIMIT 200", [today()])->fetchAll();
     json_out(['items' => array_map(function ($j) {
         $r = jadwal_row($j);
-        unset($r['asesor_id'], $r['asesor_nama'], $r['peserta']);
+        unset($r['asesor_id'], $r['asesor_nama'], $r['peserta'], $r['catatan']);
         return $r + ['listing_id' => (int)$j['listing_id'], 'tuk_alamat' => $j['tuk_alamat']];
     }, $rows)]);
 }
@@ -946,17 +969,26 @@ function r_pub_verify(): void
     if (strlen($qq) < 6) {
         fail('Masukkan nomor sertifikat atau kode verifikasi.', 422);
     }
-    // Batasi percobaan per IP agar nomor sertifikat tidak bisa ditebak massal.
+    // Batasi percobaan per IP dan total per jam agar nomor/kode tidak bisa ditebak massal.
     $n = (int)q("SELECT COUNT(*) FROM audit_logs WHERE action = 'sertifikat.cek' AND ip = ? AND created_at >= ?", [client_ip(), date('Y-m-d H:i:s', time() - 600)])->fetchColumn();
-    if ($n >= 30) {
+    $total = (int)q("SELECT COUNT(*) FROM audit_logs WHERE action = 'sertifikat.cek' AND created_at >= ?", [date('Y-m-d H:i:s', time() - 3600)])->fetchColumn();
+    if ($n >= 30 || $total >= 3000) {
         fail('Terlalu banyak pencarian. Coba lagi dalam 10 menit.', 429);
     }
     audit('sertifikat.cek', cut($qq, 60), null, null);
-    $c = q(sertifikat_sql() . ' WHERE c.kode = ? OR UPPER(c.nomor) = ?', [$qq, $qq])->fetch();
+    // Kode verifikasi (acak) menampilkan data lengkap. Nomor sertifikat berurutan sehingga bisa ditebak:
+    // pencarian dengan nomor hanya memastikan keabsahan, nama pemegang disamarkan.
+    $byKode = true;
+    $c = q(sertifikat_sql() . ' WHERE c.kode = ?', [$qq])->fetch();
+    if (!$c) {
+        $c = q(sertifikat_sql() . ' WHERE UPPER(c.nomor) = ?', [$qq])->fetch();
+        $byKode = false;
+    }
     if (!$c) {
         json_out(['found' => false]);
     }
     $status = $c['status'] !== 'aktif' ? 'dicabut' : ($c['berlaku'] < today() ? 'kedaluwarsa' : 'berlaku');
-    json_out(['found' => true, 'nomor' => $c['nomor'], 'nama' => $c['nama'], 'skema' => $c['skema_nama'], 'lsp' => $c['lsp_nama'],
+    $nama = $byKode ? $c['nama'] : implode(' ', array_map(function ($w) { return cut($w, 1) . str_repeat('*', max(2, text_len($w) - 1)); }, preg_split('/\s+/u', trim($c['nama']))));
+    json_out(['found' => true, 'nomor' => $c['nomor'], 'nama' => $nama, 'nama_disamarkan' => !$byKode, 'skema' => $c['skema_nama'], 'lsp' => $c['lsp_nama'],
         'terbit' => $c['terbit'], 'berlaku' => $c['berlaku'], 'status' => $status]);
 }

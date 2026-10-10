@@ -46,7 +46,7 @@ const asesi = await fresh();
   check('asesi tidak bisa akses etalase/pengguna', (await asesi.req('listings')).status === 403 && (await asesi.req('users')).status === 403);
   check('daftar lagi saat sudah masuk ditolak (409)', (await asesi.req('auth/register', base({ email: 'lain@contoh.id', nik: '3174055208990004' }))).status === 409);
   const dupNik = await (await fresh()).req('auth/register', base({ email: 'beda@contoh.id' }));
-  check('NIK sama di akun lain ditolak (409)', dupNik.status === 409 && /NIK/.test(dupNik.json.error));
+  check('NIK sama di akun lain ditolak (409) tanpa mengonfirmasi NIK terdaftar', dupNik.status === 409 && !/NIK/.test(dupNik.json.error));
   const dupEmail = await (await fresh()).req('auth/register', base({ nik: '3174055208990009' }));
   check('email sama ditolak (409)', dupEmail.status === 409);
 }

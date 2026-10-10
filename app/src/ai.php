@@ -136,11 +136,23 @@ function r_ai_chat(): void
     }
 
     $uid = (int)$u['id'];
+    if ($m['role'] === 'asesi' && empty($u['email_verified_at'])) {
+        fail('Verifikasi email Anda dulu untuk memakai asisten AI.', 403);
+    }
     if (ai_usage_count($uid, 3600) >= AI_PER_HOUR || ai_usage_count($uid, 86400) >= AI_PER_DAY) {
         fail('Batas pemakaian asisten tercapai. Coba lagi nanti.', 429);
     }
     if (ai_usage_count(null, 86400) >= (int)($CONFIG['ai_daily_limit'] ?? 2000)) {
         fail('Asisten AI sedang mencapai batas harian platform. Coba lagi besok.', 503);
+    }
+
+    // Catat pemakaian SEBELUM memanggil API, agar permintaan paralel tidak bisa melewati batas per pengguna/platform.
+    $lsp = $m['lsp_id'] === null ? null : (int)$m['lsp_id'];
+    q('INSERT INTO ai_usage (user_id, lsp_id, status, input_tokens, output_tokens, created_at) VALUES (?, ?, ?, 0, 0, ?)', [$uid, $lsp, 'proses', now()]);
+    $usageId = (int)db()->lastInsertId();
+    if (ai_usage_count($uid, 3600) > AI_PER_HOUR || ai_usage_count(null, 86400) > (int)($CONFIG['ai_daily_limit'] ?? 2000)) {
+        q('DELETE FROM ai_usage WHERE id = ?', [$usageId]);
+        fail('Batas pemakaian asisten tercapai. Coba lagi nanti.', 429);
     }
 
     $payload = [
@@ -156,11 +168,10 @@ function r_ai_chat(): void
         'content-type: application/json',
     ], json_encode($payload, JSON_UNESCAPED_UNICODE), 60);
     $j = json_decode($resp, true);
-    $lsp = $m['lsp_id'] === null ? null : (int)$m['lsp_id'];
     if ($code !== 200 || !is_array($j)) {
         $type = is_array($j) ? (string)($j['error']['type'] ?? '') : '';
         error_log('[lsp-ai] HTTP ' . $code . ' ' . cut($type, 60));
-        q('INSERT INTO ai_usage (user_id, lsp_id, status, input_tokens, output_tokens, created_at) VALUES (?, ?, ?, 0, 0, ?)', [$uid, $lsp, 'gagal', now()]);
+        q("UPDATE ai_usage SET status = 'gagal' WHERE id = ?", [$usageId]);
         fail('Asisten AI sedang sibuk atau tidak tersedia. Coba lagi sebentar lagi.', 502);
     }
     $reply = '';
@@ -173,7 +184,7 @@ function r_ai_chat(): void
     if ($reply === '') {
         $reply = 'Maaf, saya tidak bisa membantu permintaan itu. Coba tanyakan hal lain seputar PortalLSP.';
     }
-    q('INSERT INTO ai_usage (user_id, lsp_id, status, input_tokens, output_tokens, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [$uid, $lsp, 'ok', (int)($j['usage']['input_tokens'] ?? 0), (int)($j['usage']['output_tokens'] ?? 0), now()]);
+    q("UPDATE ai_usage SET status = 'ok', input_tokens = ?, output_tokens = ? WHERE id = ?",
+        [(int)($j['usage']['input_tokens'] ?? 0), (int)($j['usage']['output_tokens'] ?? 0), $usageId]);
     json_out(['reply' => cut($reply, AI_MAX_ASSISTANT_CHARS), 'truncated' => ($j['stop_reason'] ?? '') === 'max_tokens']);
 }

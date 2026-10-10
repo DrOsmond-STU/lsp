@@ -22,6 +22,8 @@ return [
     'wa_token' => '',
     'wa_phone_number_id' => '',
     'wa_meta_template' => 'notifikasi_portallsp',
+    // true = asesi bisa menandai tagihan lunas sendiri (simulasi/demo). Set false saat LSP nyata beroperasi.
+    'payment_simulation' => true,
     // Hash akun demo (password_hash). Kosongkan di produksi.
     'seed_password_hashes' => [],
 ];
