@@ -650,7 +650,7 @@ function pApproval(){
 function rbacMatrix(){
   if(!S.rbac) return '<p class="muted">Memuat…</p>';
   const roles=S.rbac.roles, perms=S.rbac.permissions;
-  return `<div class="table-wrap"><table><thead><tr><th>Hak akses</th>${roles.map(r=>`<th style="text-align:center">${r.nama}</th>`).join('')}</tr></thead><tbody>
+  return `<div class="table-wrap"><table class="no-stack"><thead><tr><th>Hak akses</th>${roles.map(r=>`<th style="text-align:center">${r.nama}</th>`).join('')}</tr></thead><tbody>
     ${perms.filter(p=>roles.some(r=>r.permissions.includes(p.code))).map(p=>`<tr><td><span class="mono">${p.code}</span><div class="muted" style="font-size:.78rem">${p.deskripsi}</div></td>${roles.map(r=>`<td style="text-align:center">${r.permissions.includes(p.code)?`<span class="chip ok" aria-label="diizinkan">${ic('check')}</span>`:'<span class="muted" aria-label="tidak">·</span>'}</td>`).join('')}</tr>`).join('')}
   </tbody></table></div>`;
 }
@@ -697,22 +697,23 @@ function app(){
   const content=p==='password'?pChangePassword(false):!allowedPage(p)?pDenied():p==='dashboard'?dash():pages[p]?pages[p]():modul(p);
   const navItems=menu.map(it=>it[0]==='g'?`<div class="grp">${it[1]}</div>`:`<button data-go-app="${it[0]}" class="${p===it[0]?'on':''}">${ic(it[2])}${it[1]}${it[0]==='approval'&&S.reviews.length?`<span class="navbadge">${S.reviews.length}</span>`:''}</button>`).join('');
   const ctxLabel=ME.active.lsp_nama?(ME.active.tuk_nama?ME.active.tuk_nama:ME.active.lsp_nama):(ME.active.role==='asesi'?'Akun asesi pribadi':'Platform');
-  return `<div class="app">
-    <aside class="side">
-      <button class="logo" data-go-public="beranda"><span class="logo-mark">${ic('shield')}</span>PortalLSP</button>
+  return `<div class="app ${S.drawer?'drawer':''}">
+    <button class="scrim" data-drawer="0" aria-label="Tutup menu" tabindex="-1"></button>
+    <aside class="side ${S.drawer?'open':''}" id="appSide" aria-label="Menu aplikasi">
+      <div class="spread"><button class="logo" data-go-public="beranda"><span class="logo-mark">${ic('shield')}</span>PortalLSP</button><button class="btn glass sm side-close" data-drawer="0" aria-label="Tutup menu">${ic('close')}</button></div>
       <div class="tenant"><span style="opacity:.75">${multi?'Akun Anda aktif di':'Masuk ke'}</span><b>${multi?ME.memberships.length+' LSP':ctxLabel}</b></div>
       <nav aria-label="Menu aplikasi">${navItems}</nav>
       <div class="stack" style="gap:.4rem;margin-top:auto"><button class="btn glass sm" data-go-app="password">${ic('gear')}Ganti password</button><button class="btn glass sm" data-logout="1">${ic('logout')}Keluar</button></div>
     </aside>
     <div class="main">
       <div class="apptop">
+        <button class="btn ghost sm appmenu" id="appMenuBtn" data-drawer="1" aria-label="Buka menu" aria-controls="appSide" aria-expanded="${S.drawer?'true':'false'}">${ic('menu')}</button>
         ${isPlatform()?`<label class="row" style="gap:.4rem;font-size:.82rem;font-weight:600" for="lspFilter"><span class="muted">LSP</span><select id="lspFilter"><option value="0">Semua LSP</option>${S.lsps.map(l=>`<option value="${l.id}" ${S.lspFilter===l.id?'selected':''}>${l.nama}</option>`).join('')}</select></label>`:
           multi?`<label class="row" style="gap:.4rem;font-size:.82rem;font-weight:600" for="ctx"><span class="muted">Tampilkan</span><select id="ctx"><option value="all">Semua LSP</option>${lspOpts.map(l=>`<option ${S.lspCtx===l?'selected':''}>${l}</option>`).join('')}</select></label>`:
           otherCtx?`<label class="row" style="gap:.4rem;font-size:.82rem;font-weight:600" for="switch"><span class="muted">Konteks</span><select id="switch">${ME.memberships.map(m=>`<option value="${m.id}" ${m.id===ME.active.id?'selected':''}>${m.lsp_nama||'Platform'} · ${m.role_nama}</option>`).join('')}</select></label>`:
           `<span class="chip info">${ME.active.role_nama}</span>`}
-        <div class="row" style="margin-left:auto;gap:.6rem"><button class="bell" data-go-app="notif" aria-label="Notifikasi">${ic('bell')}<i id="bellBadge" ${S.unread?'':'hidden'}>${S.unread>99?'99+':S.unread}</i></button><span class="avatar">${ME.user.nama.split(' ').map(w=>w[0]).join('').slice(0,2)}</span><div style="line-height:1.2"><b style="font-size:.86rem">${ME.user.nama}</b><div class="muted" style="font-size:.74rem">${ME.active.role_nama}${ME.active.lsp_nama?' · '+ME.active.lsp_nama:''}</div></div><button class="btn ghost sm" data-logout="1" aria-label="Keluar">${ic('logout')}</button></div>
+        <div class="row" style="margin-left:auto;gap:.6rem"><button class="bell" data-go-app="notif" aria-label="Notifikasi">${ic('bell')}<i id="bellBadge" ${S.unread?'':'hidden'}>${S.unread>99?'99+':S.unread}</i></button><span class="avatar" title="${ME.user.nama}">${ME.user.nama.split(' ').map(w=>w[0]).join('').slice(0,2)}</span><div class="who" style="line-height:1.2"><b style="font-size:.86rem">${ME.user.nama}</b><div class="muted" style="font-size:.74rem">${ME.active.role_nama}${ME.active.lsp_nama?' · '+ME.active.lsp_nama:''}</div></div><button class="btn ghost sm lg-out" data-logout="1" aria-label="Keluar">${ic('logout')}</button></div>
       </div>
-      <div class="menu-mobile">${menu.filter(i=>i[0]!=='g').map(it=>`<button data-go-app="${it[0]}" class="${p===it[0]?'on':''}">${it[1]}</button>`).join('')}<button data-go-app="notif" class="${p==='notif'?'on':''}">Notifikasi</button><button data-go-app="password">Ganti password</button><button data-logout="1">Keluar</button></div>
       <div class="content">${verifyBanner()}${content}</div>
     </div>
   </div>`;
@@ -829,9 +830,30 @@ function resetPrivateState(){ S.lsps=[]; S.lspFilter=0; S.ai={open:false,msgs:[]
 
 /* ===================== Render & event ===================== */
 function render(){
-  $('#root').innerHTML = (ME && S.role!=='publik' && S.inApp) ? app() : publik();
+  const inApp = ME && S.role!=='publik' && S.inApp;
+  if(!inApp) S.drawer=false;
+  $('#root').innerHTML = inApp ? app() : publik();
+  document.body.classList.toggle('noscroll', !!S.drawer);
+  stackTables($('#root'));
   renderAi();
 }
+/* Tabel yang tidak muat di wadahnya (HP, tablet, laptop kecil) ditampilkan sebagai kartu:
+   setiap sel diberi label dari judul kolomnya (lihat CSS table.stack). Tabel yang muat tetap berupa tabel. */
+function stackTables(root){
+  root.querySelectorAll('table').forEach(t=>{
+    if(t.classList.contains('no-stack')) return;
+    const heads=[...t.querySelectorAll('thead th')].map(th=>th.textContent.trim());
+    if(!heads.length) return;
+    if(!t.dataset.labeled){ t.querySelectorAll('tbody tr').forEach(tr=>{ let i=0; for(const td of tr.children){ td.dataset.label=heads[i]||''; i+=td.colSpan||1; } }); t.dataset.labeled='1'; }
+    t.classList.remove('stack');
+    const box=t.parentElement;
+    if(!box || !box.clientWidth) return;
+    if(t.scrollWidth>box.clientWidth+2 || (innerWidth<=640 && heads.length>=4)) t.classList.add('stack');
+  });
+}
+let _stackT=0;
+addEventListener('resize',()=>{ clearTimeout(_stackT); _stackT=setTimeout(()=>stackTables(document),120); });
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>stackTables(document));
 async function enterApp(){
   S.inApp=true; S.appPage='dashboard'; S.lspCtx='all';
   render(); window.scrollTo(0,0);
@@ -857,7 +879,8 @@ document.addEventListener('click',async e=>{
     if(d.logout){await logout();return}
     if(d.enter){await enterApp();return}
     if(d.goPublic){S.inApp=false;go(d.goPublic);return}
-    if(d.goApp){await goApp(d.goApp);return}
+    if(d.drawer!==undefined){S.drawer=d.drawer==='1'?!S.drawer:false;render();if(S.drawer){const f=document.querySelector('#appSide nav button.on')||document.querySelector('#appSide nav button');if(f)f.focus();}else{const b=$('#appMenuBtn');if(b)b.focus();}return}
+    if(d.goApp){S.drawer=false;await goApp(d.goApp);return}
     if(d.filter){S.filter=d.filter;if(S.page!=='cari')go('cari');else render();return}
     if(d.skema){go('detail',{skema:d.skema,step:0,jadwal:0});return}
     if(d.step){S.step=Math.max(0,Math.min(4,S.step+Number(d.step)));render();return}

@@ -83,3 +83,64 @@
 .prose code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);padding:.1rem .35rem;border-radius:6px}
 .prose a{color:var(--info);text-decoration:underline}
 .prose hr{border:0;border-top:1px solid var(--line);margin:1.5rem 0}
+/* ===== Responsif: HP & tablet ===== */
+.skema .badge,.card .badge{flex:none;width:46px;height:46px;border-radius:14px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:.95rem}
+.toggle span{min-width:0;overflow-wrap:anywhere}
+.appmenu,.side-close,.scrim{display:none}
+body.noscroll{overflow:hidden}
+@media (max-width:980px){
+  /* Menu aplikasi menjadi laci (drawer) yang dibuka dengan tombol ☰ */
+  .appmenu{display:inline-flex;flex:none;padding:.5rem .6rem}
+  .side{display:flex!important;position:fixed;top:0;left:0;bottom:0;width:min(300px,86vw);height:100dvh;z-index:71;
+    padding-top:calc(1.1rem + env(safe-area-inset-top,0px));padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px));
+    transform:translateX(-105%);visibility:hidden;transition:transform .22s ease,visibility 0s linear .22s;box-shadow:0 30px 60px -20px rgba(0,0,0,.55)}
+  .side.open{transform:none;visibility:visible;transition:transform .22s ease}
+  .side .side-close{display:inline-flex;padding:.45rem .55rem}
+  .side nav button{padding:.7rem .75rem}
+  .scrim{display:block;position:fixed;inset:0;z-index:70;border:0;padding:0;background:rgba(10,18,40,.45);opacity:0;pointer-events:none;transition:opacity .2s ease}
+  .app.drawer .scrim{opacity:1;pointer-events:auto}
+  .apptop{flex-wrap:nowrap;gap:.6rem}
+  .apptop>label{flex:1 1 auto;min-width:0}
+  .apptop>.row{flex:0 1 auto;min-width:0;flex-wrap:nowrap}
+  .apptop .who{min-width:0}
+  .apptop .who b,.apptop .who div{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .apptop>label{flex:1 1 150px}
+  .apptop select{min-width:0;width:100%;max-width:340px;text-overflow:ellipsis}
+}
+@media (max-width:640px){
+  .apptop{gap:.45rem;padding-block:.55rem}
+  .apptop .who,.apptop .lg-out,.apptop>label>.muted{display:none}
+  .apptop>.chip{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .content{padding-bottom:104px}
+  .spread>.row,.spread>div>.row{flex-wrap:wrap}
+  /* Hindari zoom otomatis iOS saat mengetik */
+  input,select,textarea{font-size:16px}
+}
+/* Tabel menjadi kartu bila tidak muat (kelas .stack dipasang oleh stackTables di app.js) */
+table.stack,table.stack tbody{display:block;width:100%}
+table.stack thead{display:none}
+table.stack tr{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.6rem 1rem;padding:.85rem .15rem;border-bottom:1px solid var(--line)}
+table.stack tr:last-child{border-bottom:0}
+table.stack td{display:block;padding:0;border:0;min-width:0;text-align:left!important;white-space:normal;overflow-wrap:anywhere}
+table.stack td::before{content:attr(data-label);display:block;font-size:.66rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.12rem}
+table.stack td[data-label=""]::before{content:none}
+table.stack td:first-child,table.stack td[data-label=""],table.stack td[colspan],table.stack td:has(select),table.stack td:has(textarea){grid-column:1/-1}
+table.stack td .row{flex-wrap:wrap!important}
+table.stack td select,table.stack td input:not([type=radio]):not([type=checkbox]){width:100%;max-width:none}
+/* Tablet: grid 3 kolom menjadi 2 kolom (bukan 1) */
+@media (min-width:641px) and (max-width:980px){.g3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Target sentuh minimal ~40px di perangkat sentuh */
+@media (pointer:coarse){
+  .btn.sm{min-height:40px}
+  .fchip{min-height:38px}
+  .bell{width:42px;height:42px}
+}
+/* HP kecil (≤420px): header publik satu baris, kartu KPI ikon di atas */
+@media (max-width:420px){
+  .topbar .wrap{gap:.45rem}
+  .topbar .auth{flex-wrap:nowrap;gap:.3rem;margin-left:auto}
+  .topbar .auth .btn{padding:.4rem .6rem;font-size:.76rem}
+  .topbar .logo{font-size:.92rem;gap:.4rem}
+  .topbar .menu-btn{margin-left:0}
+  .kpi{flex-direction:column;align-items:flex-start;gap:.55rem}
+}

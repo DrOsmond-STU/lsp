@@ -124,7 +124,7 @@ async function loadForPage(p) {
   } catch (e) { toast(e.message); }
 }
 async function reloadPage() { await loadForPage(S.appPage); render(); }
-async function goApp(p) { S.appPage = p; S.edit = null; S.chat = null; S.payId = null; render(); window.scrollTo(0, 0); await loadForPage(p); render(); }
+async function goApp(p) { S.appPage = p; S.drawer = false; S.edit = null; S.chat = null; S.payId = null; render(); window.scrollTo(0, 0); await loadForPage(p); render(); }
 async function enterApp() {
   S.inApp = true; clearPub();
   const next = S.afterLogin; S.afterLogin = null;
@@ -1266,3 +1266,6 @@ enterApp = async function () {
   S.stayPublic = false; document.title = TITLE0;
   return _enterApp();
 };
+
+/* Laci menu (HP/tablet): tutup dengan Escape. */
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.drawer) { S.drawer = false; render(); const b = document.getElementById('appMenuBtn'); if (b) b.focus(); } });

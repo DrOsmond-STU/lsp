@@ -80,4 +80,5 @@ node tests/blog.test.mjs              # 83 uji CMS blog: akses, isolasi, terjadw
 NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs   # uji browser (Playwright): daftar asesi s.d. sertifikat
 NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs   # uji browser: klik semua menu tiap peran
 NODE_PATH=$(npm root -g) node tests/ui/blog.cjs         # uji browser: CMS blog s.d. halaman artikel publik
+NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs    # audit responsif: semua halaman, 7 peran, lebar 360/390/768/1024
 ```

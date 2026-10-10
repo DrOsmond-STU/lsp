@@ -101,6 +101,20 @@ app/
 - Data per halaman dimuat lewat peta `PAGE_LOAD` lalu disimpan di `S.d[halaman]`.
 - Fungsi `api()` otomatis memperbarui token CSRF dan mengulang satu kali bila server membalas 419.
 
+### Tampilan responsif (HP & tablet)
+
+| Lebar layar | Perilaku |
+|---|---|
+| > 980 px (laptop/desktop) | Sidebar menu tetap di kiri |
+| ≤ 980 px (tablet, HP) | Sidebar menjadi **laci menu** (tombol ☰ di kiri atas; tutup dengan ✕, ketuk area gelap, atau tombol Esc). Header aplikasi satu baris. |
+| ≤ 640 px (HP) | Nama pengguna disembunyikan dari header (avatar tetap ada); input memakai huruf 16 px agar iOS tidak memperbesar layar; ruang bawah untuk tombol asisten AI |
+| ≤ 420 px (HP kecil) | Header publik dan kartu KPI dipadatkan |
+
+- **Tabel adaptif.** Tabel yang tidak muat di wadahnya otomatis tampil sebagai **kartu**: setiap nilai diberi label dari judul kolomnya. Ini berlaku di HP, tablet, dan laptop kecil dengan sidebar. Tabel yang muat tetap berupa tabel. Pengecekan diulang saat ukuran layar berubah (mis. tablet diputar).
+- Matriks peran & hak akses tetap berupa tabel yang bisa digeser ke samping (kelas `no-stack`).
+- Grid 3 kolom menjadi 2 kolom di tablet dan 1 kolom di HP.
+- Di perangkat sentuh, tombol kecil minimal setinggi 40 px.
+
 ### Cara kerja backend
 
 - Semua permintaan masuk ke `public/api.php?r=<rute>`. `dispatch()` di `routes.php` memetakan rute ke fungsi `r_*`.
@@ -684,6 +698,7 @@ Riwayat versi di produksi:
 | v5 | Admin LSP akses penuh semua data LSP-nya (termasuk TUK), isolasi antar-LSP |
 | v6 | Semua menu dan fitur berfungsi: proses sertifikasi lengkap, portal publik dengan data nyata, data demo. Dideploy 9 Okt 2026, smoke test lulus. |
 | v7 | CMS blog (migrasi 7): menu Blog (CMS), halaman Blog publik, moderasi Admin Platform, 6 artikel contoh. |
+| v8 | Responsif HP & tablet: laci menu, header ringkas, tabel adaptif menjadi kartu, grid tablet, target sentuh. |
 
 ### Rollback
 
@@ -712,6 +727,7 @@ node tests/blog.test.mjs            # 83 uji: CMS blog (akses, isolasi, terjadwa
 NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # uji browser: daftar asesi s.d. sertifikat terverifikasi
 NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs  # uji browser: buka semua menu untuk 7 peran
 NODE_PATH=$(npm root -g) node tests/ui/blog.cjs        # uji browser: tulis, pratinjau, terbitkan, sampul, baca, moderasi
+NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs   # audit responsif: semua halaman × 7 peran × 4 ukuran layar
 ```
 
 Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php` lalu hapus `storage/test.sqlite`). Suite berbagi data (mis. NIK contoh) dan batas login per IP, sehingga menjalankan semuanya berturut-turut pada satu database bisa memicu kegagalan palsu. `tests/ui/alur-asesi.cjs` membuat jadwal "hari ini", jadi jalankan dengan `TZ=Asia/Jakarta`.
@@ -720,7 +736,7 @@ Hasil terakhir:
 
 - Semua 339 uji API lulus pada database baru (termasuk 83 uji blog), plus 24 uji browser blog.
 - Uji browser membuka semua menu di 7 peran tanpa error JavaScript dan tanpa halaman kosong/placeholder.
-- Tidak ada scroll horizontal pada lebar layar ponsel 390 px.
+- Audit responsif: 548 tampilan (halaman publik + semua menu 7 peran, termasuk formulir dan panel detail) di lebar 360, 390, 768, dan 1024 px; tidak ada elemen yang keluar layar dan tidak ada scroll horizontal.
 
 ---
 
