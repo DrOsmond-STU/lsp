@@ -993,6 +993,22 @@ function r_pub_lsp(): void
     }, $rows)]);
 }
 
+/** Harga dan kuota paket untuk halaman "Untuk LSP": sumber yang sama dengan tagihan LSP (konstanta PAKET). */
+function r_pub_paket(): void
+{
+    require_method('GET');
+    json_out(['paket' => array_map(function ($k, $v) { return ['nama' => $k, 'biaya' => $v[0], 'kuota' => $v[1]]; }, array_keys(PAKET), PAKET),
+        'kontak' => kontak_sales()]);
+}
+
+/** Kontak penjualan opsional dari config: hanya email atau tautan https yang diteruskan ke halaman publik. */
+function kontak_sales(): string
+{
+    global $CONFIG;
+    $k = trim((string)($CONFIG['kontak_sales'] ?? ''));
+    return filter_var($k, FILTER_VALIDATE_EMAIL) || preg_match('#^https://[^\s"\'<>]+$#', $k) ? $k : '';
+}
+
 function r_pub_verify(): void
 {
     require_method('GET');

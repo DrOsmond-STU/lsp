@@ -361,7 +361,7 @@ function pUntuk(){
 }
 function publik(){
   const pages={beranda:pBeranda,cari:pCari,detail:pDetail,jadwal:pJadwal,lsp:pLsp,lms:pLms,verif:pVerif,untuk:pUntuk,login:pLogin,daftar:pDaftar};
-  return topbar()+(pages[S.page]||pBeranda)()+`<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Purwarupa UI/UX · nama produk sementara</span></span><span class="muted">Terdaftar PSE · Server di Indonesia</span></div></footer>`;
+  return topbar()+(pages[S.page]||pBeranda)()+`<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Platform sertifikasi kompetensi untuk LSP berlisensi BNSP</span></span><span class="muted">Terdaftar PSE · Server di Indonesia</span></div></footer>`;
 }
 
 
@@ -727,7 +727,7 @@ function app(){
 /* Halaman modul yang layar rincinya belum dibangun. */
 function modul(k){
   const m=MODUL[k]||['Modul','',[]];
-  return `<div><p class="eyebrow">${ME.active.role==='platform_admin'?ctxName():(ME.active.lsp_nama||'Purwarupa')}</p><h2>${m[0]}</h2></div><div class="card empty"><span class="logo-mark" style="width:60px;height:60px;margin:0 auto 1rem;color:#fff">${ic('doc','ico" style="width:28px;height:28px')}</span><h3>${m[1]}</h3><p class="muted" style="margin-top:.4rem">Layar rinci modul ini dibangun pada tahap berikutnya. Fitur yang direncanakan:</p><ul>${m[2].map(f=>`<li>${f}</li>`).join('')}</ul><div style="margin-top:1.2rem"><button class="btn" data-go-app="dashboard">Kembali ke beranda</button></div></div>`;
+  return `<div><p class="eyebrow">${ME.active.role==='platform_admin'?ctxName():(ME.active.lsp_nama||'PortalLSP')}</p><h2>${m[0]}</h2></div><div class="card empty"><span class="logo-mark" style="width:60px;height:60px;margin:0 auto 1rem;color:#fff">${ic('doc','ico" style="width:28px;height:28px')}</span><h3>${m[1]}</h3><p class="muted" style="margin-top:.4rem">Layar rinci modul ini dibangun pada tahap berikutnya. Fitur yang direncanakan:</p><ul>${m[2].map(f=>`<li>${f}</li>`).join('')}</ul><div style="margin-top:1.2rem"><button class="btn" data-go-app="dashboard">Kembali ke beranda</button></div></div>`;
 }
 function pLspList(){
   const rows=S.lsps.map(l=>`<tr><td><b>${l.nama}</b><div class="muted" style="font-size:.76rem">${l.jenis} · ${l.kota}</div></td><td class="num">${l.pengguna}</td><td class="num">${l.asesor}</td><td class="num">${l.asesi}</td><td class="num">${l.tuk}</td><td class="num">${l.tayang} / ${l.listing}${l.menunggu?` <span class="chip warn">${l.menunggu} menunggu</span>`:''}</td><td><span class="chip ${l.status==='aktif'?'ok':'bad'}">${l.status==='aktif'?'Aktif':'Nonaktif'}</span></td><td><button class="btn sm" data-openlsp="${l.id}">Buka data</button></td></tr>`).join('')||'<tr><td colspan="8" class="muted">Memuat…</td></tr>';

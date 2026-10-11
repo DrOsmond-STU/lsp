@@ -84,5 +84,17 @@ console.log('Admin LSP tetap terisolasi');
   const pbiSees = (await pbi.req('users')).json.items.some(i => i.email === 'coba.pindah@demo.portallsp.id');
   check('lsp_id dari Admin LSP diabaikan (pengguna masuk ke LSP-nya sendiri)', bad.status === 201 && !pbiSees);
 }
+console.log('Harga paket publik');
+{
+  const pub = await new Client().req('pub/paket');
+  const plat = await sup.req('platform/paket');
+  const ringkas = l => JSON.stringify(l.map(p => [p.nama, p.biaya, p.kuota]));
+  check('pub/paket tanpa login', pub.status === 200 && pub.json.paket.length === 3);
+  check('harga dan kuota sama dengan Paket & Tagihan (satu sumber)', ringkas(pub.json.paket) === ringkas(plat.json.paket), ringkas(pub.json.paket));
+  const { execFileSync } = await import('child_process');
+  const cek = v => execFileSync('php', ['-r', `require "src/bootstrap.php"; $CONFIG["kontak_sales"] = ${JSON.stringify(v)}; echo kontak_sales();`], { cwd: new URL('..', import.meta.url).pathname }).toString();
+  check('kontak: email dan https diterima', cek('sales@lsp.example.id') === 'sales@lsp.example.id' && cek('https://wa.me/628123') === 'https://wa.me/628123');
+  check('kontak: javascript:, http:, dan teks bebas ditolak', cek('javascript:alert(1)') === '' && cek('http://x.example') === '' && cek('hubungi kami') === '' && cek('https://x.example/"><script>') === '');
+}
 console.log(`\n${pass} lulus, ${failN} gagal`);
 process.exit(failN ? 1 : 0);

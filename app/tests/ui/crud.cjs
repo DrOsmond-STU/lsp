@@ -21,6 +21,22 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   const menu = async (p, page) => { await p.click(`.side nav button[data-go-app="${page}"]`); await p.waitForTimeout(900); };
   const tag = Date.now().toString(36);
 
+  console.log('Portal publik: harga paket dan footer');
+  {
+    const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
+    p.on('pageerror', e => errs.push(e.message));
+    await p.goto(BASE + '/', { waitUntil: 'networkidle' });
+    check('footer tanpa teks purwarupa', !/purwarupa/i.test(await p.locator('footer').innerText()));
+    await p.click('.topbar [data-go="untuk"]'); await p.waitForTimeout(800);
+    const paket = await p.evaluate(async () => (await (await fetch('api.php?r=pub/paket')).json()).paket);
+    const teks = await p.locator('.plans').innerText();
+    check('harga semua paket sama dengan data server', paket.length === 3 && paket.every(x => teks.includes('Rp' + x.biaya.toLocaleString('id-ID')) && teks.includes(x.kuota.toLocaleString('id-ID') + ' asesi/tahun')), teks.slice(0, 200));
+    check('tanpa tombol demo palsu bila kontak belum diatur', await p.locator('.plans [data-toast]').count() === 0 && /hubungi pengelola PortalLSP/.test(await p.locator('main, .block').first().innerText()));
+    check('halaman Untuk LSP tanpa teks purwarupa', !/purwarupa|harga contoh/i.test(await p.locator('body').innerText()));
+    await p.screenshot({ path: process.env.SHOT || '/dev/null', fullPage: true }).catch(() => {});
+    await p.close();
+  }
+
   console.log('Etalase: ubah, turunkan, hapus');
   const m = await open('marketing.tdn@demo.portallsp.id');
   const judul = 'Kelas UI ' + tag;

@@ -5,7 +5,7 @@ Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran peng
 - **Alamat produksi:** https://lsp.semestateknologiutama.com
 - **Kode sumber:** folder `app/` di repositori ini
 - **Rancangan fitur awal:** [`docs/rancangan-fitur.md`](rancangan-fitur.md)
-- **Versi terpasang:** v12 (11 Oktober 2026): sertifikat PDF dengan kode QR dan tanda tangan digital
+- **Versi terpasang:** v13 (11 Oktober 2026): harga paket satu sumber di halaman Untuk LSP, footer produksi
 
 ---
 
@@ -432,6 +432,7 @@ Bisa diakses tanpa login:
 - **Jadwal uji:** jadwal mendatang semua LSP beserta sisa kuota. Catatan internal jadwal (mis. tautan rapat SJJ) tidak ditampilkan.
 - **Direktori LSP:** profil, skema, TUK.
 - **Pelatihan:** kelas yang tayang.
+- **Untuk LSP:** paket langganan. Harga dan kuota dibaca dari server (`pub/paket`), sama dengan menu Paket & Tagihan Admin Platform. Tombol berlangganan mengarah ke `kontak_sales` di `config.php`; bila kosong, tombol disembunyikan.
 - **Blog:** artikel dari platform dan LSP, dengan pencarian, filter kategori, dan tautan langsung `/?artikel=SLUG` (lihat bagian 8). Beranda menampilkan 3 artikel terbaru.
 - **Verifikasi sertifikat:** buka `/?cek=KODE` atau isi formulir verifikasi.
   - Dengan **kode verifikasi** (10 karakter, tercetak di sertifikat): nama pemegang tampil lengkap.
@@ -558,7 +559,7 @@ Aturan pengiriman:
 | Sesi | Cookie `HttpOnly`, `Secure`, `SameSite=Lax`. ID sesi diganti saat login, ganti konteks, dan ganti password. Ganti password langsung mengakhiri semua sesi lain akun itu (kolom `users.sess_ver`). Idle timeout 30 menit, maksimal 8 jam. File sesi di luar docroot; halaman publik tanpa cookie tidak membuat sesi. |
 | CSRF | Token per sesi di header `X-CSRF-Token` + cek `Origin` untuk setiap POST |
 | Brute force | Kunci setelah 5 gagal per email atau 20 per IP dalam 15 menit. Pesan error sama untuk email terdaftar maupun tidak. Pendaftaran asesi maks. 30 percobaan per IP per jam; pesan NIK ganda dibuat umum agar tidak bisa dipakai menebak NIK; kirim ulang email verifikasi maks. 5 per 24 jam. |
-| RBAC | Dari tabel `roles` / `permissions` / `role_permissions`, diperiksa di setiap endpoint. Matriks 1.211 kombinasi peran × endpoint diuji otomatis (`tests/rbac-matrix.test.mjs`); rute baru tanpa aturan akses membuat uji gagal. |
+| RBAC | Dari tabel `roles` / `permissions` / `role_permissions`, diperiksa di setiap endpoint. Matriks 1.221 kombinasi peran × endpoint diuji otomatis (`tests/rbac-matrix.test.mjs`); rute baru tanpa aturan akses membuat uji gagal. |
 | Konflik kepentingan | Asesor tidak bisa menguji, mem-pra-asesmen, atau memutus pleno berkasnya sendiri; tidak bisa ditugaskan pada jadwal yang ia ikuti sebagai peserta; tidak bisa mendaftar sebagai peserta di jadwal yang ia uji. Penguji tidak boleh memutus pleno asesinya. |
 | Integritas proses | Status permohonan berpindah dengan kondisi `WHERE status = ...` (aman dari klik ganda). Kuota jadwal dicek atomik saat pendaftaran. Dokumen tidak bisa diganti selama permohonan diproses. Jadwal: skema tidak bisa diganti bila sudah ada peserta, kuota ≥ peserta, status `selesai`/`batal` final, bentrok asesor dicek ulang saat tanggal berubah. Masa berlaku lisensi BNSP dan nama LSP hanya diubah Admin Platform. Minimal satu Admin Platform aktif selalu dijaga. Biaya uji dikunci saat mendaftar; sertifikat menyimpan salinan nama skema/LSP/pemegang; perubahan isi publik skema menarik listing tayang untuk ditinjau ulang. Penghapusan data master dicek terhadap data yang masih merujuknya. |
 | Isolasi LSP | `lsp_id` selalu dari sesi; data LSP lain dibalas 404 (lihat bagian 4) |
@@ -753,6 +754,7 @@ Semua endpoint: `api.php?r=<rute>`.
 | `pub/blog/post` | Satu artikel (`slug`) + artikel terkait; menambah hitungan pembaca |
 | `pub/blog/cover` | Gambar sampul (`id`) |
 | `pub/ca` | Sertifikat CA PortalLSP (`.crt`) untuk memeriksa tanda tangan digital PDF sertifikat |
+| `pub/paket` | Harga dan kuota paket langganan (dari konstanta `PAKET`, sumber yang sama dengan Paket & Tagihan) + kontak penjualan |
 
 ---
 
@@ -775,6 +777,7 @@ File `app/config.php` (di luar docroot, **tidak di-commit**) berisi array beriku
 | `wa_token` | Token Fonnte / token WhatsApp Cloud API |
 | `wa_phone_number_id`, `wa_meta_template` | Khusus driver `meta` (template wajib disetujui Meta; `{{1}}` judul, `{{2}}` isi) |
 | `payment_simulation` | `true` (default) = tombol "Bayar" simulasi untuk asesi. Set `false` di operasi nyata. |
+| `kontak_sales` | Kontak penjualan di halaman Untuk LSP: email atau tautan `https://` (mis. WhatsApp). Kosong = tombol disembunyikan dan halaman meminta pengunjung menghubungi pengelola. |
 | `seed_password_hashes` | Hash password akun demo. Kosongkan di produksi nyata. |
 | `tte_aktif` | `true` (default) = PDF sertifikat ditandatangani digital. `false` = PDF tanpa tanda tangan. |
 | `tte_p12` | Opsional: sertifikat PSrE per LSP, mis. `['3' => ['file' => '/path/lsp-3.p12', 'password' => '...']]`; kunci `'*'` berlaku untuk semua LSP. |
@@ -829,6 +832,7 @@ Riwayat versi di produksi:
 | v10 | CRUD lengkap (ubah/hapus/turunkan listing, hapus skema/TUK/jadwal/CRM/mutu/sarpras, ubah/hapus SKKNI, ubah profil asesi, nonaktifkan asesor dari menu Master), audit keamanan putaran 2, header isolasi lintas-origin, versi aset `?v=11` untuk menembus cache proxy (migrasi 9: `permohonan.harga`, salinan data di `sertifikat`). Dideploy 10 Okt 2026, cadangan database `storage/backup-db-pra-v10.sqlite`. |
 | v11 | Sertifikat PDF dengan kode QR verifikasi (unduh dari Dompet Sertifikat, Pleno & Sertifikat, Database Alumni), QR juga di halaman cetak, versi aset `?v=12`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 | v12 | Tanda tangan digital PDF sertifikat: CA PortalLSP, sertifikat penanda tangan per LSP, dukungan `.p12` PSrE, kotak tanda tangan di halaman 1, unduh CA (`pub/ca`) dari halaman verifikasi, versi aset `?v=13`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
+| v13 | Halaman Untuk LSP membaca harga dan kuota dari server (`pub/paket`), sehingga selalu sama dengan Paket & Tagihan; tombol demo palsu diganti tautan `kontak_sales`; footer "Purwarupa UI/UX" diganti deskripsi produk; versi aset `?v=14`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 
 ### Rollback
 
@@ -860,10 +864,10 @@ php -S 127.0.0.1:8099 -t public
 node tests/api.test.mjs             # 49 uji: autentikasi, CSRF, RBAC, isolasi LSP
 node tests/register.test.mjs        # 29 uji: pendaftaran asesi mandiri
 node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server tiruan port 8098)
-node tests/platform.test.mjs        # 23 uji: akses penuh Admin Platform + isolasi Admin LSP
+node tests/platform.test.mjs        # 27 uji: akses penuh Admin Platform + isolasi Admin LSP + harga paket publik
 node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
 node tests/blog.test.mjs            # 83 uji: CMS blog (akses, isolasi, terjadwal, moderasi, sampul, API publik)
-node tests/rbac-matrix.test.mjs     # 1.211 uji: setiap peran × setiap endpoint sesuai hak akses
+node tests/rbac-matrix.test.mjs     # 1.221 uji: setiap peran × setiap endpoint sesuai hak akses
 node tests/crud.test.mjs            # 89 uji: buat/baca/ubah/hapus semua data + penjaga rujukan, cakupan LSP, hak akses
 node tests/security.test.mjs        # 49 uji: regresi temuan audit keamanan (putaran 1 dan 2)
 node tests/sertifikat.test.mjs      # 36 uji: PDF sertifikat (struktur, isi, lampiran), tanda tangan digital (sah, deteksi perubahan, penanda tangan, kunci), hak unduh, QR, regresi encoder QR
@@ -877,9 +881,9 @@ NODE_PATH=$(npm root -g) node tests/ui/crud.cjs        # uji browser tombol ubah
 
 Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php` lalu hapus `storage/test.sqlite`). Suite berbagi data (mis. NIK contoh) dan batas login per IP, sehingga menjalankan semuanya berturut-turut pada satu database bisa memicu kegagalan palsu. `tests/ui/alur-asesi.cjs` membuat jadwal "hari ini", jadi jalankan dengan `TZ=Asia/Jakarta`.
 
-Hasil terakhir (11 Oktober 2026, v12):
+Hasil terakhir (11 Oktober 2026, v13):
 
-- Semua 1.724 uji API lulus pada database baru (termasuk 1.211 uji matriks RBAC, 89 uji CRUD, 49 uji keamanan, dan 36 uji sertifikat PDF dan tanda tangan digital), plus 24 uji browser blog dan 14 uji browser CRUD (termasuk unduh PDF dari Dompet Sertifikat).
+- Semua 1.738 uji API lulus pada database baru (termasuk 1.221 uji matriks RBAC, 89 uji CRUD, 49 uji keamanan, dan 36 uji sertifikat PDF dan tanda tangan digital), plus 24 uji browser blog dan 18 uji browser CRUD (termasuk harga paket di halaman Untuk LSP dan unduh PDF dari Dompet Sertifikat).
 - Kode QR di PDF hasil render terbaca oleh jsQR dan ZXing pada 72, 110, dan 200 dpi.
 - Uji browser alur asesi (daftar → verifikasi → bayar → pra-asesmen → asesmen → pleno → sertifikat → verifikasi publik) lulus.
 - Uji browser membuka semua menu di 7 peran tanpa error JavaScript dan tanpa halaman kosong/placeholder.

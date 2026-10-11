@@ -2,7 +2,7 @@
 
 Aplikasi sertifikasi kompetensi multi-LSP: portal publik, pendaftaran asesi, proses asesmen sampai pleno, sertifikat PDF dengan kode QR dan tanda tangan digital, serta menu operasional LSP, TUK, asesor, dan Admin Platform.
 
-- **Produksi:** https://lsp.semestateknologiutama.com (versi terpasang **v12**, 11 Oktober 2026)
+- **Produksi:** https://lsp.semestateknologiutama.com (versi terpasang **v13**, 11 Oktober 2026)
 - **Dokumentasi lengkap:** [`../docs/dokumentasi-portallsp.md`](../docs/dokumentasi-portallsp.md). Berisi peran, alur, menu, keamanan, model data, semua endpoint, konfigurasi, deploy, dan riwayat versi.
 - **Rancangan fitur awal:** [`../docs/rancangan-fitur.md`](../docs/rancangan-fitur.md)
 
@@ -54,10 +54,10 @@ Jalankan setiap suite pada database baru: hapus `storage/test.sqlite` sebelum su
 node tests/api.test.mjs             # 49 uji: autentikasi, CSRF, RBAC, isolasi LSP
 node tests/register.test.mjs        # 29 uji: pendaftaran asesi mandiri
 node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server tiruan port 8098)
-node tests/platform.test.mjs        # 23 uji: akses penuh Admin Platform + isolasi Admin LSP
+node tests/platform.test.mjs        # 27 uji: akses penuh Admin Platform + isolasi Admin LSP + harga paket publik
 node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
 node tests/blog.test.mjs            # 83 uji: CMS blog
-node tests/rbac-matrix.test.mjs     # 1.211 uji: setiap peran × setiap endpoint
+node tests/rbac-matrix.test.mjs     # 1.221 uji: setiap peran × setiap endpoint
 node tests/crud.test.mjs            # 89 uji: buat/baca/ubah/hapus semua data
 node tests/security.test.mjs        # 49 uji: regresi temuan audit keamanan
 node tests/sertifikat.test.mjs      # 36 uji: PDF sertifikat, kode QR, tanda tangan digital, hak unduh
@@ -65,11 +65,11 @@ node tests/sertifikat.test.mjs      # 36 uji: PDF sertifikat, kode QR, tanda tan
 TZ=Asia/Jakarta NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # daftar asesi s.d. sertifikat terverifikasi
 NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs                  # buka semua menu untuk 7 peran
 NODE_PATH=$(npm root -g) node tests/ui/blog.cjs                        # CMS blog s.d. halaman artikel publik
-NODE_PATH=$(npm root -g) node tests/ui/crud.cjs                        # tombol ubah/hapus, profil, unduh PDF
+NODE_PATH=$(npm root -g) node tests/ui/crud.cjs                        # harga paket, tombol ubah/hapus, profil, unduh PDF
 NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs                   # 548 tampilan di lebar 360/390/768/1024 px
 ```
 
-Hasil terakhir (11 Oktober 2026, v12): semua 1.724 uji API lulus, semua uji browser lulus, dan audit responsif tanpa masalah.
+Hasil terakhir (11 Oktober 2026, v13): semua 1.738 uji API lulus, semua uji browser lulus, dan audit responsif tanpa masalah.
 
 ## Ringkasan keamanan
 

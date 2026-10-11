@@ -1269,12 +1269,27 @@ document.addEventListener('submit', e => {
 });
 
 /* Navigasi publik: tambahkan halaman Blog dan tautan langsung ?artikel=slug. */
+/* Halaman "Untuk LSP": harga dan kuota dari server (konstanta PAKET, sumber yang sama dengan tagihan LSP). */
+const PAKET_INFO = {
+  Basic: {warna: 'teal', fitur: ['Asesmen paperless & paper-based', '5 TUK, 30 asesor', 'Laporan BNSP & sertifikat ber-QR', 'Support 08.00–17.00 WIB']},
+  Pro: {warna: 'blue', fitur: ['Semua fitur Basic', 'SJJ dengan proctoring', 'Modul mutu Pedoman 201', 'CRM & kampanye WA']},
+  Enterprise: {warna: 'purple', fitur: ['Semua fitur Pro', 'LMS & e-commerce lanjutan', 'API & integrasi HRIS', 'Support prioritas 24 jam']},
+};
+function pUntuk() {
+  const r = lazy('paket', 'pub/paket');
+  const k = r && r.kontak ? r.kontak : '';
+  const web = k.startsWith('https://');
+  const tombol = p => !k ? '' : `<a class="btn ${(PAKET_INFO[p.nama] || {}).warna || 'blue'}" style="width:100%;margin-top:1.1rem" href="${web ? k : 'mailto:' + k + '?subject=' + encodeURIComponent('Paket ' + p.nama + ' PortalLSP')}"${web ? ' target="_blank" rel="noopener"' : ''}>${p.nama === 'Enterprise' ? 'Hubungi sales' : 'Ajukan berlangganan'}</a>`;
+  const isi = !r ? loading() : r.error ? `<div class="alert bad">${esc(r.error)}</div>`
+    : `<div class="plans">${r.paket.map((p, i) => `<div class="card plan ${i === 1 ? 'feat' : ''}"><div class="spread"><h3>${p.nama}</h3>${i === 1 ? '<span class="chip info">Paling dipilih</span>' : ''}</div><p style="margin-top:.6rem"><span class="price" style="font-size:1.6rem">${fmtRp(p.biaya)}</span><span class="muted">/bulan</span></p><ul><li>Hingga ${Number(p.kuota).toLocaleString('id-ID')} asesi/tahun</li>${((PAKET_INFO[p.nama] || {}).fitur || []).map(f => `<li>${f}</li>`).join('')}</ul>${tombol(p)}</div>`).join('')}</div>${k ? '' : '<p class="muted" style="text-align:center">Untuk berlangganan, hubungi pengelola PortalLSP.</p>'}`;
+  return `<section class="block"><div class="wrap stack" style="gap:1.6rem"><div style="text-align:center"><p class="eyebrow">Untuk LSP</p><h2>Pilih paket sesuai skala LSP Anda</h2><p class="muted" style="margin-top:.3rem">Biaya langganan per LSP per bulan.</p></div>${isi}</div></section>`;
+}
 const _go = go;
 go = function (page, extra = {}) { if (page === 'blog' && !('blogSlug' in extra)) extra = Object.assign({}, extra, {blogSlug: null}); _go(page, extra); };
 const PUB_PAGES = () => ({beranda: pBeranda, cari: pCari, detail: pDetail, jadwal: pJadwal, lsp: pLsp, lms: pLms, verif: pVerif, untuk: pUntuk, login: pLogin, daftar: pDaftar, blog: pBlogPub});
 publik = function () {
   document.title = TITLE0;
-  return topbar() + (PUB_PAGES()[S.page] || pBeranda)() + `<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Purwarupa UI/UX · nama produk sementara</span></span><span class="row" style="gap:1rem"><button class="btn ghost sm" data-go="blog">Blog</button><span class="muted">Terdaftar PSE · Server di Indonesia</span></span></div></footer>`;
+  return topbar() + (PUB_PAGES()[S.page] || pBeranda)() + `<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Platform sertifikasi kompetensi untuk LSP berlisensi BNSP</span></span><span class="row" style="gap:1rem"><button class="btn ghost sm" data-go="blog">Blog</button><span class="muted">Terdaftar PSE · Server di Indonesia</span></span></div></footer>`;
 };
 (function () {
   const a = new URLSearchParams(location.search).get('artikel');

@@ -41,7 +41,7 @@ const NEED = {
   'lsp/skema/hapus': ['master.manage'], 'lsp/tuk/hapus': ['master.manage'], 'lsp/jadwal/hapus': ['schedule.manage'], 'tuk/sarpras/hapus': ['tuk.facility'],
   'skkni/hapus': ['lsp.manage'],
   'blog': ['blog.manage'], 'blog/hapus': ['blog.manage'], 'blog/moderasi': ['lsp.manage'], 'blog/cover': ['blog.manage'],
-  'pub/catalog': 'public', 'pub/skema': 'public', 'pub/jadwal': 'public', 'pub/lsp': 'public', 'pub/verify': 'public', 'pub/ca': 'public',
+  'pub/catalog': 'public', 'pub/skema': 'public', 'pub/jadwal': 'public', 'pub/lsp': 'public', 'pub/verify': 'public', 'pub/ca': 'public', 'pub/paket': 'public',
   'pub/blog': 'public', 'pub/blog/post': 'public', 'pub/blog/cover': 'public',
 };
 const ROLES = ['superadmin', 'admin.tdn', 'marketing.tdn', 'keuangan.tdn', 'admin.pbi', 'tuk.kuningan', 'asesor', 'asesi'];
