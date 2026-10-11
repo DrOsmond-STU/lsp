@@ -525,7 +525,8 @@ function r_asesi_sertifikat(): void
 }
 
 /** Lembar sertifikat siap cetak (pemilik, staf LSP penerbit, atau Admin Platform). */
-function r_sertifikat_cetak(): void
+/** Sertifikat yang boleh dibuka pengguna ini: pemiliknya, staf pleno LSP penerbit, atau Admin Platform. */
+function sertifikat_akses(): array
 {
     require_method('GET');
     require_auth();
@@ -534,8 +535,32 @@ function r_sertifikat_cetak(): void
     $m = active_membership();
     $ok = $c && ((int)$c['user_id'] === uid() || is_platform($m) || ($m['lsp_id'] !== null && (int)$m['lsp_id'] === (int)$c['lsp_id'] && can('decision.manage')));
     if (!$ok) {
+        if ($id) audit('access.denied', 'sertifikat:' . $id);
         fail('Sertifikat tidak ditemukan.', 404);
     }
+    return $c;
+}
+
+function r_sertifikat_pdf(): void
+{
+    $c = sertifikat_akses();
+    $pdf = sertifikat_pdf($c, units_of((int)$c['skema_id']), app_url() . '/?cek=' . $c['kode']);
+    $file = 'sertifikat-' . preg_replace('/[^A-Za-z0-9-]+/', '-', (string)$c['nomor']) . '.pdf';
+    if ((int)$c['user_id'] !== uid()) {
+        audit('sertifikat.pdf', 'sertifikat:' . $c['id'], null, (int)$c['lsp_id']);
+    }
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: ' . (isset($_GET['unduh']) ? 'attachment' : 'inline') . '; filename="' . $file . '"');
+    header('Content-Length: ' . strlen($pdf));
+    header('Cache-Control: private, no-store');
+    header('X-Content-Type-Options: nosniff');
+    echo $pdf;
+    exit;
+}
+
+function r_sertifikat_cetak(): void
+{
+    $c = sertifikat_akses();
     $e = function ($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); };
     $units = units_of((int)$c['skema_id']);
     header('Content-Type: text/html; charset=utf-8');
@@ -551,7 +576,8 @@ function r_sertifikat_cetak(): void
         . '<div class="s"><p class="m">' . $e($c['lsp_nama']) . '</p><h1>SERTIFIKAT KOMPETENSI</h1><p class="m">Nomor ' . $e($c['nomor']) . '</p>'
         . '<p>Diberikan kepada</p><h2>' . $e($c['nama']) . '</h2><p>dinyatakan <b>KOMPETEN</b> pada skema</p><h2>' . $e($c['skema_nama']) . '</h2>'
         . '<p class="m">Terbit ' . $e($c['terbit']) . ' · Berlaku sampai ' . $e($c['berlaku']) . ' · Status ' . $e($c['status']) . '</p>'
-        . '<table>' . $rows . '</table><p class="m" style="margin-top:20px">Verifikasi keaslian: ' . $e(app_url() . '/?cek=' . $c['kode']) . '</p></div></html>';
+        . '<table>' . $rows . '</table><div style="margin-top:20px">' . qr_svg(app_url() . '/?cek=' . $c['kode'], 110)
+        . '<p class="m">Pindai kode QR atau buka ' . $e(app_url() . '/?cek=' . $c['kode']) . ' untuk memeriksa keaslian</p></div></div></html>';
     exit;
 }
 

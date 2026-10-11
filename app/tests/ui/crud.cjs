@@ -1,4 +1,4 @@
-// Uji browser tombol CRUD: ubah/hapus/turunkan listing, hapus skema, nonaktifkan asesor, ubah profil asesi.
+// Uji browser tombol CRUD: ubah/hapus/turunkan listing, hapus skema, nonaktifkan asesor, ubah profil asesi, unduh sertifikat PDF.
 const { chromium } = require('playwright');
 const BASE = process.env.BASE || 'http://127.0.0.1:8099';
 const PW = 'Demo-Pass-2026';
@@ -64,6 +64,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   await r.fill('#editor input[name="no_hp"]', '081277766655');
   await r.click('#editor button[type="submit"]'); await r.waitForTimeout(1200);
   check('nomor HP baru tampil di profil', /081277766655/.test(await r.locator('.content').innerText()));
+  await r.click('#appMenuBtn').catch(() => {}); await r.waitForTimeout(300);
+  await menu(r, 'sertifikat');
+  const unduh = r.locator('a', { hasText: 'Unduh PDF' }).first();
+  check('dompet sertifikat punya tombol Unduh PDF', await unduh.count() === 1);
+  const pdf = await r.evaluate(async h => { const x = await fetch(h); const b = new Uint8Array(await x.arrayBuffer()); return { ct: x.headers.get('content-type'), head: String.fromCharCode(...b.slice(0, 5)) }; }, await unduh.getAttribute('href'));
+  check('tautan Unduh PDF menghasilkan berkas PDF', pdf.ct === 'application/pdf' && pdf.head === '%PDF-', JSON.stringify(pdf));
   check('tanpa scroll horizontal di ponsel', await r.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
   check('tanpa error JavaScript', errs.length === 0, errs.slice(0, 3).join(' | '));

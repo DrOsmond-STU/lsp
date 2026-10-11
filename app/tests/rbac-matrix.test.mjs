@@ -24,7 +24,7 @@ const NEED = {
   'dokumen': 'auth', 'dokumen/upload': ['profile.own'], 'dokumen/file': 'auth',
   'asesi/apply': ['application.own'], 'asesi/permohonan': ['application.own'], 'asesi/resubmit': ['application.own'], 'asesi/cancel': ['application.own'],
   'asesi/tagihan': ['payment.own'], 'asesi/bayar': ['payment.own'], 'asesi/sertifikat': ['certificate.own'], 'asesi/kelas': ['class.own'],
-  'asesi/kelas/daftar': ['class.own'], 'asesi/kelas/progres': ['class.own'], 'sertifikat/cetak': 'auth',
+  'asesi/kelas/daftar': ['class.own'], 'asesi/kelas/progres': ['class.own'], 'sertifikat/cetak': 'auth', 'sertifikat/pdf': 'auth',
   'asesor/jadwal': ['asesor.dashboard'], 'asesor/pra': ['preassessment.review'], 'asesor/pra/putus': ['preassessment.review'],
   'asesor/asesmen': ['assessment.conduct'], 'asesor/asesmen/simpan': ['assessment.conduct'], 'asesor/riwayat': ['asesor.history'], 'asesor/honor': ['asesor.honor'],
   'pleno': ['decision.manage', 'pleno.participate'], 'pleno/putus': ['decision.manage', 'pleno.participate'],

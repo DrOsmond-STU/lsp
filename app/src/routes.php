@@ -42,7 +42,7 @@ function dispatch(string $route): void
         'asesi/apply' => 'r_asesi_apply', 'asesi/permohonan' => 'r_asesi_permohonan', 'asesi/resubmit' => 'r_asesi_resubmit',
         'asesi/cancel' => 'r_asesi_cancel', 'asesi/tagihan' => 'r_asesi_tagihan', 'asesi/bayar' => 'r_asesi_bayar',
         'asesi/sertifikat' => 'r_asesi_sertifikat', 'asesi/kelas' => 'r_asesi_kelas', 'asesi/kelas/daftar' => 'r_asesi_kelas_daftar',
-        'asesi/kelas/progres' => 'r_asesi_kelas_progres', 'sertifikat/cetak' => 'r_sertifikat_cetak',
+        'asesi/kelas/progres' => 'r_asesi_kelas_progres', 'sertifikat/cetak' => 'r_sertifikat_cetak', 'sertifikat/pdf' => 'r_sertifikat_pdf',
         'asesor/jadwal' => 'r_asesor_jadwal', 'asesor/pra' => 'r_asesor_pra', 'asesor/pra/putus' => 'r_asesor_pra_putus',
         'asesor/asesmen' => 'r_asesor_asesmen', 'asesor/asesmen/simpan' => 'r_asesor_asesmen_simpan', 'asesor/riwayat' => 'r_asesor_riwayat',
         'asesor/honor' => 'r_asesor_honor', 'pleno' => 'r_pleno', 'pleno/putus' => 'r_pleno_putus',

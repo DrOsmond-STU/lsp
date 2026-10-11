@@ -5,7 +5,7 @@ Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran peng
 - **Alamat produksi:** https://lsp.semestateknologiutama.com
 - **Kode sumber:** folder `app/` di repositori ini
 - **Rancangan fitur awal:** [`docs/rancangan-fitur.md`](rancangan-fitur.md)
-- **Versi terpasang:** v10 (10 Oktober 2026): CRUD lengkap semua data, audit keamanan putaran 2, hardening
+- **Versi terpasang:** v11 (11 Oktober 2026): sertifikat PDF dengan kode QR verifikasi
 
 ---
 
@@ -84,6 +84,9 @@ app/
     notify.php             # notifikasi, outbox, driver WhatsApp
     ai.php                 # proxy asisten AI
     domain.php             # proses sertifikasi (permohonan, dokumen, asesor, pleno, chat)
+    qr.php                 # encoder kode QR (tanpa pustaka luar)
+    pdf.php                # penyusun PDF sederhana (font standar, vektor)
+    sertifikat.php         # tata letak sertifikat PDF + lampiran unit
     lsp_ops.php            # operasi staf LSP, TUK, platform, dan API publik
     blog.php               # CMS blog: artikel, moderasi, sampul, API blog publik (migrasi 7)
     migrations.php         # migrasi berversi + seed demo dasar
@@ -268,6 +271,19 @@ Aturan yang ditegakkan server:
 - Skema yang sudah dipakai (pendaftaran atau sertifikat): kode, nama, dan level KKNI tidak bisa diubah; unit kompetensinya juga tidak diganti.
 - Bila isi publik skema (nama, kode, KKNI, bidang, biaya, deskripsi, persyaratan) diubah, listing etalase yang sedang tayang **otomatis ditarik ke status menunggu** dan Admin Platform diberi notifikasi untuk meninjau ulang.
 
+### Sertifikat PDF dan kode QR
+
+Setiap sertifikat yang terbit bisa diunduh sebagai PDF (A4 melintang). PDF dibuat langsung oleh server saat diminta, tanpa pustaka luar dan tanpa disimpan di disk.
+
+- **Halaman 1:** nama LSP, judul "Sertifikat Kompetensi", nomor, nama pemegang, status KOMPETEN, skema (nama, kode, jumlah unit), tanggal terbit dan masa berlaku, penerbit, serta **kode QR** di kanan bawah beserta kode verifikasi.
+- **Halaman 2 dan seterusnya (lampiran):** daftar unit kompetensi (no., kode unit, judul). Bila unit banyak, tabel berlanjut ke halaman berikutnya dengan judul "(lanjutan)".
+- **Kode QR** berisi tautan `https://<alamat aplikasi>/?cek=<KODE>`. Memindai QR membuka halaman verifikasi publik yang menampilkan nama, skema, LSP, dan status sertifikat dari database, sehingga sertifikat palsu atau sudah dicabut langsung ketahuan. Halaman cetak HTML juga menampilkan QR yang sama.
+- **Peringatan:** bila sertifikat dicabut/dibekukan atau masa berlakunya habis, PDF memuat tulisan merah "SERTIFIKAT TIDAK BERLAKU" atau "MASA BERLAKU SERTIFIKAT TELAH HABIS".
+- **Siapa yang bisa mengunduh:** pemegang sertifikat, staf LSP penerbit yang punya hak `decision.manage` (Admin LSP, Manajer Mutu), dan Admin Platform. Pengguna lain mendapat 404 (tidak membocorkan bahwa sertifikat itu ada). Unduhan oleh selain pemegang dicatat di log audit (`sertifikat.pdf`).
+- **Tombol:** Dompet Sertifikat asesi punya **Unduh PDF**, **Lihat PDF**, dan **Cetak**; menu Pleno & Sertifikat dan Database Alumni punya tombol **PDF** dan **Cetak** di setiap baris.
+- **Teknis:** encoder QR (`src/qr.php`, versi 1–10, koreksi galat L/M/Q/H) dan penyusun PDF (`src/pdf.php`, font standar PDF) ditulis sendiri. Matriks QR diuji terhadap dua pembaca QR independen (jsQR dan ZXing), dan PDF hasil render dipindai ulang pada beberapa resolusi.
+- **Batasan:** PDF memakai font standar PDF (Helvetica/Times), sehingga huruf Latin termasuk aksen (é, ü, ñ) tampil benar, tetapi aksara non-Latin (mis. Arab, Tionghoa) tampil sebagai `?`. PDF belum bertanda tangan digital; keaslian dibuktikan lewat verifikasi QR ke database.
+
 ---
 
 ## 6. Menu dan fitur per peran
@@ -303,7 +319,7 @@ Data yang menjadi bukti proses sertifikasi (permohonan, tagihan, sertifikat, log
 | Daftar Skema Baru | Katalog skema dari semua LSP lalu wizard pendaftaran |
 | Jadwal Saya | Daftar permohonan dan statusnya, kirim ulang perbaikan, batalkan |
 | Pembayaran | Tagihan dan pembayaran (simulasi bila `payment_simulation` aktif) |
-| Dompet Sertifikat | Sertifikat milik sendiri: cetak/unduh, tautan verifikasi |
+| Dompet Sertifikat | Sertifikat milik sendiri: unduh/lihat PDF dengan kode QR, cetak, tautan verifikasi |
 | Kelas Saya | Kelas pelatihan (LMS): daftar, catat progres |
 | Profil & Dokumen | Data diri (tombol **Ubah profil**), unggah dan lihat dokumen (terkunci selama permohonan diproses) |
 
@@ -635,7 +651,8 @@ Semua endpoint: `api.php?r=<rute>`.
 | `asesi/cancel` | Batalkan |
 | `asesi/tagihan`, `asesi/bayar` | Tagihan dan pembayaran simulasi (`asesi/bayar` dibalas 403 bila `payment_simulation` = `false`) |
 | `asesi/sertifikat` | Sertifikat sendiri |
-| `sertifikat/cetak` | Halaman cetak sertifikat (HTML) |
+| `sertifikat/pdf` | Sertifikat PDF dengan kode QR (`&id=`; tambah `&unduh=1` untuk mengunduh). Pemilik, staf LSP penerbit dengan `decision.manage`, atau Admin Platform |
+| `sertifikat/cetak` | Halaman cetak sertifikat (HTML) dengan kode QR |
 | `asesi/kelas`, `asesi/kelas/daftar`, `asesi/kelas/progres` | Kelas pelatihan |
 
 ### Asesor dan pleno
@@ -771,6 +788,7 @@ Riwayat versi di produksi:
 | v8 | Responsif HP & tablet: laci menu, header ringkas, tabel adaptif menjadi kartu, grid tablet, target sentuh. |
 | v9 | Audit RBAC, keamanan, dan hardening (migrasi 8: `users.sess_ver`). Dideploy 10 Okt 2026, uji asap produksi lulus. Lihat bagian 11. |
 | v10 | CRUD lengkap (ubah/hapus/turunkan listing, hapus skema/TUK/jadwal/CRM/mutu/sarpras, ubah/hapus SKKNI, ubah profil asesi, nonaktifkan asesor dari menu Master), audit keamanan putaran 2, header isolasi lintas-origin, versi aset `?v=11` untuk menembus cache proxy (migrasi 9: `permohonan.harga`, salinan data di `sertifikat`). Dideploy 10 Okt 2026, cadangan database `storage/backup-db-pra-v10.sqlite`. |
+| v11 | Sertifikat PDF dengan kode QR verifikasi (unduh dari Dompet Sertifikat, Pleno & Sertifikat, Database Alumni), QR juga di halaman cetak, versi aset `?v=12`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 
 ### Rollback
 
@@ -804,15 +822,16 @@ node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server ti
 node tests/platform.test.mjs        # 23 uji: akses penuh Admin Platform + isolasi Admin LSP
 node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
 node tests/blog.test.mjs            # 83 uji: CMS blog (akses, isolasi, terjadwal, moderasi, sampul, API publik)
-node tests/rbac-matrix.test.mjs     # 1.190 uji: setiap peran × setiap endpoint sesuai hak akses
+node tests/rbac-matrix.test.mjs     # 1.201 uji: setiap peran × setiap endpoint sesuai hak akses
 node tests/crud.test.mjs            # 89 uji: buat/baca/ubah/hapus semua data + penjaga rujukan, cakupan LSP, hak akses
 node tests/security.test.mjs        # 49 uji: regresi temuan audit keamanan (putaran 1 dan 2)
+node tests/sertifikat.test.mjs      # 26 uji: PDF sertifikat (struktur, isi, lampiran), hak unduh, QR di halaman cetak, regresi encoder QR
 
 NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # uji browser: daftar asesi s.d. sertifikat terverifikasi
 NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs  # uji browser: buka semua menu untuk 7 peran
 NODE_PATH=$(npm root -g) node tests/ui/blog.cjs        # uji browser: tulis, pratinjau, terbitkan, sampul, baca, moderasi
 NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs   # audit responsif: semua halaman × 7 peran × 4 ukuran layar
-NODE_PATH=$(npm root -g) node tests/ui/crud.cjs        # uji browser tombol ubah/hapus/turunkan, nonaktif asesor, ubah profil
+NODE_PATH=$(npm root -g) node tests/ui/crud.cjs        # uji browser tombol ubah/hapus/turunkan, nonaktif asesor, ubah profil, unduh PDF
 ```
 
 Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php` lalu hapus `storage/test.sqlite`). Suite berbagi data (mis. NIK contoh) dan batas login per IP, sehingga menjalankan semuanya berturut-turut pada satu database bisa memicu kegagalan palsu. `tests/ui/alur-asesi.cjs` membuat jadwal "hari ini", jadi jalankan dengan `TZ=Asia/Jakarta`.
@@ -888,7 +907,7 @@ Contoh verifikasi sertifikat: buka `https://lsp.semestateknologiutama.com/?cek=T
 | Email | `mail()` server | SMTP/layanan transaksional dengan SPF/DKIM |
 | WhatsApp | Siap, tetapi token belum diisi | Isi `wa_driver` + `wa_token` di `config.php` |
 | Asisten AI | Siap, tetapi kunci belum diisi | Isi `ai_api_key` di `config.php` |
-| Sertifikat | Halaman cetak HTML + kode verifikasi | PDF bertanda tangan digital, QR code |
+| Sertifikat | PDF + halaman cetak dengan kode QR verifikasi; font standar (aksara non-Latin tampil `?`) | Tanda tangan digital (PAdES) + font tertanam untuk aksara non-Latin |
 | Formulir MUK | Hasil per unit (K/BK) + catatan | Formulir FR.IA lengkap per metode uji |
 | Laporan BNSP | Rekap + CSV | Format sesuai template terbaru BNSP |
 | LMS | Daftar kelas + progres | Materi, kuis, video |
