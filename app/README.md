@@ -1,84 +1,97 @@
-# PortalLSP — aplikasi (PHP tanpa framework)
+# PortalLSP: aplikasi (PHP tanpa framework)
 
-Backend PHP + frontend satu halaman untuk purwarupa PortalLSP, dengan autentikasi dan RBAC multi-LSP.
+Aplikasi sertifikasi kompetensi multi-LSP: portal publik, pendaftaran asesi, proses asesmen sampai pleno, sertifikat PDF dengan kode QR dan tanda tangan digital, serta menu operasional LSP, TUK, asesor, dan Admin Platform.
+
+- **Produksi:** https://lsp.semestateknologiutama.com (versi terpasang **v12**, 11 Oktober 2026)
+- **Dokumentasi lengkap:** [`../docs/dokumentasi-portallsp.md`](../docs/dokumentasi-portallsp.md). Berisi peran, alur, menu, keamanan, model data, semua endpoint, konfigurasi, deploy, dan riwayat versi.
+- **Rancangan fitur awal:** [`../docs/rancangan-fitur.md`](../docs/rancangan-fitur.md)
+
+README ini hanya ringkasan untuk pengembang. Bila ada perbedaan, yang berlaku adalah dokumentasi lengkap.
+
+## Teknologi
+
+| Bagian | Pilihan |
+|---|---|
+| Backend | PHP 8.3 tanpa framework, satu pintu masuk `public/api.php?r=<rute>` |
+| Database | SQLite (produksi saat ini) atau MySQL, migrasi berversi otomatis |
+| Frontend | SPA vanilla JS (`app.js` + `fitur.js`), CSP ketat `script-src 'self'` |
+| PDF dan QR | Penyusun PDF dan encoder QR ditulis sendiri (`src/pdf.php`, `src/qr.php`), tanpa pustaka luar |
+| Tanda tangan digital | OpenSSL (CMS/PKCS#7 terlepas): CA PortalLSP dan satu sertifikat per LSP, atau `.p12` dari PSrE |
+| Notifikasi | Email (`mail()`), WhatsApp (Fonnte / WhatsApp Cloud API), antrean lewat cron |
+| AI | Claude Messages API, dipanggil dari server |
+
+## Struktur folder
 
 ```
 app/
-  config.php          # TIDAK di-commit (lihat config.example.php)
-  src/                # di luar docroot: bootstrap, db, http, rbac, auth, migrations, routes
-  public/             # docroot web: index.html, app.js, api.php, .htaccess
-  storage/            # sesi, lock migrasi, database SQLite (tidak di-commit)
-  tools/smoke.php     # uji asap via CLI/cron
-  tools/notify-worker.php  # pengirim antrean email/WhatsApp (cron)
-  tests/              # uji integrasi API
+  config.php            # TIDAK di-commit; salin dari config.example.php
+  config.example.php    # contoh konfigurasi tanpa rahasia
+  public/               # docroot: index.html, app.js, fitur.js, fitur.css, api.php, .htaccess
+  src/                  # di luar docroot: semua logika server (lihat dokumentasi bagian 2)
+  storage/              # di luar docroot, tidak di-commit: database, sesi, unggahan, app.key, tte/ (kunci tanda tangan), log, cadangan
+  tools/
+    smoke.php           # uji asap CLI (unggah ke server hanya saat dibutuhkan)
+    notify-worker.php   # pengirim antrean email/WhatsApp (cron)
+    fix-header.php      # perbaikan sekali jalan untuk app.js (riwayat; tidak perlu dijalankan lagi)
+  tests/                # uji API (Node) dan uji browser (Playwright)
 ```
-
-## Keamanan yang diterapkan
-- Password di-hash `password_hash` (bcrypt) dan di-rehash otomatis; kebijakan min. 10 karakter, huruf + angka.
-- Sesi: cookie `HttpOnly`, `Secure`, `SameSite=Lax`; ID sesi diganti saat login/ganti konteks/ganti password;
-  idle timeout 30 menit, maksimal 8 jam; file sesi di luar docroot.
-- CSRF: token per sesi wajib di header `X-CSRF-Token` + cek `Origin` untuk setiap POST.
-- Penguncian login: 5 gagal per email atau 20 per IP dalam 15 menit; pesan error sama untuk email terdaftar/tidak.
-- Akun baru dari Admin LSP wajib ganti password saat login pertama; API lain diblokir sampai diganti.
-- RBAC dari tabel `roles`, `permissions`, `role_permissions`; diperiksa di server pada setiap endpoint.
-- Isolasi LSP: semua query listing/pengguna memakai `lsp_id` dari keanggotaan aktif di sesi (bukan dari input);
-  data LSP lain dibalas 404.
-- Admin Platform memegang semua hak akses dan melihat data semua LSP (menu LSP Klien, etalase, pengguna, log),
-  dengan filter LSP opsional `?lsp=ID`. Parameter ini diabaikan untuk peran lain. Peran internal LSP hanya boleh satu keanggotaan; asesor/asesi boleh banyak.
-- Akun dibaca ulang dari DB tiap request, jadi akun/keanggotaan nonaktif langsung kehilangan akses.
-- Log audit untuk login, logout, akses ditolak, perubahan listing, keputusan kurasi, dan manajemen pengguna.
-- Header keamanan & CSP ketat (`script-src 'self'`), HTTPS + HSTS, semua teks dari server di-escape di klien.
-
-## Proses sertifikasi (semua menu berfungsi)
-- **Asesi:** cari skema di portal → pilih jadwal → isi APL.02 → unggah KTP/ijazah/pas foto (dipakai ulang) → setujui
-  berbagi data ke LSP → ajukan. Lalu bayar tagihan, pantau pra-asesmen/uji/pleno, unduh/cetak sertifikat, ikut kelas LMS.
-- **Admin LSP / staf:** verifikasi pendaftaran (terima/perbaikan/tolak → tagihan otomatis), jadwal & penugasan asesor
-  (cek bentrok), pemantauan asesmen, pleno & sertifikat, master skema/unit/TUK/asesor, alumni, keuangan (konfirmasi
-  manual), CRM (kanban), mutu Pedoman 201, laporan BNSP (unduh CSV), pengaturan profil LSP, tiket support.
-- **Asesor:** kalender gabungan lintas LSP, tinjau pra-asesmen, isi hasil asesmen per unit (hanya pada/sesudah tanggal
-  uji), pleno (tidak boleh untuk asesmen yang ia uji sendiri), riwayat/logbook CSV, honor per LSP.
-- **TUK:** dashboard, pemohon, jadwal, sarana-prasarana, group chat per jadwal, alumni TUK (Admin TUK hanya TUK-nya).
-- **Admin Platform:** LSP klien (onboarding/nonaktif), paket & kuota, pustaka SKKNI, tiket support, log audit + semua menu LSP.
-- **Publik:** katalog skema, jadwal, direktori LSP, pelatihan, verifikasi sertifikat (`/?cek=KODE`).
-- **Blog (CMS):** Admin LSP/Marketing menulis artikel LSP-nya (Markdown sederhana, pratinjau, sampul JPG/PNG, draf/terbit/terjadwal);
-  Admin Platform menulis atas nama platform/LSP mana pun dan bisa menurunkan/memulihkan artikel. Publik: menu Blog, pencarian,
-  kategori, tautan langsung `/?artikel=SLUG`. Teks di-escape sebelum format diterapkan, jadi HTML dari penulis tidak dijalankan.
-- Dokumen diunggah ke `storage/uploads` (di luar docroot), dicek dari isi berkas (PDF/JPG/PNG, maks 2 MB), dan hanya
-  bisa dibuka pemilik, staf LSP tempat ia mendaftar, asesor yang ditugaskan, atau Admin Platform (tercatat di audit).
-- Pembayaran masih simulasi (belum terhubung payment gateway).
-
-## Notifikasi (aplikasi, email, WhatsApp)
-- Setiap peristiwa penting membuat notifikasi di kotak masuk aplikasi (ikon lonceng) lalu diantrekan ke email/WhatsApp
-  sesuai pengaturan pengguna. Pengiriman dilakukan `tools/notify-worker.php` lewat cron (tiap 2 menit), dengan
-  percobaan ulang hingga 5 kali.
-- Peristiwa: listing diajukan (ke Admin Platform), listing disetujui/revisi/ditolak (ke staf LSP yang mengelola etalase),
-  akun dibuat dan akses diaktifkan/dinonaktifkan (ke pengguna), password diganti (selalu ke email, tidak bisa dimatikan).
-- WhatsApp hanya dikirim bila pengguna mengisi nomor dan mencentang persetujuan (opt-in); waktunya dicatat.
-- Password sementara tidak pernah dikirim lewat email/WA.
-- Log pengiriman: Admin LSP hanya melihat notifikasi LSP-nya, Admin Platform melihat semua; penerima disamarkan.
-- Driver WA: `fonnte` atau `meta` (WhatsApp Cloud API, wajib template). Kosong = kanal WA dilewati.
-
-## Asisten AI
-- Panggilan ke API Claude dilakukan dari server; kunci hanya di `config.php`. Kosong = fitur nonaktif.
-- Konteks yang dikirim ke model hanya data milik pengguna/LSP aktifnya (ringkasan peran, hak akses, status listing).
-  Email, NIK, dan nomor HP tidak dikirim; NIK/email/nomor HP yang diketik pengguna disamarkan sebelum dikirim.
-- Model tidak punya akses tool, jadi tidak bisa mengubah data atau membaca data di luar konteks.
-- Isi percakapan tidak disimpan di server; yang dicatat hanya jumlah token (tabel `ai_usage`).
-- Batas: 20 pesan/jam dan 100 pesan/hari per pengguna, plus batas harian platform (`ai_daily_limit`).
-- Aturan integritas: asisten tidak membuatkan jawaban uji, isian APL.02, atau bukti portofolio.
 
 ## Menjalankan lokal
+
+```bash
+cd app
+php tests/make-test-config.php      # config SQLite + akun demo khusus lokal (password: Demo-Pass-2026)
+php -S 127.0.0.1:8099 -t public     # buka http://127.0.0.1:8099
 ```
-php tests/make-test-config.php        # config SQLite + akun demo (password: Demo-Pass-2026, hanya lokal)
-php -S 127.0.0.1:8099 -t public
-node tests/api.test.mjs               # 49 uji autentikasi, CSRF, RBAC, isolasi LSP
-node tests/register.test.mjs          # 29 uji pendaftaran asesi
-node tests/notify-ai.test.mjs         # 47 uji notifikasi & asisten AI (server tiruan di port 8098)
-node tests/platform.test.mjs          # 23 uji akses penuh Admin Platform + isolasi Admin LSP
-node tests/flow.test.mjs              # 108 uji alur sertifikasi ujung-ke-ujung + isolasi
-node tests/blog.test.mjs              # 83 uji CMS blog: akses, isolasi, terjadwal, moderasi, sampul, API publik
-NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs   # uji browser (Playwright): daftar asesi s.d. sertifikat
-NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs   # uji browser: klik semua menu tiap peran
-NODE_PATH=$(npm root -g) node tests/ui/blog.cjs         # uji browser: CMS blog s.d. halaman artikel publik
-NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs    # audit responsif: semua halaman, 7 peran, lebar 360/390/768/1024
+
+Akun demo dan data contoh dijelaskan di dokumentasi bagian 17. Contoh verifikasi sertifikat: `/?cek=TDN7K3P9QX`.
+
+## Pengujian
+
+Jalankan setiap suite pada database baru: hapus `storage/test.sqlite` sebelum suite berikutnya. Suite saling berbagi data contoh dan batas login per IP.
+
+```bash
+node tests/api.test.mjs             # 49 uji: autentikasi, CSRF, RBAC, isolasi LSP
+node tests/register.test.mjs        # 29 uji: pendaftaran asesi mandiri
+node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server tiruan port 8098)
+node tests/platform.test.mjs        # 23 uji: akses penuh Admin Platform + isolasi Admin LSP
+node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
+node tests/blog.test.mjs            # 83 uji: CMS blog
+node tests/rbac-matrix.test.mjs     # 1.211 uji: setiap peran × setiap endpoint
+node tests/crud.test.mjs            # 89 uji: buat/baca/ubah/hapus semua data
+node tests/security.test.mjs        # 49 uji: regresi temuan audit keamanan
+node tests/sertifikat.test.mjs      # 36 uji: PDF sertifikat, kode QR, tanda tangan digital, hak unduh
+
+TZ=Asia/Jakarta NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # daftar asesi s.d. sertifikat terverifikasi
+NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs                  # buka semua menu untuk 7 peran
+NODE_PATH=$(npm root -g) node tests/ui/blog.cjs                        # CMS blog s.d. halaman artikel publik
+NODE_PATH=$(npm root -g) node tests/ui/crud.cjs                        # tombol ubah/hapus, profil, unduh PDF
+NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs                   # 548 tampilan di lebar 360/390/768/1024 px
 ```
+
+Hasil terakhir (11 Oktober 2026, v12): semua 1.724 uji API lulus, semua uji browser lulus, dan audit responsif tanpa masalah.
+
+## Ringkasan keamanan
+
+Rinciannya ada di dokumentasi bagian 4 dan 11.
+
+- **Password:** bcrypt dengan rehash otomatis. Akun buatan admin wajib ganti password saat login pertama.
+- **Sesi:** cookie `HttpOnly`/`Secure`/`SameSite=Lax`, ID sesi diganti saat login, batas idle 30 menit, maksimal 8 jam. Ganti password mengakhiri sesi lain.
+- **CSRF:** token per sesi + cek `Origin`.
+- **Brute force:** penguncian login per email dan per IP (IPv6 dihitung per /64).
+- **RBAC:** dari database, dicek di setiap endpoint. `lsp_id` selalu diambil dari sesi; data LSP lain dibalas 404.
+- **Data pribadi:** NIK terenkripsi AES-256-GCM. Unggahan dicek dari isi berkas dan disimpan di luar docroot.
+- **Kunci tanda tangan digital:** di `storage/tte/`, terenkripsi, izin 0600.
+- **Header:** CSP ketat, HSTS, X-Frame-Options, isolasi lintas-origin.
+
+## Deploy
+
+Produksi diperbarui dengan **patch PHP sekali jalan** yang memeriksa SHA-256 setiap berkas sebelum menulis dan menyimpan cadangan di `storage/backup-<waktu>/`. Langkahnya ada di dokumentasi bagian 15.
+
+**Sebelum dipakai LSP sungguhan,** baca dulu daftar periksanya di bagian yang sama:
+- matikan `payment_simulation`;
+- hapus akun demo;
+- cadangkan `storage/app.key` dan `storage/tte/`;
+- umumkan sidik jari CA, atau pasang sertifikat PSrE.
+
+Setiap rilis yang mengubah JS/CSS wajib menaikkan `?v=` di `public/index.html`, karena proxy hosting menyimpan berkas statis sebagai *immutable* selama 30 hari.

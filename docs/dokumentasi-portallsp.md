@@ -96,6 +96,7 @@ app/
   tools/
     smoke.php              # uji asap (CLI); unggah ke server hanya saat dibutuhkan
     notify-worker.php      # pengirim antrean email/WhatsApp (cron)
+    fix-header.php         # perbaikan sekali jalan untuk app.js (riwayat; tidak perlu dijalankan lagi)
   tests/                   # uji API (Node) + uji browser (Playwright)
 ```
 
@@ -309,6 +310,9 @@ Setiap PDF sertifikat **ditandatangani secara digital oleh LSP penerbit**. Tanda
   - **Cadangkan `storage/tte/` bersama `storage/app.key`.** Bila hilang, aplikasi membuat CA dan kunci baru. PDF lama tetap bisa diperiksa, tetapi pengguna yang sudah memasang CA lama perlu memasang CA baru.
 - **Gagal aman:** bila penandatanganan gagal karena alasan apa pun, PDF tetap dibuat **tanpa** kotak "ditandatangani" (tidak ada klaim palsu) dan galatnya dicatat di log PHP. Nonaktifkan seluruh fitur dengan `tte_aktif` = `false`.
 - **Diuji dengan:** `pdfsig` (Poppler), pyHanko (dengan CA PortalLSP sebagai akar tepercaya: sah, tepercaya, mencakup seluruh berkas), dan `openssl cms -verify`. PDF yang diubah 1 byte terdeteksi tidak sah. Rantai bergaya PSrE (akar → perantara → LSP) juga diuji.
+- **CA produksi saat ini** (dibuat 11 Oktober 2026), sidik jari SHA-256:
+  `9680040C F2FBB5EF 0519C1A6 EE192AD0 9227EEA0 9F7DEAF2 B52203E3 004888AE`.
+  Penerima sertifikat bisa mencocokkan angka ini dengan sertifikat CA yang mereka unduh sebelum memasangnya sebagai sertifikat tepercaya.
 - **Batasan:**
   - Belum ada stempel waktu dari TSA (RFC 3161), sehingga waktu tanda tangan berasal dari jam server.
   - Belum ada daftar pencabutan (CRL/OCSP) untuk sertifikat bawaan.
@@ -433,6 +437,7 @@ Bisa diakses tanpa login:
   - Dengan **kode verifikasi** (10 karakter, tercetak di sertifikat): nama pemegang tampil lengkap.
   - Dengan **nomor sertifikat**: keabsahan tampil, tetapi nama disamarkan (mis. `R*** K****** S***`), agar nomor yang berurutan tidak bisa dipakai mengumpulkan nama orang.
   - Dibatasi 30 permintaan per 10 menit per IP (IPv6 dihitung per blok /64).
+  - Hasil verifikasi menyertakan tautan unduh **sertifikat CA PortalLSP** (`api.php?r=pub/ca`) untuk memeriksa tanda tangan digital PDF di Adobe Acrobat Reader (lihat bagian 5, "Tanda tangan digital").
 - **Pendaftaran asesi mandiri** dengan verifikasi email (`/?verifikasi=TOKEN`). Dibatasi 30 percobaan per IP per jam; kirim ulang email verifikasi maks. 5 kali per 24 jam.
 
 Halaman publik tidak membuat cookie sesi bagi pengunjung yang belum pernah login.
@@ -796,7 +801,7 @@ File `app/config.php` (di luar docroot, **tidak di-commit**) berisi array beriku
 
 | Jadwal | Perintah | Fungsi |
 |---|---|---|
-| Tiap 2–6 menit | `/opt/alt/php83/usr/bin/php /home/<akun>/lsp-app/tools/notify-worker.php >> .../storage/notify-worker.log 2>&1` | Mengirim antrean email/WhatsApp |
+| Tiap 6 menit (`*/6`; boleh lebih sering) | `/opt/alt/php83/usr/bin/php /home/<akun>/lsp-app/tools/notify-worker.php >> .../storage/notify-worker.log 2>&1` | Mengirim antrean email/WhatsApp |
 
 ### Pembaruan versi (cara yang dipakai di produksi)
 
@@ -967,13 +972,14 @@ Contoh verifikasi sertifikat: buka `https://lsp.semestateknologiutama.com/?cek=T
 4. Pantau status di **Jadwal Saya**. Bila diminta perbaikan, perbaiki lalu kirim ulang.
 5. Setelah diterima, bayar di **Pembayaran**.
 6. Ikuti uji sesuai jadwal. Setelah pleno, sertifikat muncul di **Dompet Sertifikat**.
+7. Di Dompet Sertifikat: **Unduh PDF** (sertifikat bertanda tangan digital dengan kode QR), **Lihat PDF**, **Cetak**, atau **Salin tautan verifikasi** untuk dibagikan ke pemberi kerja.
 
 ### Admin LSP
 
 1. **Pendaftaran:** buka berkas → periksa dokumen dan APL.02 → Terima / Perbaikan / Tolak.
 2. **Jadwal & Penugasan:** buat jadwal → tetapkan asesor.
 3. **Asesmen:** pantau progres.
-4. **Pleno & Sertifikat:** putuskan K/BK. Sertifikat terbit otomatis.
+4. **Pleno & Sertifikat:** putuskan K/BK. Sertifikat terbit otomatis; tombol **PDF** dan **Cetak** tersedia di daftar sertifikat dan di **Database Alumni**.
 5. **Skema, Asesor, TUK:** kelola master data.
 6. **Etalase:** tambah listing → ajukan ke Admin Platform.
 7. **Blog (CMS):** Tulis artikel → isi judul, kategori, isi (pakai Pratinjau) → pilih *Terbitkan* (atau isi waktu terbit untuk menjadwalkan) → Simpan → unggah gambar sampul.

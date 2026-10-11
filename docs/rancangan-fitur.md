@@ -2,6 +2,19 @@
 
 Referensi pembanding: sales deck NAS (PT Nusantara Aplikasi Sertimedia), 2023.
 
+> **Catatan status (11 Oktober 2026).** Dokumen ini adalah **rancangan awal** dan tidak diperbarui mengikuti implementasi. Apa yang sudah dibangun, cara kerjanya, dan batasannya ada di [`dokumentasi-portallsp.md`](dokumentasi-portallsp.md); daftar yang belum dikerjakan ada di bagian 18 dokumen itu.
+>
+> Beberapa butir rancangan yang sudah terwujud (versi terpasang v12):
+> - arsitektur multi-LSP dengan isolasi data;
+> - pendaftaran asesi mandiri;
+> - alur pendaftaran sampai pleno;
+> - dompet sertifikat;
+> - verifikasi publik dengan kode QR;
+> - **sertifikat PDF bertanda tangan digital**;
+> - notifikasi email/WhatsApp, asisten AI, dan CMS blog.
+>
+> Tanda tangan digital yang terpasang adalah **tanda tangan institusi LSP pada PDF sertifikat**. Sertifikat penandanya berasal dari CA PortalLSP, atau dari PSrE bila dipasang lewat konfigurasi. TTE perorangan untuk asesor, asesi, dan pleno lewat PSrE (butir 🆕 P1 di bagian 7, Modul Pelaksanaan Asesmen) **belum** dikerjakan.
+
 Legenda:
 - ✅ = sudah ada di NAS (wajib ada juga di aplikasi kita)
 - 🆕 = belum ada / tidak disebut di NAS, usulan tambahan sebagai pembeda
