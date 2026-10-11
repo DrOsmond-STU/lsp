@@ -144,3 +144,9 @@ table.stack td select,table.stack td input:not([type=radio]):not([type=checkbox]
   .topbar .menu-btn{margin-left:0}
   .kpi{flex-direction:column;align-items:flex-start;gap:.55rem}
 }
+/* Kartu KPI sempit dengan angka panjang (mis. nominal rupiah pada 3 kolom di layar 1024px): ikon di atas, angka sedikit lebih kecil. */
+.grid>.kpi{container-type:inline-size}
+.kpi-panjang{flex-wrap:wrap}
+@container (max-width:260px){.kpi-panjang>div{flex-basis:100%}.kpi-panjang b{font-size:1.3rem}}
+/* Di HP kecil kartu KPI sudah bertumpuk (kolom), jadi aturan angka panjang tidak dipakai. */
+@media (max-width:420px){.kpi-panjang{flex-wrap:nowrap}.kpi-panjang>div{flex-basis:auto}}

@@ -401,7 +401,7 @@ const MODUL = {
   support:['Tiket support','Tiket dari LSP.',['SLA per paket','Prioritas','Riwayat']],
   audit:['Log akses support','Akses "masuk sebagai" yang diizinkan LSP.',['Izin Admin LSP','Batas waktu','Terlihat oleh LSP']]
 };
-function kpi(ico,warna,val,label,sub=''){return `<div class="card kpi"><span class="k-ico" style="background:${GRAD[warna]};box-shadow:0 10px 20px -8px var(--s-${warna})">${ic(ico)}</span><div style="min-width:0"><b>${val}</b><span class="muted" style="font-size:.84rem">${label}</span>${sub?`<div style="font-size:.75rem;margin-top:.15rem">${sub}</div>`:''}</div></div>`}
+function kpi(ico,warna,val,label,sub=''){return `<div class="card kpi${String(val).replace(/<[^>]*>/g,'').length>8?' kpi-panjang':''}"><span class="k-ico" style="background:${GRAD[warna]};box-shadow:0 10px 20px -8px var(--s-${warna})">${ic(ico)}</span><div style="min-width:0"><b>${val}</b><span class="muted" style="font-size:.84rem">${label}</span>${sub?`<div style="font-size:.75rem;margin-top:.15rem">${sub}</div>`:''}</div></div>`}
 const TRACK_L = '<div class="track-l"><span>Daftar</span><span>Berkas</span><span>Bayar</span><span>Pra</span><span>Uji</span><span>Pleno</span><span>Sertifikat</span></div>';
 const track = n => `<div class="track">${[0,1,2,3,4,5,6].map(i=>`<div class="${i<n?'d':i===n?'n':''}"></div>`).join('')}</div>`+TRACK_L;
 
