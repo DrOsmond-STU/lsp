@@ -836,9 +836,10 @@ NODE_PATH=$(npm root -g) node tests/ui/crud.cjs        # uji browser tombol ubah
 
 Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php` lalu hapus `storage/test.sqlite`). Suite berbagi data (mis. NIK contoh) dan batas login per IP, sehingga menjalankan semuanya berturut-turut pada satu database bisa memicu kegagalan palsu. `tests/ui/alur-asesi.cjs` membuat jadwal "hari ini", jadi jalankan dengan `TZ=Asia/Jakarta`.
 
-Hasil terakhir (10 Oktober 2026, v10):
+Hasil terakhir (11 Oktober 2026, v11):
 
-- Semua 1.667 uji API lulus pada database baru (termasuk 1.190 uji matriks RBAC, 89 uji CRUD, dan 49 uji keamanan), plus 24 uji browser blog dan 12 uji browser CRUD.
+- Semua 1.704 uji API lulus pada database baru (termasuk 1.201 uji matriks RBAC, 89 uji CRUD, 49 uji keamanan, dan 26 uji sertifikat PDF), plus 24 uji browser blog dan 14 uji browser CRUD (termasuk unduh PDF dari Dompet Sertifikat).
+- Kode QR di PDF hasil render terbaca oleh jsQR dan ZXing pada 72, 110, dan 200 dpi.
 - Uji browser alur asesi (daftar → verifikasi → bayar → pra-asesmen → asesmen → pleno → sertifikat → verifikasi publik) lulus.
 - Uji browser membuka semua menu di 7 peran tanpa error JavaScript dan tanpa halaman kosong/placeholder.
 - Audit responsif: 548 tampilan (halaman publik + semua menu 7 peran, termasuk formulir dan panel detail) di lebar 360, 390, 768, dan 1024 px; tidak ada elemen yang keluar layar dan tidak ada scroll horizontal.
