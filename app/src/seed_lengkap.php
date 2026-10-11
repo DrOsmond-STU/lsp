@@ -225,6 +225,10 @@ function sd_isi(array $demo): void
         for ($m = 11; $m >= 1; $m--) {
             $tgl = date('Y-m-d', strtotime('-' . (30 * $m + mt_rand(-4, 4)) . ' days'));
             $asesor = $asesorLsp[$lsp][($m + (int)$s['id']) % count($asesorLsp[$lsp])];
+            // Asesor yang bertugas di beberapa LSP tidak boleh punya dua jadwal di hari yang sama.
+            while (q('SELECT 1 FROM jadwal WHERE asesor_id = ? AND tanggal = ?', [$asesor, $tgl])->fetch()) {
+                $tgl = date('Y-m-d', strtotime($tgl . ' -1 day'));
+            }
             $jid = $jadwal($s, $tgl, $asesor, 'selesai');
             $n = $lsp === 1 ? mt_rand(2, 5) : mt_rand(2, 3);
             $peserta = array_values(array_filter($pool[$lsp], function ($a) use ($sudahK, $s) { return empty($sudahK[$s['id']][$a]); }));
