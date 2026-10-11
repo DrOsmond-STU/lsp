@@ -5,7 +5,7 @@ Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran peng
 - **Alamat produksi:** https://lsp.semestateknologiutama.com
 - **Kode sumber:** folder `app/` di repositori ini
 - **Rancangan fitur awal:** [`docs/rancangan-fitur.md`](rancangan-fitur.md)
-- **Versi terpasang:** v13 (11 Oktober 2026): harga paket satu sumber di halaman Untuk LSP, footer produksi
+- **Versi terpasang:** v14 (11 Oktober 2026): harga paket satu sumber di halaman Untuk LSP, footer produksi tanpa label PSE
 
 ---
 
@@ -833,6 +833,7 @@ Riwayat versi di produksi:
 | v11 | Sertifikat PDF dengan kode QR verifikasi (unduh dari Dompet Sertifikat, Pleno & Sertifikat, Database Alumni), QR juga di halaman cetak, versi aset `?v=12`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 | v12 | Tanda tangan digital PDF sertifikat: CA PortalLSP, sertifikat penanda tangan per LSP, dukungan `.p12` PSrE, kotak tanda tangan di halaman 1, unduh CA (`pub/ca`) dari halaman verifikasi, versi aset `?v=13`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 | v13 | Halaman Untuk LSP membaca harga dan kuota dari server (`pub/paket`), sehingga selalu sama dengan Paket & Tagihan; tombol demo palsu diganti tautan `kontak_sales`; footer "Purwarupa UI/UX" diganti deskripsi produk; versi aset `?v=14`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
+| v14 | Label "Terdaftar PSE · Server di Indonesia" dihapus dari footer portal publik dan aplikasi, karena status PSE belum dikonfirmasi; versi aset `?v=15`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 
 ### Rollback
 
@@ -881,9 +882,9 @@ NODE_PATH=$(npm root -g) node tests/ui/crud.cjs        # uji browser tombol ubah
 
 Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php` lalu hapus `storage/test.sqlite`). Suite berbagi data (mis. NIK contoh) dan batas login per IP, sehingga menjalankan semuanya berturut-turut pada satu database bisa memicu kegagalan palsu. `tests/ui/alur-asesi.cjs` membuat jadwal "hari ini", jadi jalankan dengan `TZ=Asia/Jakarta`.
 
-Hasil terakhir (11 Oktober 2026, v13):
+Hasil terakhir (11 Oktober 2026, v14):
 
-- Semua 1.738 uji API lulus pada database baru (termasuk 1.221 uji matriks RBAC, 89 uji CRUD, 49 uji keamanan, dan 36 uji sertifikat PDF dan tanda tangan digital), plus 24 uji browser blog dan 18 uji browser CRUD (termasuk harga paket di halaman Untuk LSP dan unduh PDF dari Dompet Sertifikat).
+- Semua 1.738 uji API lulus pada database baru (termasuk 1.221 uji matriks RBAC, 89 uji CRUD, 49 uji keamanan, dan 36 uji sertifikat PDF dan tanda tangan digital), plus 24 uji browser blog dan 19 uji browser CRUD (termasuk harga paket di halaman Untuk LSP, footer tanpa label PSE dan unduh PDF dari Dompet Sertifikat).
 - Kode QR di PDF hasil render terbaca oleh jsQR dan ZXing pada 72, 110, dan 200 dpi.
 - Uji browser alur asesi (daftar → verifikasi → bayar → pra-asesmen → asesmen → pleno → sertifikat → verifikasi publik) lulus.
 - Uji browser membuka semua menu di 7 peran tanpa error JavaScript dan tanpa halaman kosong/placeholder.

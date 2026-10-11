@@ -361,7 +361,7 @@ function pUntuk(){
 }
 function publik(){
   const pages={beranda:pBeranda,cari:pCari,detail:pDetail,jadwal:pJadwal,lsp:pLsp,lms:pLms,verif:pVerif,untuk:pUntuk,login:pLogin,daftar:pDaftar};
-  return topbar()+(pages[S.page]||pBeranda)()+`<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Platform sertifikasi kompetensi untuk LSP berlisensi BNSP</span></span><span class="muted">Terdaftar PSE · Server di Indonesia</span></div></footer>`;
+  return topbar()+(pages[S.page]||pBeranda)()+`<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Platform sertifikasi kompetensi untuk LSP berlisensi BNSP</span></span></div></footer>`;
 }
 
 

@@ -1289,7 +1289,7 @@ go = function (page, extra = {}) { if (page === 'blog' && !('blogSlug' in extra)
 const PUB_PAGES = () => ({beranda: pBeranda, cari: pCari, detail: pDetail, jadwal: pJadwal, lsp: pLsp, lms: pLms, verif: pVerif, untuk: pUntuk, login: pLogin, daftar: pDaftar, blog: pBlogPub});
 publik = function () {
   document.title = TITLE0;
-  return topbar() + (PUB_PAGES()[S.page] || pBeranda)() + `<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Platform sertifikasi kompetensi untuk LSP berlisensi BNSP</span></span><span class="row" style="gap:1rem"><button class="btn ghost sm" data-go="blog">Blog</button><span class="muted">Terdaftar PSE · Server di Indonesia</span></span></div></footer>`;
+  return topbar() + (PUB_PAGES()[S.page] || pBeranda)() + `<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Platform sertifikasi kompetensi untuk LSP berlisensi BNSP</span></span><button class="btn ghost sm" data-go="blog">Blog</button></div></footer>`;
 };
 (function () {
   const a = new URLSearchParams(location.search).get('artikel');

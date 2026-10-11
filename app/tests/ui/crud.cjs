@@ -27,6 +27,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     p.on('pageerror', e => errs.push(e.message));
     await p.goto(BASE + '/', { waitUntil: 'networkidle' });
     check('footer tanpa teks purwarupa', !/purwarupa/i.test(await p.locator('footer').innerText()));
+    check('footer tanpa label PSE yang belum dikonfirmasi', !/PSE|Server di Indonesia/.test(await p.locator('footer').innerText()));
     await p.click('.topbar [data-go="untuk"]'); await p.waitForTimeout(800);
     const paket = await p.evaluate(async () => (await (await fetch('api.php?r=pub/paket')).json()).paket);
     const teks = await p.locator('.plans').innerText();
