@@ -174,11 +174,19 @@ final class MiniPdf
         $this->put($ops . 'f Q');
     }
 
-    /** Susun berkas PDF. $info: Title, Author, Subject (UTF-8). */
-    public function output(array $info = []): string
+    /**
+     * Susun berkas PDF. $info: Title, Author, Subject (UTF-8).
+     * $ttd (opsional) menandatangani PDF secara digital: ['signer' => hasil tte_penanda_tangan(), 'page' => indeks halaman,
+     * 'rect' => [x, y, w, h] area tanda tangan (koordinat dari kiri atas), 'nama', 'alasan', 'lokasi', 'kontak'].
+     */
+    public function output(array $info = [], ?array $ttd = null): string
     {
+        $str = function (string $v): string {
+            // Teks metadata sebagai UTF-16BE dengan BOM, dalam bentuk heksadesimal.
+            $u = function_exists('mb_convert_encoding') ? mb_convert_encoding($v, 'UTF-16BE', 'UTF-8') : pdf_ansi($v);
+            return '<' . (function_exists('mb_convert_encoding') ? 'FEFF' : '') . strtoupper(bin2hex($u)) . '>';
+        };
         $objs = [];
-        $objs[1] = '<< /Type /Catalog /Pages 2 0 R >>';
         $fontIds = [];
         $next = 3;
         foreach (PDF_FONTS as $key => $base) {
@@ -188,8 +196,22 @@ final class MiniPdf
         $fontRes = '';
         $i = 1;
         foreach ($fontIds as $id) $fontRes .= '/F' . $i++ . ' ' . $id . ' 0 R ';
+        $acro = '';
+        if ($ttd) {
+            // Kamus tanda tangan dengan tempat kosong untuk ByteRange dan isi tanda tangan; diisi setelah berkas tersusun.
+            $sigId = $next++;
+            $widId = $next++;
+            $apId = $next++;
+            [$rx, $ry, $rw, $rh] = $ttd['rect'];
+            $objs[$sigId] = '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached /ByteRange ' . self::BR_KOSONG
+                . ' /Contents <' . str_repeat('0', self::TTD_BYTE * 2) . '> /M (D:' . date('YmdHis') . str_replace(':', "'", date('P')) . "')"
+                . ' /Name ' . $str((string)($ttd['nama'] ?? '')) . ' /Reason ' . $str((string)($ttd['alasan'] ?? ''))
+                . ' /Location ' . $str((string)($ttd['lokasi'] ?? '')) . ' /ContactInfo ' . $str((string)($ttd['kontak'] ?? '')) . ' >>';
+            $objs[$apId] = '<< /Type /XObject /Subtype /Form /BBox [0 0 ' . self::n($rw) . ' ' . self::n($rh) . "] /Length 0 >>\nstream\n\nendstream";
+            $acro = ' /AcroForm << /Fields [' . $widId . ' 0 R] /SigFlags 3 >>';
+        }
         $kids = [];
-        foreach ($this->pages as $content) {
+        foreach ($this->pages as $pi => $content) {
             $data = $content;
             $filter = '';
             if (function_exists('gzcompress')) {
@@ -199,24 +221,31 @@ final class MiniPdf
             $cid = $next++;
             $objs[$cid] = "<< /Length " . strlen($data) . $filter . " >>\nstream\n" . $data . "\nendstream";
             $pid = $next++;
+            $annots = '';
+            if ($ttd && $pi === (int)($ttd['page'] ?? 0)) {
+                $annots = ' /Annots [' . $widId . ' 0 R]';
+                // Area tanda tangan yang bisa diklik di pembaca PDF untuk melihat status dan sertifikat penanda tangan.
+                $objs[$widId] = '<< /Type /Annot /Subtype /Widget /FT /Sig /F 132 /T ' . $str('Tanda tangan digital') . ' /V ' . $sigId . ' 0 R /P ' . $pid
+                    . ' 0 R /Rect [' . self::n($rx) . ' ' . self::n($this->h - $ry - $rh) . ' ' . self::n($rx + $rw) . ' ' . self::n($this->h - $ry)
+                    . '] /AP << /N ' . $apId . ' 0 R >> >>';
+            }
             $objs[$pid] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' . self::n($this->w) . ' ' . self::n($this->h) . '] /Resources << /Font << '
-                . $fontRes . '>> >> /Contents ' . $cid . ' 0 R >>';
+                . $fontRes . '>> >> /Contents ' . $cid . ' 0 R' . $annots . ' >>';
             $kids[] = $pid . ' 0 R';
         }
+        if ($ttd && !isset($objs[$widId])) {
+            throw new InvalidArgumentException('Halaman tanda tangan tidak ada.');
+        }
+        $objs[1] = '<< /Type /Catalog /Pages 2 0 R' . $acro . ' >>';
         $objs[2] = '<< /Type /Pages /Kids [' . implode(' ', $kids) . '] /Count ' . count($kids) . ' >>';
         $infoId = $next++;
-        $str = function (string $v): string {
-            // Teks metadata sebagai UTF-16BE dengan BOM, dalam bentuk heksadesimal.
-            $u = function_exists('mb_convert_encoding') ? mb_convert_encoding($v, 'UTF-16BE', 'UTF-8') : pdf_ansi($v);
-            return '<' . (function_exists('mb_convert_encoding') ? 'FEFF' : '') . strtoupper(bin2hex($u)) . '>';
-        };
         $dict = '<< /Producer ' . $str('PortalLSP') . ' /CreationDate (D:' . date('YmdHis') . ')';
         foreach (['Title', 'Author', 'Subject'] as $k) {
             if (!empty($info[$k])) $dict .= ' /' . $k . ' ' . $str((string)$info[$k]);
         }
         $objs[$infoId] = $dict . ' >>';
         ksort($objs);
-        $out = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
+        $out = "%PDF-1.7\n%\xE2\xE3\xCF\xD3\n";
         $offsets = [];
         foreach ($objs as $id => $body) {
             $offsets[$id] = strlen($out);
@@ -229,6 +258,28 @@ final class MiniPdf
             $out .= sprintf('%010d 00000 n ', $offsets[$id] ?? 0) . "\n";
         }
         $out .= "trailer\n<< /Size " . ($max + 1) . ' /Root 1 0 R /Info ' . $infoId . " 0 R >>\nstartxref\n" . $xref . "\n%%EOF\n";
-        return $out;
+        return $ttd ? $this->tandaTangani($out, $ttd['signer']) : $out;
+    }
+
+    private const TTD_BYTE = 12000;
+    private const BR_KOSONG = '[0 0000000000 0000000000 0000000000]';
+
+    /** Isi ByteRange, tanda tangani semua byte kecuali isi /Contents, lalu sisipkan tanda tangan. Panjang berkas tidak berubah. */
+    private function tandaTangani(string $pdf, array $signer): string
+    {
+        $b = strpos($pdf, '/ByteRange ' . self::BR_KOSONG);
+        $a = strpos($pdf, '/Contents <' . str_repeat('0', 64), (int)$b);
+        if ($b === false || $a === false) {
+            throw new RuntimeException('Tempat tanda tangan tidak ditemukan.');
+        }
+        $a += strlen('/Contents ');
+        $z = $a + self::TTD_BYTE * 2 + 2;
+        $br = str_pad(sprintf('[0 %d %d %d]', $a, $z, strlen($pdf) - $z), strlen(self::BR_KOSONG));
+        $pdf = substr_replace($pdf, $br, $b + strlen('/ByteRange '), strlen(self::BR_KOSONG));
+        $sig = strtoupper(bin2hex(tte_tanda_tangani(substr($pdf, 0, $a) . substr($pdf, $z), $signer)));
+        if (strlen($sig) > self::TTD_BYTE * 2) {
+            throw new RuntimeException('Tanda tangan terlalu besar.');
+        }
+        return substr_replace($pdf, str_pad($sig, self::TTD_BYTE * 2, '0'), $a + 1, self::TTD_BYTE * 2);
     }
 }

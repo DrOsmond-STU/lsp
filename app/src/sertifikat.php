@@ -18,7 +18,21 @@ function sertifikat_peringatan(array $c): ?string
     return null;
 }
 
-function sertifikat_pdf(array $c, array $units, string $verifyUrl): string
+/** PDF sertifikat. Bila $signer diberikan (lihat tte_penanda_tangan), PDF ditandatangani digital; bila penandatanganan gagal,
+ *  PDF dibuat ulang tanpa tanda tangan (dan tanpa tulisan "ditandatangani") supaya tidak ada klaim yang tidak benar. */
+function sertifikat_pdf(array $c, array $units, string $verifyUrl, ?array $signer = null): string
+{
+    if ($signer) {
+        try {
+            return sertifikat_pdf_susun($c, $units, $verifyUrl, $signer);
+        } catch (Throwable $e) {
+            error_log('PortalLSP TTE: sertifikat ' . ($c['id'] ?? '?') . ' tidak ditandatangani: ' . $e->getMessage());
+        }
+    }
+    return sertifikat_pdf_susun($c, $units, $verifyUrl, null);
+}
+
+function sertifikat_pdf_susun(array $c, array $units, string $verifyUrl, ?array $signer): string
 {
     $navy = [14, 35, 92];
     $blue = [29, 78, 216];
@@ -88,13 +102,31 @@ function sertifikat_pdf(array $c, array $units, string $verifyUrl): string
     $pdf->text(70, 492, 'Berlaku sampai', 'H', 9, $grey);
     $pdf->text(70, 507, tanggal_id($c['berlaku']), 'HB', 12, $ink);
 
-    // Tengah bawah: penerbit.
-    $pdf->text($cx, 452, 'Dikeluarkan oleh', 'H', 9, $grey, 'C');
-    foreach (array_slice($pdf->wrap((string)$c['lsp_nama'], 'HB', 12, 300), 0, 2) as $i => $ln) {
-        $pdf->text($cx, 469 + $i * 15, $ln, 'HB', 12, $ink, 'C');
+    // Tengah bawah: penerbit, dengan kotak tanda tangan digital bila PDF ditandatangani.
+    $ttdRect = null;
+    if ($signer) {
+        $top = 432;
+        $pdf->text($cx, $top + 14, 'DITANDATANGANI SECARA DIGITAL OLEH', 'HB', 7.5, $teal, 'C', 0.8);
+        $y = $top + 31;
+        // Nama penanda tangan sesuai sertifikat yang dipakai (nama LSP saat ini, atau pemilik sertifikat PSrE).
+        foreach (array_slice($pdf->wrap((string)(($signer['tampil'] ?? '') ?: $signer['nama']), 'HB', 11.5, 280), 0, 2) as $ln) {
+            $pdf->text($cx, $y, $ln, 'HB', 11.5, $ink, 'C');
+            $y += 14;
+        }
+        $pdf->text($cx, $y + 1, 'Waktu: ' . tanggal_id(date('Y-m-d')) . ', ' . date('H.i') . ' ' . date('T'), 'H', 8, $grey, 'C');
+        $fp = substr(tte_sidik_jari($signer['cert']), 0, 16);
+        $pdf->text($cx, $y + 12, 'Sertifikat: ' . ($signer['penerbit'] ?: $signer['nama']) . '  ·  ' . implode(' ', str_split($fp, 4)), 'H', 7, $grey, 'C');
+        $ttdRect = [$cx - 150, $top, 300, $y + 19 - $top];
+        $pdf->rect($ttdRect[0], $ttdRect[1], $ttdRect[2], $ttdRect[3], null, $teal, 0.8);
+        $pdf->text($cx, 527, 'Periksa tanda tangan di pembaca PDF, atau pindai kode QR', 'H', 7, $grey, 'C');
+    } else {
+        $pdf->text($cx, 452, 'Dikeluarkan oleh', 'H', 9, $grey, 'C');
+        foreach (array_slice($pdf->wrap((string)$c['lsp_nama'], 'HB', 12, 300), 0, 2) as $i => $ln) {
+            $pdf->text($cx, 469 + $i * 15, $ln, 'HB', 12, $ink, 'C');
+        }
+        $pdf->line($cx - 120, 510, $cx + 120, 510, [148, 163, 184], 0.6);
+        $pdf->text($cx, 523, 'Diterbitkan melalui PortalLSP · verifikasi dengan kode QR', 'H', 7.5, $grey, 'C');
     }
-    $pdf->line($cx - 120, 510, $cx + 120, 510, [148, 163, 184], 0.6);
-    $pdf->text($cx, 523, 'Diterbitkan melalui PortalLSP · verifikasi dengan kode QR', 'H', 7.5, $grey, 'C');
 
     // Kanan bawah: QR verifikasi.
     $qrSize = 104;
@@ -152,7 +184,10 @@ function sertifikat_pdf(array $c, array $units, string $verifyUrl): string
         'Title' => 'Sertifikat Kompetensi ' . $c['nomor'],
         'Author' => (string)$c['lsp_nama'],
         'Subject' => $c['nama'] . ' - ' . $c['skema_nama'],
-    ]);
+    ], $signer ? [
+        'signer' => $signer, 'page' => 0, 'rect' => $ttdRect, 'nama' => $signer['nama'],
+        'alasan' => 'Penerbitan sertifikat kompetensi ' . $c['nomor'], 'lokasi' => 'PortalLSP', 'kontak' => $verifyUrl,
+    ] : null);
 }
 
 /** Huruf kapital yang aman untuk UTF-8. */

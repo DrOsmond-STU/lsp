@@ -24,6 +24,11 @@ return [
     'wa_meta_template' => 'notifikasi_portallsp',
     // true = asesi bisa menandai tagihan lunas sendiri (simulasi/demo). Set false saat LSP nyata beroperasi.
     'payment_simulation' => true,
+    // Tanda tangan digital PDF sertifikat. Bawaan: kunci per LSP dari CA PortalLSP (dibuat otomatis di storage/tte).
+    'tte_aktif' => true,
+    // Opsional: sertifikat dari PSrE (.p12) per LSP ('<id LSP>') atau untuk semua ('*'). Simpan berkasnya di luar docroot.
+    // Contoh: '3' => ['file' => '/home/akun/lsp-app/storage/tte/lsp-3.p12', 'password' => '...']
+    'tte_p12' => [],
     // Hash akun demo (password_hash). Kosongkan di produksi.
     'seed_password_hashes' => [],
 ];

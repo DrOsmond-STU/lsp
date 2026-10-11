@@ -25,6 +25,7 @@ require __DIR__ . '/asesi.php';
 require __DIR__ . '/notify.php';
 require __DIR__ . '/ai.php';
 require __DIR__ . '/schema_domain.php';
+require __DIR__ . '/tte.php';
 require __DIR__ . '/qr.php';
 require __DIR__ . '/pdf.php';
 require __DIR__ . '/sertifikat.php';

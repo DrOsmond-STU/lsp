@@ -544,7 +544,8 @@ function sertifikat_akses(): array
 function r_sertifikat_pdf(): void
 {
     $c = sertifikat_akses();
-    $pdf = sertifikat_pdf($c, units_of((int)$c['skema_id']), app_url() . '/?cek=' . $c['kode']);
+    $lspNama = (string)q('SELECT nama FROM lsp WHERE id = ?', [(int)$c['lsp_id']])->fetchColumn();
+    $pdf = sertifikat_pdf($c, units_of((int)$c['skema_id']), app_url() . '/?cek=' . $c['kode'], tte_penanda_tangan((int)$c['lsp_id'], $lspNama));
     $file = 'sertifikat-' . preg_replace('/[^A-Za-z0-9-]+/', '-', (string)$c['nomor']) . '.pdf';
     if ((int)$c['user_id'] !== uid()) {
         audit('sertifikat.pdf', 'sertifikat:' . $c['id'], null, (int)$c['lsp_id']);
@@ -555,6 +556,23 @@ function r_sertifikat_pdf(): void
     header('Cache-Control: private, no-store');
     header('X-Content-Type-Options: nosniff');
     echo $pdf;
+    exit;
+}
+
+/** Sertifikat CA PortalLSP untuk memeriksa tanda tangan digital di pembaca PDF (publik, bukan rahasia). */
+function r_pub_ca(): void
+{
+    require_method('GET');
+    if (!tte_aktif()) {
+        fail('Tanda tangan digital tidak aktif.', 404);
+    }
+    $pem = tte_ca_pem();
+    header('Content-Type: application/x-x509-ca-cert');
+    header('Content-Disposition: attachment; filename="portallsp-root-ca.crt"');
+    header('Content-Length: ' . strlen($pem));
+    header('Cache-Control: public, max-age=3600');
+    header('X-Content-Type-Options: nosniff');
+    echo $pem;
     exit;
 }
 

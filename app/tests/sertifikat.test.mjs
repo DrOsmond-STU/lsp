@@ -1,6 +1,9 @@
 // Uji sertifikat PDF + kode QR: struktur PDF, isi teks, hak akses, dan regresi matriks QR.
 // Matriks acuan di bawah sudah diverifikasi dua decoder independen (jsQR dan ZXing) saat fitur dibuat.
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import zlib from 'zlib';
 const BASE = process.env.BASE || 'http://127.0.0.1:8099';
 const PW = 'Demo-Pass-2026';
@@ -35,7 +38,7 @@ const s = (await (await get('asesi/sertifikat', rina)).json()).items[0];
   check('nama berkas aman dan sebagai unduhan', /^attachment; filename="sertifikat-[A-Za-z0-9-]+\.pdf"$/.test(r.headers.get('content-disposition') || ''), r.headers.get('content-disposition'));
   check('tidak disimpan di cache', /no-store/.test(r.headers.get('cache-control') || ''));
   const raw = buf.toString('latin1');
-  check('berkas PDF utuh (%PDF-1.4 … %%EOF)', raw.startsWith('%PDF-1.4') && raw.trimEnd().endsWith('%%EOF'));
+  check('berkas PDF utuh (%PDF-1.x … %%EOF)', /^%PDF-1\.\d/.test(raw) && raw.trimEnd().endsWith('%%EOF'));
   const pages = (raw.match(/\/Type \/Page\b/g) || []).length;
   check('2 halaman: depan + lampiran unit', pages === 2, String(pages));
   // Offset xref harus menunjuk ke objek yang benar.
@@ -44,7 +47,7 @@ const s = (await (await get('asesi/sertifikat', rina)).json()).items[0];
   const offs = [...raw.slice(xref).matchAll(/^(\d{10}) 00000 n /gm)].map(m => Number(m[1]));
   check('setiap offset objek tepat', offs.length > 5 && offs.every((o, i) => raw.slice(o).startsWith(`${i + 1} 0 obj`)));
   let text = '';
-  for (const m of raw.matchAll(/stream\n([\s\S]*?)\nendstream/g)) text += zlib.inflateSync(Buffer.from(m[1], 'latin1')).toString('latin1');
+  for (const m of raw.matchAll(/stream\n([\s\S]*?)\nendstream/g)) if (m[1]) text += zlib.inflateSync(Buffer.from(m[1], 'latin1')).toString('latin1');
   check('memuat nama pemegang', text.includes('(Rina Kartika Sari)'));
   check('memuat nomor dan kode verifikasi', text.includes(s.nomor.replace(/[()\\]/g, '')) && text.includes(s.kode));
   check('memuat skema dan status KOMPETEN', text.includes(s.skema_nama) && text.includes('(KOMPETEN)'));
@@ -53,6 +56,53 @@ const s = (await (await get('asesi/sertifikat', rina)).json()).items[0];
   const nUnit = Number((text.match(/(\d+) unit kompetensi \\\(lihat lampiran/) || [])[1] || 0);
   check('lampiran memuat semua unit kompetensi', text.includes('Judul unit kompetensi') && nUnit > 0 && text.includes(`(${nUnit}) Tj`), String(nUnit));
 }
+
+console.log('Tanda tangan digital');
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ttd-'));
+const ttdPdf = async cookie => Buffer.from(await (await get('sertifikat/pdf&id=' + s.id, cookie)).arrayBuffer());
+// Bagian yang ditandatangani (ByteRange) dan tanda tangan DER dari /Contents.
+function bagian(buf) {
+  const raw = buf.toString('latin1');
+  const br = raw.match(/\/ByteRange \[(\d+) (\d+) (\d+) (\d+)\]/).slice(1).map(Number);
+  const hex = raw.slice(br[1] + 1, br[2] - 1);
+  let der = Buffer.from(hex, 'hex');
+  const n = der[1] & 0x80 ? der.subarray(2, 2 + (der[1] & 0x7f)).reduce((a, b) => a * 256 + b, 0) + 2 + (der[1] & 0x7f) : der[1] + 2;
+  der = der.subarray(0, n);
+  return { raw, br, data: Buffer.concat([buf.subarray(br[0], br[1]), buf.subarray(br[2], br[2] + br[3])]), der };
+}
+const verifikasi = (data, der, ca) => {
+  fs.writeFileSync(path.join(tmp, 'data.bin'), data); fs.writeFileSync(path.join(tmp, 'sig.der'), der); fs.writeFileSync(path.join(tmp, 'ca.pem'), ca);
+  return spawnSync('openssl', ['cms', '-verify', '-binary', '-inform', 'DER', '-in', path.join(tmp, 'sig.der'), '-content', path.join(tmp, 'data.bin'),
+    '-CAfile', path.join(tmp, 'ca.pem'), '-purpose', 'any', '-out', os.devNull]).status === 0;
+};
+{
+  const rc = await get('pub/ca');
+  const ca = await rc.text();
+  check('sertifikat induk (CA) bisa diunduh tanpa login', rc.status === 200 && /x509-ca-cert/.test(rc.headers.get('content-type')) && ca.startsWith('-----BEGIN CERTIFICATE-----'));
+  const buf = await ttdPdf(rina);
+  const { raw, br, data, der } = bagian(buf);
+  check('PDF bertanda tangan PKCS#7 terlepas', /\/Type \/Sig \/Filter \/Adobe\.PPKLite \/SubFilter \/adbe\.pkcs7\.detached/.test(raw) && /\/AcroForm << \/Fields \[\d+ 0 R\] \/SigFlags 3 >>/.test(raw));
+  check('area tanda tangan di halaman 1', /\/Subtype \/Widget \/FT \/Sig .*\/Rect \[/.test(raw) && /\/Annots \[\d+ 0 R\]/.test(raw));
+  check('ByteRange mencakup seluruh berkas kecuali isi tanda tangan', br[0] === 0 && br[2] + br[3] === buf.length && raw[br[1]] === '<' && raw[br[2] - 1] === '>');
+  check('tanda tangan sah terhadap CA PortalLSP', verifikasi(data, der, ca));
+  const ubah = Buffer.from(data); ubah[Math.floor(ubah.length / 2)] ^= 1;
+  check('PDF yang diubah 1 byte terdeteksi (tanda tangan tidak sah)', !verifikasi(ubah, der, ca));
+  const certs = spawnSync('openssl', ['pkcs7', '-inform', 'DER', '-print_certs', '-noout', '-in', path.join(tmp, 'sig.der')]).stdout.toString();
+  check('penanda tangan = LSP penerbit, diterbitkan CA PortalLSP', /subject=.*CN ?= ?LSP Teknologi Digital Nusantara/.test(certs) && /issuer=.*CN ?= ?PortalLSP Root CA/.test(certs), certs.slice(0, 300));
+  let isi = '';
+  for (const m of raw.matchAll(/stream\n([\s\S]*?)\nendstream/g)) if (m[1]) isi += zlib.inflateSync(Buffer.from(m[1], 'latin1')).toString('latin1');
+  check('kotak tanda tangan tampil di halaman', isi.includes('(DITANDATANGANI SECARA DIGITAL OLEH)') && isi.includes('Sertifikat: PortalLSP Root CA'));
+  const lagi = bagian(await ttdPdf(await login('admin.tdn@demo.portallsp.id')));
+  const fp = d => { fs.writeFileSync(path.join(tmp, 'x.der'), d); return spawnSync('openssl', ['pkcs7', '-inform', 'DER', '-print_certs', '-in', path.join(tmp, 'x.der')]).stdout.toString(); };
+  check('unduhan berikutnya memakai sertifikat penanda tangan yang sama', fp(lagi.der) === fp(der));
+  const dir = new URL('../storage/tte/', import.meta.url).pathname;
+  if (fs.existsSync(dir)) {
+    const key = path.join(dir, 'lsp-1.key');
+    check('kunci privat terenkripsi dan hanya bisa dibaca pemilik (0600)', fs.readFileSync(key, 'utf8').startsWith('-----BEGIN ENCRYPTED PRIVATE KEY-----')
+      && (fs.statSync(key).mode & 0o777) === 0o600 && (fs.statSync(dir).mode & 0o777) === 0o700);
+  }
+}
+fs.rmSync(tmp, { recursive: true, force: true });
 
 console.log('Hak akses');
 {

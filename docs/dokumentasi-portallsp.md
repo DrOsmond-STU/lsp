@@ -5,7 +5,7 @@ Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran peng
 - **Alamat produksi:** https://lsp.semestateknologiutama.com
 - **Kode sumber:** folder `app/` di repositori ini
 - **Rancangan fitur awal:** [`docs/rancangan-fitur.md`](rancangan-fitur.md)
-- **Versi terpasang:** v11 (11 Oktober 2026): sertifikat PDF dengan kode QR verifikasi
+- **Versi terpasang:** v12 (11 Oktober 2026): sertifikat PDF dengan kode QR dan tanda tangan digital
 
 ---
 
@@ -87,6 +87,7 @@ app/
     qr.php                 # encoder kode QR (tanpa pustaka luar)
     pdf.php                # penyusun PDF sederhana (font standar, vektor)
     sertifikat.php         # tata letak sertifikat PDF + lampiran unit
+    tte.php                # tanda tangan digital: CA PortalLSP, sertifikat per LSP, PSrE (.p12), tanda tangan CMS
     lsp_ops.php            # operasi staf LSP, TUK, platform, dan API publik
     blog.php               # CMS blog: artikel, moderasi, sampul, API blog publik (migrasi 7)
     migrations.php         # migrasi berversi + seed demo dasar
@@ -282,7 +283,36 @@ Setiap sertifikat yang terbit bisa diunduh sebagai PDF (A4 melintang). PDF dibua
 - **Siapa yang bisa mengunduh:** pemegang sertifikat, staf LSP penerbit yang punya hak `decision.manage` (Admin LSP, Manajer Mutu), dan Admin Platform. Pengguna lain mendapat 404 (tidak membocorkan bahwa sertifikat itu ada). Unduhan oleh selain pemegang dicatat di log audit (`sertifikat.pdf`).
 - **Tombol:** Dompet Sertifikat asesi punya **Unduh PDF**, **Lihat PDF**, dan **Cetak**; menu Pleno & Sertifikat dan Database Alumni punya tombol **PDF** dan **Cetak** di setiap baris.
 - **Teknis:** encoder QR (`src/qr.php`, versi 1–10, koreksi galat L/M/Q/H) dan penyusun PDF (`src/pdf.php`, font standar PDF) ditulis sendiri. Matriks QR diuji terhadap dua pembaca QR independen (jsQR dan ZXing), dan PDF hasil render dipindai ulang pada beberapa resolusi.
-- **Batasan:** PDF memakai font standar PDF (Helvetica/Times), sehingga huruf Latin termasuk aksen (é, ü, ñ) tampil benar, tetapi aksara non-Latin (mis. Arab, Tionghoa) tampil sebagai `?`. PDF belum bertanda tangan digital; keaslian dibuktikan lewat verifikasi QR ke database.
+- **Batasan:** PDF memakai font standar PDF (Helvetica/Times), sehingga huruf Latin termasuk aksen (é, ü, ñ) tampil benar, tetapi aksara non-Latin (mis. Arab, Tionghoa) tampil sebagai `?`.
+
+### Tanda tangan digital
+
+Setiap PDF sertifikat **ditandatangani secara digital oleh LSP penerbit**. Tanda tangan ini kriptografis (bukan gambar): pembaca PDF seperti Adobe Acrobat Reader menampilkan siapa penanda tangannya dan memberi peringatan bila isi PDF diubah walau hanya 1 byte.
+
+- **Cara kerja:**
+  - Saat pertama dibutuhkan, server membuat **CA PortalLSP** (`PortalLSP Root CA`, RSA 3072, berlaku 20 tahun).
+  - Setiap LSP mendapat **kunci dan sertifikat penanda tangan sendiri** (RSA 2048, berlaku 10 tahun) yang diterbitkan CA itu, dengan nama LSP sebagai nama penanda tangan.
+  - Sertifikat LSP diterbitkan ulang otomatis bila nama LSP berubah atau masa berlakunya tinggal kurang dari 30 hari.
+  - Setiap unduhan PDF ditandatangani saat itu juga (format PDF `adbe.pkcs7.detached`, SHA-256). Sertifikat penanda tangan dan CA ikut disertakan di dalam PDF.
+- **Tampilan:** kotak "Ditandatangani secara digital oleh" di tengah bawah halaman 1 berisi nama penanda tangan (nama LSP saat ini, atau pemilik sertifikat PSrE), waktu penandatanganan, dan sidik jari sertifikat. Kotak ini juga area tanda tangan: klik di pembaca PDF untuk melihat detailnya.
+- **Status di Adobe Reader:**
+  - Tanpa pengaturan, Adobe menyatakan "dokumen tidak diubah sejak ditandatangani", tetapi identitas penanda tangan "belum diketahui", karena CA PortalLSP tidak ada di daftar tepercaya Adobe.
+  - Agar tanda centang hijau muncul, pasang sertifikat CA (unduh dari halaman verifikasi atau `api.php?r=pub/ca`) sebagai sertifikat tepercaya: Adobe → Preferensi → Tanda Tangan → Identitas & Sertifikat Tepercaya → Impor. Lalu bandingkan sidik jari SHA-256 sertifikat itu dengan yang diumumkan LSP atau pengelola platform.
+- **Sertifikat dari PSrE (opsional):**
+  - Untuk tanda tangan elektronik **tersertifikasi**, LSP bisa memakai sertifikat elektronik dari Penyelenggara Sertifikasi Elektronik (PSrE) berinduk pemerintah. Berkasnya berupa `.p12`.
+  - Pasang lewat `tte_p12` di `config.php`; PDF LSP itu lalu ditandatangani dengan sertifikat tersebut beserta rantainya.
+  - Bila berkas atau kata sandinya salah, aplikasi kembali memakai sertifikat bawaan dan mencatat galat di log PHP.
+  - Bila OpenSSL di server menolak `.p12` lama (enkripsi RC2/3DES), konversi dulu: `openssl pkcs12 -legacy -in lama.p12 -nodes | openssl pkcs12 -export -out baru.p12`.
+- **Penyimpanan kunci:**
+  - Lokasi: `storage/tte/` (di luar docroot, folder 0700, berkas 0600).
+  - Kunci privat disimpan **terenkripsi** dengan kata sandi yang diturunkan dari `storage/app.key`.
+  - **Cadangkan `storage/tte/` bersama `storage/app.key`.** Bila hilang, aplikasi membuat CA dan kunci baru. PDF lama tetap bisa diperiksa, tetapi pengguna yang sudah memasang CA lama perlu memasang CA baru.
+- **Gagal aman:** bila penandatanganan gagal karena alasan apa pun, PDF tetap dibuat **tanpa** kotak "ditandatangani" (tidak ada klaim palsu) dan galatnya dicatat di log PHP. Nonaktifkan seluruh fitur dengan `tte_aktif` = `false`.
+- **Diuji dengan:** `pdfsig` (Poppler), pyHanko (dengan CA PortalLSP sebagai akar tepercaya: sah, tepercaya, mencakup seluruh berkas), dan `openssl cms -verify`. PDF yang diubah 1 byte terdeteksi tidak sah. Rantai bergaya PSrE (akar → perantara → LSP) juga diuji.
+- **Batasan:**
+  - Belum ada stempel waktu dari TSA (RFC 3161), sehingga waktu tanda tangan berasal dari jam server.
+  - Belum ada daftar pencabutan (CRL/OCSP) untuk sertifikat bawaan.
+  - Sertifikat bawaan termasuk tanda tangan elektronik **tidak tersertifikasi**. Untuk kekuatan pembuktian penuh, pakai sertifikat PSrE.
 
 ---
 
@@ -523,11 +553,12 @@ Aturan pengiriman:
 | Sesi | Cookie `HttpOnly`, `Secure`, `SameSite=Lax`. ID sesi diganti saat login, ganti konteks, dan ganti password. Ganti password langsung mengakhiri semua sesi lain akun itu (kolom `users.sess_ver`). Idle timeout 30 menit, maksimal 8 jam. File sesi di luar docroot; halaman publik tanpa cookie tidak membuat sesi. |
 | CSRF | Token per sesi di header `X-CSRF-Token` + cek `Origin` untuk setiap POST |
 | Brute force | Kunci setelah 5 gagal per email atau 20 per IP dalam 15 menit. Pesan error sama untuk email terdaftar maupun tidak. Pendaftaran asesi maks. 30 percobaan per IP per jam; pesan NIK ganda dibuat umum agar tidak bisa dipakai menebak NIK; kirim ulang email verifikasi maks. 5 per 24 jam. |
-| RBAC | Dari tabel `roles` / `permissions` / `role_permissions`, diperiksa di setiap endpoint. Matriks 1.190 kombinasi peran × endpoint diuji otomatis (`tests/rbac-matrix.test.mjs`); rute baru tanpa aturan akses membuat uji gagal. |
+| RBAC | Dari tabel `roles` / `permissions` / `role_permissions`, diperiksa di setiap endpoint. Matriks 1.211 kombinasi peran × endpoint diuji otomatis (`tests/rbac-matrix.test.mjs`); rute baru tanpa aturan akses membuat uji gagal. |
 | Konflik kepentingan | Asesor tidak bisa menguji, mem-pra-asesmen, atau memutus pleno berkasnya sendiri; tidak bisa ditugaskan pada jadwal yang ia ikuti sebagai peserta; tidak bisa mendaftar sebagai peserta di jadwal yang ia uji. Penguji tidak boleh memutus pleno asesinya. |
 | Integritas proses | Status permohonan berpindah dengan kondisi `WHERE status = ...` (aman dari klik ganda). Kuota jadwal dicek atomik saat pendaftaran. Dokumen tidak bisa diganti selama permohonan diproses. Jadwal: skema tidak bisa diganti bila sudah ada peserta, kuota ≥ peserta, status `selesai`/`batal` final, bentrok asesor dicek ulang saat tanggal berubah. Masa berlaku lisensi BNSP dan nama LSP hanya diubah Admin Platform. Minimal satu Admin Platform aktif selalu dijaga. Biaya uji dikunci saat mendaftar; sertifikat menyimpan salinan nama skema/LSP/pemegang; perubahan isi publik skema menarik listing tayang untuk ditinjau ulang. Penghapusan data master dicek terhadap data yang masih merujuknya. |
 | Isolasi LSP | `lsp_id` selalu dari sesi; data LSP lain dibalas 404 (lihat bagian 4) |
 | Akun nonaktif | Akun dan keanggotaan dibaca ulang dari DB setiap permintaan, sehingga akses langsung hilang. Asesi yang dinonaktifkan LSP tidak bisa mendaftar lagi ke LSP itu; asesor dari LSP nonaktif kehilangan akses berkasnya. |
+| Tanda tangan digital | Kunci privat CA dan LSP di `storage/tte/` (di luar docroot, 0700/0600), terenkripsi dengan kata sandi turunan `storage/app.key`. Pembuatan kunci dikunci berkas (`flock`) agar tidak ganda, dan dicatat di log audit (`tte.ca_dibuat`, `tte.sertifikat_lsp`). Hanya sertifikat CA (publik) yang bisa diunduh. |
 | Data pribadi | NIK asesi dienkripsi AES-256-GCM dengan kunci `storage/app.key` (kunci ini wajib dicadangkan; tanpa kunci, NIK tidak bisa dibaca) |
 | Unggahan | Disimpan di `storage/uploads` (di luar docroot). Jenis berkas dicek dari isi (magic bytes: PDF/PNG/JPEG), maks. 2 MB, nama berkas acak. Disajikan dengan header CSP `sandbox` dan `nosniff`. |
 | Ekspor CSV | Sel yang diawali `=`, `+`, `-`, `@` diberi awalan `'` (mencegah formula injection) |
@@ -716,6 +747,7 @@ Semua endpoint: `api.php?r=<rute>`.
 | `pub/blog` | Daftar artikel terbit (`q`, `kategori`, `lsp`, `page`) + jumlah per kategori |
 | `pub/blog/post` | Satu artikel (`slug`) + artikel terkait; menambah hitungan pembaca |
 | `pub/blog/cover` | Gambar sampul (`id`) |
+| `pub/ca` | Sertifikat CA PortalLSP (`.crt`) untuk memeriksa tanda tangan digital PDF sertifikat |
 
 ---
 
@@ -739,10 +771,12 @@ File `app/config.php` (di luar docroot, **tidak di-commit**) berisi array beriku
 | `wa_phone_number_id`, `wa_meta_template` | Khusus driver `meta` (template wajib disetujui Meta; `{{1}}` judul, `{{2}}` isi) |
 | `payment_simulation` | `true` (default) = tombol "Bayar" simulasi untuk asesi. Set `false` di operasi nyata. |
 | `seed_password_hashes` | Hash password akun demo. Kosongkan di produksi nyata. |
+| `tte_aktif` | `true` (default) = PDF sertifikat ditandatangani digital. `false` = PDF tanpa tanda tangan. |
+| `tte_p12` | Opsional: sertifikat PSrE per LSP, mis. `['3' => ['file' => '/path/lsp-3.p12', 'password' => '...']]`; kunci `'*'` berlaku untuk semua LSP. |
 
 > **Penting:**
 > - Kunci API dan token WhatsApp diisi sendiri oleh pemilik server langsung di `config.php`, jangan dikirim lewat chat atau di-commit.
-> - Cadangkan `storage/app.key` dan database `storage/*.sqlite` secara berkala.
+> - Cadangkan `storage/app.key`, `storage/tte/` (kunci tanda tangan digital), dan database `storage/*.sqlite` secara berkala.
 
 ---
 
@@ -789,6 +823,7 @@ Riwayat versi di produksi:
 | v9 | Audit RBAC, keamanan, dan hardening (migrasi 8: `users.sess_ver`). Dideploy 10 Okt 2026, uji asap produksi lulus. Lihat bagian 11. |
 | v10 | CRUD lengkap (ubah/hapus/turunkan listing, hapus skema/TUK/jadwal/CRM/mutu/sarpras, ubah/hapus SKKNI, ubah profil asesi, nonaktifkan asesor dari menu Master), audit keamanan putaran 2, header isolasi lintas-origin, versi aset `?v=11` untuk menembus cache proxy (migrasi 9: `permohonan.harga`, salinan data di `sertifikat`). Dideploy 10 Okt 2026, cadangan database `storage/backup-db-pra-v10.sqlite`. |
 | v11 | Sertifikat PDF dengan kode QR verifikasi (unduh dari Dompet Sertifikat, Pleno & Sertifikat, Database Alumni), QR juga di halaman cetak, versi aset `?v=12`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
+| v12 | Tanda tangan digital PDF sertifikat: CA PortalLSP, sertifikat penanda tangan per LSP, dukungan `.p12` PSrE, kotak tanda tangan di halaman 1, unduh CA (`pub/ca`) dari halaman verifikasi, versi aset `?v=13`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 
 ### Rollback
 
@@ -802,8 +837,9 @@ Perubahan skema database tidak dibatalkan otomatis. Bila perlu, pulihkan dari ca
 2. Nonaktifkan atau hapus akun demo, lalu kosongkan `seed_password_hashes`.
 3. Ganti password Admin Platform dengan password baru yang kuat.
 4. Isi `ai_api_key` dan pengaturan WhatsApp bila fitur itu dipakai.
-5. Cadangkan `storage/app.key` dan `storage/*.sqlite` ke tempat terpisah, dan jadwalkan cadangan database rutin.
+5. Cadangkan `storage/app.key`, `storage/tte/`, dan `storage/*.sqlite` ke tempat terpisah, dan jadwalkan cadangan database rutin.
 6. Pastikan cron `notify-worker.php` aktif dan email dari server tidak masuk spam (SPF/DKIM).
+7. Umumkan sidik jari SHA-256 CA PortalLSP (atau pasang sertifikat PSrE lewat `tte_p12`) supaya penerima bisa memastikan tanda tangan digital sertifikat.
 
 ---
 
@@ -822,10 +858,10 @@ node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server ti
 node tests/platform.test.mjs        # 23 uji: akses penuh Admin Platform + isolasi Admin LSP
 node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
 node tests/blog.test.mjs            # 83 uji: CMS blog (akses, isolasi, terjadwal, moderasi, sampul, API publik)
-node tests/rbac-matrix.test.mjs     # 1.201 uji: setiap peran × setiap endpoint sesuai hak akses
+node tests/rbac-matrix.test.mjs     # 1.211 uji: setiap peran × setiap endpoint sesuai hak akses
 node tests/crud.test.mjs            # 89 uji: buat/baca/ubah/hapus semua data + penjaga rujukan, cakupan LSP, hak akses
 node tests/security.test.mjs        # 49 uji: regresi temuan audit keamanan (putaran 1 dan 2)
-node tests/sertifikat.test.mjs      # 26 uji: PDF sertifikat (struktur, isi, lampiran), hak unduh, QR di halaman cetak, regresi encoder QR
+node tests/sertifikat.test.mjs      # 36 uji: PDF sertifikat (struktur, isi, lampiran), tanda tangan digital (sah, deteksi perubahan, penanda tangan, kunci), hak unduh, QR, regresi encoder QR
 
 NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # uji browser: daftar asesi s.d. sertifikat terverifikasi
 NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs  # uji browser: buka semua menu untuk 7 peran
@@ -836,9 +872,9 @@ NODE_PATH=$(npm root -g) node tests/ui/crud.cjs        # uji browser tombol ubah
 
 Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php` lalu hapus `storage/test.sqlite`). Suite berbagi data (mis. NIK contoh) dan batas login per IP, sehingga menjalankan semuanya berturut-turut pada satu database bisa memicu kegagalan palsu. `tests/ui/alur-asesi.cjs` membuat jadwal "hari ini", jadi jalankan dengan `TZ=Asia/Jakarta`.
 
-Hasil terakhir (11 Oktober 2026, v11):
+Hasil terakhir (11 Oktober 2026, v12):
 
-- Semua 1.704 uji API lulus pada database baru (termasuk 1.201 uji matriks RBAC, 89 uji CRUD, 49 uji keamanan, dan 26 uji sertifikat PDF), plus 24 uji browser blog dan 14 uji browser CRUD (termasuk unduh PDF dari Dompet Sertifikat).
+- Semua 1.724 uji API lulus pada database baru (termasuk 1.211 uji matriks RBAC, 89 uji CRUD, 49 uji keamanan, dan 36 uji sertifikat PDF dan tanda tangan digital), plus 24 uji browser blog dan 14 uji browser CRUD (termasuk unduh PDF dari Dompet Sertifikat).
 - Kode QR di PDF hasil render terbaca oleh jsQR dan ZXing pada 72, 110, dan 200 dpi.
 - Uji browser alur asesi (daftar → verifikasi → bayar → pra-asesmen → asesmen → pleno → sertifikat → verifikasi publik) lulus.
 - Uji browser membuka semua menu di 7 peran tanpa error JavaScript dan tanpa halaman kosong/placeholder.
@@ -908,7 +944,7 @@ Contoh verifikasi sertifikat: buka `https://lsp.semestateknologiutama.com/?cek=T
 | Email | `mail()` server | SMTP/layanan transaksional dengan SPF/DKIM |
 | WhatsApp | Siap, tetapi token belum diisi | Isi `wa_driver` + `wa_token` di `config.php` |
 | Asisten AI | Siap, tetapi kunci belum diisi | Isi `ai_api_key` di `config.php` |
-| Sertifikat | PDF + halaman cetak dengan kode QR verifikasi; font standar (aksara non-Latin tampil `?`) | Tanda tangan digital (PAdES) + font tertanam untuk aksara non-Latin |
+| Sertifikat | PDF bertanda tangan digital (CA PortalLSP atau `.p12` PSrE) + kode QR; font standar (aksara non-Latin tampil `?`) | Stempel waktu TSA, CRL/OCSP, PAdES-LTV, font tertanam untuk aksara non-Latin |
 | Formulir MUK | Hasil per unit (K/BK) + catatan | Formulir FR.IA lengkap per metode uji |
 | Laporan BNSP | Rekap + CSV | Format sesuai template terbaru BNSP |
 | LMS | Daftar kelas + progres | Materi, kuis, video |
