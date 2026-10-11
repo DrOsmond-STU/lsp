@@ -3,6 +3,7 @@
 Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran pengguna, alur sertifikasi, menu tiap peran, keamanan, data, API, konfigurasi, deploy, dan pengujian.
 
 - **Alamat produksi:** https://lsp.semestateknologiutama.com
+- **Situs demo:** https://demo-lsp.semestateknologiutama.com (database MySQL terpisah, lihat bagian 15)
 - **Kode sumber:** folder `app/` di repositori ini
 - **Rancangan fitur awal:** [`docs/rancangan-fitur.md`](rancangan-fitur.md)
 - **Versi terpasang:** v15 (11 Oktober 2026): data demo lengkap di setiap menu (riwayat 11 bulan, antrean di setiap tahap proses)
@@ -836,6 +837,24 @@ Riwayat versi di produksi:
 | v13 | Halaman Untuk LSP membaca harga dan kuota dari server (`pub/paket`), sehingga selalu sama dengan Paket & Tagihan; tombol demo palsu diganti tautan `kontak_sales`; footer "Purwarupa UI/UX" diganti deskripsi produk; versi aset `?v=14`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 | v14 | Label "Terdaftar PSE · Server di Indonesia" dihapus dari footer portal publik dan aplikasi, karena status PSE belum dikonfirmasi; versi aset `?v=15`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 | v15 | Data demo lengkap (migrasi 10, `src/seed_lengkap.php`): riwayat sertifikasi 11 bulan di empat LSP, permohonan di setiap tahap proses, sertifikat akan habis/kedaluwarsa/dicabut, notifikasi dan log pengiriman, tiket dengan balasan, CRM, mutu, sarana TUK, group chat, kelas, profil asesi. Stempel waktu data contoh lama dirapikan dan jadwal asesor demo yang bentrok dialihkan. Hanya berjalan bila akun demo ada. Kartu KPI sempit dengan angka panjang (mis. nominal rupiah di layar 1024 px) kini menaruh ikon di atas angka agar tidak menimbulkan scroll horizontal; versi aset `?v=16`. Dideploy 11 Okt 2026, cadangan database `storage/backup-db-pra-v15.sqlite`. Karena data migrasi 6 di produksi dibuat 2 hari lebih awal, lima jadwal contoh sempat bentrok dengan jadwal asesor yang sama; sudah digeser (cadangan `storage/backup-db-pra-v15b.sqlite`) dan seed kini memilih tanggal kosong otomatis. |
+
+### Situs demo (demo-lsp)
+
+Situs demo terpisah untuk presentasi dan uji coba, supaya data produksi tidak tercampur data percobaan.
+
+| Hal | Situs demo |
+|---|---|
+| Alamat | https://demo-lsp.semestateknologiutama.com (SSL Let's Encrypt lewat AutoSSL) |
+| Folder | `/home/<akun>/demo-lsp-app` (docroot `demo-lsp-app/public`) |
+| Database | MySQL/MariaDB `semestat_demolsp`, pengguna `semestat_demolsp` dengan hak penuh hanya pada database itu |
+| Kode | Sama dengan produksi (v15 + commit perbaikan seed riwayat jadwal) |
+| `config.php` | `dsn` MySQL, `app_url` demo, `session_name` = `lspdemo_sid`, `payment_simulation` = `true`, `seed_password_hashes` berisi 8 akun demo dengan password yang **berbeda** dari produksi. AI, WhatsApp, dan `kontak_sales` kosong. |
+| Kunci | `storage/app.key` dan CA tanda tangan `storage/tte/` dibuat sendiri, terpisah dari produksi. Sertifikat demo tidak bisa diverifikasi di situs produksi, dan sebaliknya. |
+| Cron | `notify-worker.php` milik demo, tiap 6 menit |
+
+Aplikasi sudah diuji penuh di MariaDB sebelum dipasang: semua suite API (1.700+ uji) dan uji UI (semua menu tiap peran, CRUD, blog, alur asesi) lulus. Satu-satunya perbedaan adalah uji `register` yang memeriksa port 8099 pada tautan email, karena salinan uji MySQL berjalan di port lain.
+
+Membuat ulang data demo dari awal: hapus semua tabel di `semestat_demolsp` (atau buat database baru), lalu buka situs. Migrasi 1–10 membuat ulang skema dan seluruh data contoh relatif terhadap tanggal hari itu. Berkas `storage/app.key` boleh tetap dipakai.
 
 ### Rollback
 

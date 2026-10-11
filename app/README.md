@@ -3,6 +3,7 @@
 Aplikasi sertifikasi kompetensi multi-LSP: portal publik, pendaftaran asesi, proses asesmen sampai pleno, sertifikat PDF dengan kode QR dan tanda tangan digital, serta menu operasional LSP, TUK, asesor, dan Admin Platform.
 
 - **Produksi:** https://lsp.semestateknologiutama.com (versi terpasang **v15**, 11 Oktober 2026)
+- **Demo:** https://demo-lsp.semestateknologiutama.com (database MySQL terpisah, data contoh lengkap)
 - **Dokumentasi lengkap:** [`../docs/dokumentasi-portallsp.md`](../docs/dokumentasi-portallsp.md). Berisi peran, alur, menu, keamanan, model data, semua endpoint, konfigurasi, deploy, dan riwayat versi.
 - **Rancangan fitur awal:** [`../docs/rancangan-fitur.md`](../docs/rancangan-fitur.md)
 
