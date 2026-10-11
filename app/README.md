@@ -2,7 +2,7 @@
 
 Aplikasi sertifikasi kompetensi multi-LSP: portal publik, pendaftaran asesi, proses asesmen sampai pleno, sertifikat PDF dengan kode QR dan tanda tangan digital, serta menu operasional LSP, TUK, asesor, dan Admin Platform.
 
-- **Produksi:** https://lsp.semestateknologiutama.com (versi terpasang **v14**, 11 Oktober 2026)
+- **Produksi:** https://lsp.semestateknologiutama.com (versi terpasang **v15**, 11 Oktober 2026)
 - **Dokumentasi lengkap:** [`../docs/dokumentasi-portallsp.md`](../docs/dokumentasi-portallsp.md). Berisi peran, alur, menu, keamanan, model data, semua endpoint, konfigurasi, deploy, dan riwayat versi.
 - **Rancangan fitur awal:** [`../docs/rancangan-fitur.md`](../docs/rancangan-fitur.md)
 
@@ -44,7 +44,7 @@ php tests/make-test-config.php      # config SQLite + akun demo khusus lokal (pa
 php -S 127.0.0.1:8099 -t public     # buka http://127.0.0.1:8099
 ```
 
-Akun demo dan data contoh dijelaskan di dokumentasi bagian 17. Contoh verifikasi sertifikat: `/?cek=TDN7K3P9QX`.
+Akun demo dan data contoh dijelaskan di dokumentasi bagian 17. Data demo lengkap (riwayat 11 bulan, antrean di setiap tahap) dibuat oleh migrasi 10 (`src/seed_lengkap.php`) bila akun demo ada. Contoh verifikasi sertifikat: `/?cek=TDN7K3P9QX`.
 
 ## Pengujian
 
@@ -69,7 +69,7 @@ NODE_PATH=$(npm root -g) node tests/ui/crud.cjs                        # harga p
 NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs                   # 548 tampilan di lebar 360/390/768/1024 px
 ```
 
-Hasil terakhir (11 Oktober 2026, v14): semua 1.738 uji API lulus, semua uji browser lulus, dan audit responsif tanpa masalah.
+Hasil terakhir (11 Oktober 2026, v15, dengan data demo lengkap): semua 1.738 uji API lulus, semua uji browser lulus, dan audit responsif tanpa masalah.
 
 ## Ringkasan keamanan
 

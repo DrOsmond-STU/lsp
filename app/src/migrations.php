@@ -148,6 +148,10 @@ function migrations(): array
                 lsp_nama = (SELECT l.nama FROM lsp l WHERE l.id = sertifikat.lsp_id),
                 nama_pemegang = (SELECT u.nama FROM users u WHERE u.id = sertifikat.user_id) WHERE skema_nama IS NULL');
         },
+        10 => function (): void {
+            // Data demo lengkap: riwayat 11 bulan, antrean di setiap tahap, notifikasi, tiket, CRM, mutu, sarpras, chat, kelas.
+            seed_demo_lengkap();
+        },
     ];
 }
 

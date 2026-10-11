@@ -32,5 +32,6 @@ require __DIR__ . '/sertifikat.php';
 require __DIR__ . '/domain.php';
 require __DIR__ . '/lsp_ops.php';
 require __DIR__ . '/blog.php';
+require __DIR__ . '/seed_lengkap.php';
 require __DIR__ . '/migrations.php';
 require __DIR__ . '/routes.php';

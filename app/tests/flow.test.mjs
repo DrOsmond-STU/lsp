@@ -165,7 +165,8 @@ let kode;
 console.log('Pleno oleh asesor lain (bukan penguji)');
 {
   const q = await asr.req('pleno');
-  const lain = q.json.items[0];
+  // Berkas Sari Nurhayati diuji Lina (bukan asesor ini); antrean juga berisi berkas data demo lain.
+  const lain = q.json.items.find(i => i.asesi_nama === 'Sari Nurhayati');
   check('antrean pleno asesor berisi berkas penguji lain', lain && lain.penguji_nama === 'Lina Marlina, S.T.');
   check('asesor memutuskan pleno berkas penguji lain', (await asr.req('pleno/putus', { id: lain.id, keputusan: 'K', catatan: '' })).status === 200);
   check('daftar "diuji sendiri" ditampilkan terpisah', q.json.diuji_sendiri.length >= 1);

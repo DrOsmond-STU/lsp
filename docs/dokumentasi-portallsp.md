@@ -5,7 +5,7 @@ Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran peng
 - **Alamat produksi:** https://lsp.semestateknologiutama.com
 - **Kode sumber:** folder `app/` di repositori ini
 - **Rancangan fitur awal:** [`docs/rancangan-fitur.md`](rancangan-fitur.md)
-- **Versi terpasang:** v14 (11 Oktober 2026): harga paket satu sumber di halaman Untuk LSP, footer produksi tanpa label PSE
+- **Versi terpasang:** v15 (11 Oktober 2026): data demo lengkap di setiap menu (riwayat 11 bulan, antrean di setiap tahap proses)
 
 ---
 
@@ -92,6 +92,7 @@ app/
     blog.php               # CMS blog: artikel, moderasi, sampul, API blog publik (migrasi 7)
     migrations.php         # migrasi berversi + seed demo dasar
     schema_domain.php      # tabel domain sertifikasi + seed data demo
+    seed_lengkap.php       # data demo lengkap (migrasi 10): riwayat 11 bulan, antrean tiap tahap, notifikasi, tiket, CRM
   storage/                 # di luar docroot: database, sesi, unggahan, log, cadangan
   tools/
     smoke.php              # uji asap (CLI); unggah ke server hanya saat dibutuhkan
@@ -834,6 +835,7 @@ Riwayat versi di produksi:
 | v12 | Tanda tangan digital PDF sertifikat: CA PortalLSP, sertifikat penanda tangan per LSP, dukungan `.p12` PSrE, kotak tanda tangan di halaman 1, unduh CA (`pub/ca`) dari halaman verifikasi, versi aset `?v=13`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 | v13 | Halaman Untuk LSP membaca harga dan kuota dari server (`pub/paket`), sehingga selalu sama dengan Paket & Tagihan; tombol demo palsu diganti tautan `kontak_sales`; footer "Purwarupa UI/UX" diganti deskripsi produk; versi aset `?v=14`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 | v14 | Label "Terdaftar PSE · Server di Indonesia" dihapus dari footer portal publik dan aplikasi, karena status PSE belum dikonfirmasi; versi aset `?v=15`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
+| v15 | Data demo lengkap (migrasi 10, `src/seed_lengkap.php`): riwayat sertifikasi 11 bulan di empat LSP, permohonan di setiap tahap proses, sertifikat akan habis/kedaluwarsa/dicabut, notifikasi dan log pengiriman, tiket dengan balasan, CRM, mutu, sarana TUK, group chat, kelas, profil asesi. Stempel waktu data contoh lama dirapikan dan jadwal asesor demo yang bentrok dialihkan. Hanya berjalan bila akun demo ada. Tanpa perubahan JS/CSS. Dideploy 11 Okt 2026, cadangan database `storage/backup-db-pra-v15.sqlite`. |
 
 ### Rollback
 
@@ -882,7 +884,7 @@ NODE_PATH=$(npm root -g) node tests/ui/crud.cjs        # uji browser tombol ubah
 
 Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php` lalu hapus `storage/test.sqlite`). Suite berbagi data (mis. NIK contoh) dan batas login per IP, sehingga menjalankan semuanya berturut-turut pada satu database bisa memicu kegagalan palsu. `tests/ui/alur-asesi.cjs` membuat jadwal "hari ini", jadi jalankan dengan `TZ=Asia/Jakarta`.
 
-Hasil terakhir (11 Oktober 2026, v14):
+Hasil terakhir (11 Oktober 2026, v15, dengan data demo lengkap):
 
 - Semua 1.738 uji API lulus pada database baru (termasuk 1.221 uji matriks RBAC, 89 uji CRUD, 49 uji keamanan, dan 36 uji sertifikat PDF dan tanda tangan digital), plus 24 uji browser blog dan 19 uji browser CRUD (termasuk harga paket di halaman Untuk LSP, footer tanpa label PSE dan unduh PDF dari Dompet Sertifikat).
 - Kode QR di PDF hasil render terbaca oleh jsQR dan ZXing pada 72, 110, dan 200 dpi.
@@ -936,9 +938,29 @@ Setiap skema punya unit SKKNI dan jadwal di masa lalu dan mendatang.
 
 Password akun demo **tidak** dicantumkan di dokumen ini. Password ada di berkas kredensial terpisah yang sudah dikirim ke pemilik.
 
-**Blog:** 6 artikel contoh. Dua dari platform, empat dari LSP: tiga TDN (satu terjadwal, satu draf) dan satu PBI.
+**Blog:** 8 artikel contoh. Dua dari platform, enam dari LSP: tiga TDN (satu terjadwal, satu draf), satu PBI, satu KMD, satu LMP.
 
-Akun contoh tambahan (asesor Lina Marlina dan 6 asesi `@contoh.portallsp.id`) tidak punya password dan tidak bisa dipakai login. Akun-akun ini hanya mengisi data.
+### Isi data demo per menu (v15)
+
+Data demo dibuat agar setiap menu menunjukkan alur dan fungsinya. Semua tanggal dihitung relatif terhadap saat migrasi dijalankan, jadi ringkasan "bulan ini", kalender, dan pengingat tetap berisi.
+
+| Bagian | Isi |
+|---|---|
+| Riwayat sertifikasi | Jadwal uji bulanan selama 11 bulan untuk tiap skema. Sekitar 280 permohonan (TDN ±150, PBI ±65, KMD ±35, LMP ±30) dengan hasil kompeten, belum kompeten, ditolak, dibatalkan, dan tidak dilanjutkan. Peserta yang sudah kompeten tidak diuji ulang pada skema yang sama. |
+| Antrean berjalan | Di keempat LSP ada permohonan di setiap tahap: menunggu verifikasi, perlu perbaikan, menunggu bayar (satu lewat jatuh tempo), pra-asesmen, tidak dilanjutkan, siap uji, menunggu pleno, dan baru kompeten bulan ini. |
+| Jadwal | Jadwal yang sudah lewat, kemarin (siap dinilai asesor), minggu ini, dan bulan depan; satu jadwal belum punya asesor. Hari ini sengaja dibiarkan kosong untuk skenario uji coba. |
+| Sertifikat | ±190 sertifikat. Beberapa akan habis dalam 90 hari (muncul di dashboard dan Database Alumni), dua sudah kedaluwarsa, satu dicabut (bisa dicoba di Verifikasi Sertifikat). |
+| Keuangan | Tagihan lunas dengan berbagai metode bayar, tagihan belum dibayar, tagihan kelas. Honor asesor terhitung per bulan per LSP. |
+| Asesor demo (Budi) | Bertugas di TDN, KMD, dan LMP: kalender gabungan, pra-asesmen yang menunggu, asesi siap dinilai, berkas pleno dari penguji lain dan berkas yang ia uji sendiri, riwayat dan honor 11 bulan. |
+| Asesi demo (Rina) | Permohonan di beberapa tahap, satu sertifikat, satu kelas aktif dan satu kelas selesai, profil lengkap (NIK terenkripsi). Kelas gratis dan kelas TDN/PBI lain dibiarkan untuk dicoba daftar. |
+| Kelas | Lima pelatihan tayang dengan 4–8 peserta (aktif, selesai, menunggu bayar), dan satu listing pelatihan ditolak beserta alasannya. |
+| Notifikasi | Notifikasi di bel tiap akun demo (sebagian belum dibaca) dan Log Notifikasi berisi pengiriman terkirim dan gagal. Semua dicatat langsung dengan status akhir, tidak ada email yang benar-benar dikirim. |
+| Operasional LSP | CRM 16 prospek di empat LSP, 14 catatan mutu (termasuk banding dan keluhan), sarana prasarana di kelima TUK, group chat di jadwal yang berjalan, 5 tiket support dengan balasan. |
+| Platform | Paket berbeda tiap LSP (Enterprise, Pro, Basic) dengan pemakaian kuota, tarif honor berbeda, statistik platform terisi. |
+
+Akun contoh tambahan (`@contoh.portallsp.id`: ±130 asesi, 7 asesor, Manajer Mutu TDN, Keuangan PBI, Admin LSP KMD dan LMP) memakai password acak dan tidak bisa dipakai login. Akun-akun ini hanya mengisi data. NIK mereka fiktif.
+
+Log Akses Support (audit) sengaja tidak diisi data contoh: log ini catatan keamanan, jadi hanya berisi aktivitas sungguhan.
 
 Contoh verifikasi sertifikat: buka `https://lsp.semestateknologiutama.com/?cek=TDN7K3P9QX`.
 
