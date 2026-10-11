@@ -261,20 +261,33 @@ function sd_isi(array $demo): void
     ];
     $up = [];
     $tglJadwal = [];
+    // Tanggal bebas: bila asesor sudah punya jadwal di tanggal itu (mis. jadwal bawaan migrasi 6 yang dibuat di hari lain),
+    // geser menjauhi hari ini sampai kosong. Hari ini tidak pernah dipakai.
+    $bebas = function (?int $asesor, int $off): string {
+        $arah = $off < 0 ? -1 : 1;
+        for ($i = 0; $i < 30; $i++, $off += $arah) {
+            if ($off !== 0 && (!$asesor || !q('SELECT 1 FROM jadwal WHERE asesor_id = ? AND tanggal = ?', [$asesor, rel_date($off)])->fetch())) {
+                break;
+            }
+        }
+        return rel_date($off);
+    };
     foreach ($skema as $s) {
         $lsp = (int)$s['lsp_id'];
         [$aUji, $aLalu, $aDekat, $aNanti] = $slotAsesor[$s['kode']] ?? array_fill(0, 4, $asesorLsp[$lsp][0]);
-        $tg = function (string $slot) use ($slotHari, $lsp): string { return rel_date($slotHari[$slot][$lsp]); };
-        $up[$s['kode']] = [
-            'hari_ini' => $jadwal($s, $tg('uji'), $aUji, 'ditutup'),
-            'lalu' => $jadwal($s, $tg('lalu'), $aLalu, 'ditutup'),
-            'dekat' => $jadwal($s, $tg('dekat'), $aDekat, 'dibuka', 15),
-            'nanti' => $jadwal($s, $tg('nanti'), $aNanti, 'dibuka'),
-            'jauh' => $jadwal($s, $tg('jauh'), $s['kode'] === 'DM' ? null : $aNanti, 'dibuka', 25, $s['kode'] === 'DM' ? 'Menunggu konfirmasi asesor' : null),
-        ];
-        foreach (['hari_ini' => 'uji', 'lalu' => 'lalu', 'dekat' => 'dekat', 'nanti' => 'nanti', 'jauh' => 'jauh'] as $k => $slot) {
-            $tglJadwal[$s['kode']][$k] = $tg($slot);
+        $aJauh = $s['kode'] === 'DM' ? null : $aNanti;
+        $t5 = [];
+        foreach (['hari_ini' => ['uji', $aUji], 'lalu' => ['lalu', $aLalu], 'dekat' => ['dekat', $aDekat], 'nanti' => ['nanti', $aNanti], 'jauh' => ['jauh', $aJauh]] as $k => [$slot, $as]) {
+            $t5[$k] = $bebas($as, $slotHari[$slot][$lsp]);
         }
+        $up[$s['kode']] = [
+            'hari_ini' => $jadwal($s, $t5['hari_ini'], $aUji, 'ditutup'),
+            'lalu' => $jadwal($s, $t5['lalu'], $aLalu, 'ditutup'),
+            'dekat' => $jadwal($s, $t5['dekat'], $aDekat, 'dibuka', 15),
+            'nanti' => $jadwal($s, $t5['nanti'], $aNanti, 'dibuka'),
+            'jauh' => $jadwal($s, $t5['jauh'], $aJauh, 'dibuka', 25, $s['kode'] === 'DM' ? 'Menunggu konfirmasi asesor' : null),
+        ];
+        $tglJadwal[$s['kode']] = $t5;
     }
     $alur = [
         // [kode skema, jadwal, status, jumlah]
