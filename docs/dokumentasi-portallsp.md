@@ -6,7 +6,7 @@ Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran peng
 - **Situs demo:** https://demo-lsp.semestateknologiutama.com (database MySQL terpisah, lihat bagian 15)
 - **Kode sumber:** folder `app/` di repositori ini
 - **Rancangan fitur awal:** [`docs/rancangan-fitur.md`](rancangan-fitur.md)
-- **Versi terpasang:** v17 di produksi (formulir asesmen paperless sesuai peraturan BNSP); v16 di situs demo
+- **Versi terpasang:** v17.1 di produksi dan di situs demo (formulir asesmen paperless sesuai peraturan BNSP, setelah audit keamanan)
 - **Rancangan formulir paperless:** [`docs/rancangan-muk-digital.md`](rancangan-muk-digital.md)
 
 ---
@@ -884,14 +884,14 @@ Situs demo terpisah untuk presentasi dan uji coba, supaya data produksi tidak te
 | Alamat | https://demo-lsp.semestateknologiutama.com (SSL Let's Encrypt lewat AutoSSL) |
 | Folder | `/home/<akun>/demo-lsp-app` (docroot `demo-lsp-app/public`) |
 | Database | MySQL/MariaDB `semestat_demolsp`, pengguna `semestat_demolsp` dengan hak penuh hanya pada database itu |
-| Kode | Sama dengan produksi (v15 + commit perbaikan seed riwayat jadwal) |
-| `config.php` | `dsn` MySQL, `app_url` demo, `session_name` = `lspdemo_sid`, `payment_simulation` = `true`, `seed_password_hashes` berisi 8 akun demo dengan password yang **berbeda** dari produksi. AI, WhatsApp, dan `kontak_sales` kosong. |
+| Kode | Sama dengan produksi (v17.1, dipasang 12 Okt 2026 dari commit yang sama dengan produksi, dengan pemeriksaan SHA-256; cadangan kode `storage/backup-20261012-194703-v171d`, cadangan database `storage/backup-db-pra-v171.sql.gz` hasil `mysqldump`) |
+| `config.php` | `dsn` MySQL, `app_url` demo, `session_name` = `lspdemo_sid`, `payment_simulation` = `true`, `seed_password_hashes` berisi 11 akun demo (termasuk `komite.tdn`, `mutu.tdn`, `asesor2`) dengan password yang **berbeda** dari produksi; semua diganti saat pemasangan v17.1 dan diuji masuk lewat HTTPS (11/11). AI, WhatsApp, dan `kontak_sales` kosong. |
 | Kunci | `storage/app.key` dan CA tanda tangan `storage/tte/` dibuat sendiri, terpisah dari produksi. Sertifikat demo tidak bisa diverifikasi di situs produksi, dan sebaliknya. |
 | Cron | `notify-worker.php` milik demo, tiap 6 menit |
 
-Aplikasi sudah diuji penuh di MariaDB sebelum dipasang: semua suite API (1.700+ uji) dan uji UI (semua menu tiap peran, CRUD, blog, alur asesi) lulus. Satu-satunya perbedaan adalah uji `register` yang memeriksa port 8099 pada tautan email, karena salinan uji MySQL berjalan di port lain.
+Aplikasi sudah diuji penuh di MariaDB sebelum dipasang: semua suite API (2.422 uji) dan uji UI (semua menu tiap peran, CRUD, blog, alur paperless) lulus; migrasi v16→v17.1 juga diuji pada salinan database demo (versi 13, seluruh tanda tangan tetap utuh). Di situs demo migrasi 12–13 berjalan 9,5 detik untuk 2.543 formulir dan 4.603 tanda tangan. Satu-satunya perbedaan adalah uji `register` yang memeriksa port 8099 pada tautan email, karena salinan uji MySQL berjalan di port lain.
 
-Membuat ulang data demo dari awal: hapus semua tabel di `semestat_demolsp` (atau buat database baru), lalu buka situs. Migrasi 1–10 membuat ulang skema dan seluruh data contoh relatif terhadap tanggal hari itu. Berkas `storage/app.key` boleh tetap dipakai.
+Membuat ulang data demo dari awal: hapus semua tabel di `semestat_demolsp` (atau buat database baru), lalu buka situs. Migrasi 1–13 membuat ulang skema dan seluruh data contoh relatif terhadap tanggal hari itu. Berkas `storage/app.key` boleh tetap dipakai.
 
 ### Rollback
 
