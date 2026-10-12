@@ -166,14 +166,15 @@ let kode;
   check('honor asesor dihitung', (await asr.req('asesor/honor')).json.total >= 150000);
 }
 
-console.log('Pleno oleh asesor lain (bukan penguji)');
+console.log('Pleno: asesor tidak memutus, hanya Komite Teknis (PBNSP 201)');
 {
   const q = await asr.req('pleno');
-  // Berkas Sari Nurhayati diuji Lina (bukan asesor ini); antrean juga berisi berkas data demo lain.
-  const lain = q.json.items.find(i => i.asesi_nama === 'Sari Nurhayati');
-  check('antrean pleno asesor berisi berkas penguji lain', lain && lain.penguji_nama === 'Lina Marlina, S.T.');
-  check('asesor memutuskan pleno berkas penguji lain', (await asr.req('pleno/putus', { id: lain.id, keputusan: 'K', catatan: '' })).status === 200);
-  check('daftar "diuji sendiri" ditampilkan terpisah', q.json.diuji_sendiri.length >= 1);
+  // Berkas Sari Nurhayati diuji Lina (bukan asesor ini): asesor lain tidak boleh melihat apalagi memutusnya.
+  check('antrean pleno asesor tidak berisi berkas penguji lain', q.status === 200 && q.json.items.length === 0, q.json.items.map(i => i.asesi_nama));
+  check('daftar "diuji sendiri" tetap tampil untuk asesor', q.json.diuji_sendiri.length >= 1);
+  const lain = (await komite.req('pleno')).json.items.find(i => i.asesi_nama === 'Sari Nurhayati');
+  check('Komite melihat berkas penguji lain (Lina)', lain && lain.penguji_nama === 'Lina Marlina, S.T.');
+  check('asesor bukan penguji tidak boleh memutus pleno (403)', (await asr.req('pleno/putus', { id: lain.id, keputusan: 'K', catatan: '' })).status === 403);
 }
 
 console.log('Jadwal, master, CRM, mutu, keuangan, laporan, pengaturan');

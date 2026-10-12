@@ -698,19 +698,13 @@ function pleno_rows(int $id = 0): array
     $me = uid();
     $where = ["p.status = 'menunggu_pleno'", '(p.asesor_id IS NULL OR p.asesor_id <> ?)', 'p.asesi_id <> ?'];
     $params = [$me, $me];
-    if (can('decision.manage')) {
-        $scope = scope_lsp($m);
-        if ($scope !== null) {
-            $where[] = 'p.lsp_id = ?';
-            $params[] = $scope;
-        }
-    } else {
-        $l = asesor_lsps();
-        if (!$l) {
-            return [];
-        }
-        $where[] = 'p.lsp_id IN (' . in_list_sql($l) . ')';
-        $params = array_merge($params, $l);
+    if (!can('decision.manage')) {
+        return []; // asesor hanya melihat berkas yang ia uji sendiri (lihat r_pleno)
+    }
+    $scope = scope_lsp($m);
+    if ($scope !== null) {
+        $where[] = 'p.lsp_id = ?';
+        $params[] = $scope;
     }
     if ($id) {
         $where[] = 'p.id = ?';
@@ -745,10 +739,8 @@ function r_pleno_putus(): void
 {
     require_method('POST');
     csrf_check();
-    if (!can('decision.manage') && !can('pleno.participate')) {
-        require_perm('decision.manage');
-    }
-    require_auth();
+    // Keputusan sertifikasi hanya oleh Komite Teknis (decision.manage), tidak oleh asesor (PBNSP 201).
+    require_perm('decision.manage');
     $id = int_in('id');
     $chk = q('SELECT asesor_id, asesi_id FROM permohonan WHERE id = ?', [$id])->fetch();
     if ($chk && (int)$chk['asesor_id'] === uid()) {

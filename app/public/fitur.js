@@ -553,7 +553,11 @@ function plenoView(D) {
 function pPleno() {
   const D = S.d.pleno;
   if (!D) return loading();
-  return `${phead('Keputusan sertifikasi', 'Pleno')}${plenoView({...D, items: D.items.filter(lspOk)})}`;
+  // Asesor tidak memutus sertifikasi (PBNSP 201): hanya memantau berkas yang ia uji, keputusan oleh Komite Teknis.
+  const own = (D.diuji_sendiri || []).filter(lspOk);
+  return `${phead('Status keputusan sertifikasi', 'Pleno')}
+  <div class="alert info">${ic('shield')}<span>Keputusan sertifikasi diambil <b>Komite Teknis</b> LSP yang tidak ikut mengases (PBNSP 201). Di sini Anda memantau berkas yang Anda uji; pastikan FR.AK.02 dan laporan FR.AK.05 sudah ditandatangani.</span></div>
+  <div class="card">${table(['Asesi', 'Skema', 'LSP', 'Rekomendasi Anda', ''], own.map(x => tr([`<b>${x.asesi_nama}</b>`, x.skema_nama, x.lsp_nama, `<span class="chip ${x.rekomendasi === 'K' ? 'ok' : 'bad'}">${x.rekomendasi === 'K' ? 'Kompeten' : 'Belum kompeten'}</span> <span class="chip warn">Menunggu Komite</span>`, btnBerkas(x.id, 'Buka berkas', 'sm ghost')])), 'Tidak ada berkas Anda yang menunggu keputusan Komite.')}</div>`;
 }
 function pRiwayat() {
   const D = S.d.riwayat;

@@ -115,7 +115,8 @@ console.log('Verifikasi FR.APL.01 oleh Admin LSP');
 console.log('Konsultasi pra-asesmen: FR.APL.02 → FR.AK.07 → FR.AK.01');
 const ctx = () => ({ permohonan_id: pid });
 {
-  check('asesor lain (tidak ditugaskan) tidak berwenang (403)', (await signForm(asesorLain, ctx(), 'AK.07', 'asesor')).status === 403);
+  check('asesor lain (tidak ditugaskan) tidak bisa membuka formulir (404)', (await asesorLain.req(`muk/formulir?permohonan_id=${pid}&kode=AK.07`)).status === 404);
+  check('asesor lain (tidak ditugaskan) tidak berwenang menandatangani (403)', (await asesorLain.req('muk/formulir/ttd', { ...ctx(), kode: 'AK.07', sebagai: 'asesor', setuju: true, data: {} })).status === 403);
   const dini = await signForm(asesor, ctx(), 'AK.01', 'asesor');
   check('FR.AK.01 sebelum tinjauan APL.02 & AK.07 ditolak', dini.status === 422 && /APL\.02/.test(dini.json.error), dini.json);
   check('tinjauan FR.APL.02: dapat dilanjutkan', (await signForm(asesor, ctx(), 'APL.02', 'asesor', { rekom: 'dapat', catatan: null })).status === 200);
@@ -223,6 +224,18 @@ console.log('Validasi asesmen FR.VA oleh Manajer Mutu');
   check('FR.VA ditandatangani tim validasi', r.status === 200, r.json);
   check('daftar validasi skema bertambah', (await tdn.req('muk/perangkat?skema_id=' + skemaId)).json.validasi.some(v => v.id === r.json.id));
   check('Keuangan tidak berwenang (403)', (await (await as('keuangan.tdn')).req('muk/formulir/ttd', { skema_id: skemaId, kode: 'VA', sebagai: 'tim', setuju: true, data })).status === 403);
+}
+
+console.log('Isolasi formulir: id formulir terikat ke permohonan/jadwal konteksnya');
+{
+  const rp = (await rina.req('asesi/permohonan')).json.items.find(x => x.status !== 'diajukan' && x.lsp_id === 1) || (await rina.req('asesi/permohonan')).json.items[0];
+  const fDina = (await asesi.req(`muk/formulir?permohonan_id=${pid}&kode=APL.01`)).json;
+  check('asesi lain tidak bisa membaca formulir orang lain lewat id (404)', (await rina.req(`muk/formulir?permohonan_id=${rp.id}&kode=APL.01&id=${fDina.id}`)).status === 404);
+  const fRina = (await sup.req(`muk/formulir?permohonan_id=${rp.id}&kode=APL.01`)).json;
+  check('asesor tidak bisa menulis formulir asesi lain lewat id (404)', (await asesor.req('muk/formulir/simpan', { permohonan_id: pid, kode: 'APL.01', id: fRina.id, sebagai: 'asesor', data: {} })).status === 404);
+  check('asesor tidak bisa menandatangani formulir asesi lain lewat id (404)', (await asesor.req('muk/formulir/ttd', { permohonan_id: pid, kode: 'APL.01', id: fRina.id, sebagai: 'asesor', setuju: true, data: {} })).status === 404);
+  const isi = JSON.stringify((await sup.req(`muk/formulir?permohonan_id=${rp.id}&kode=APL.01`)).json.data);
+  check('isi formulir asesi lain tidak berubah', isi === JSON.stringify(fRina.data));
 }
 
 console.log('Verifikasi publik & audit');

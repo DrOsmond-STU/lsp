@@ -162,7 +162,7 @@ const MODUL = {
   kalender:['Kalender gabungan','Jadwal Anda dari semua LSP dalam satu tampilan.',['Warna per LSP','Tandai tanggal tidak tersedia','Ekspor ke Google Calendar']],
   pra:['Tinjau pra-asesmen','APL.01 dan APL.02 peserta yang ditugaskan kepada Anda.',['Lihat bukti','Rekomendasi lanjut / tidak','Minta bukti tambahan']],
   asesmen:['Asesmen','Isi formulir FR.IA dan FR.AK selama uji.',['Mode offline','Unggah foto/video bukti','Tanda tangan elektronik']],
-  pleno:['Pleno','Berkas yang diplenokan kepada Anda.',['Sistem menolak jika Anda asesornya','Keputusan K/BK','TTE berita acara']],
+  pleno:['Pleno','Status keputusan Komite Teknis untuk berkas yang Anda uji.',['Keputusan oleh Komite Teknis','Rekomendasi FR.AK.02','Laporan FR.AK.05']],
   riwayat:['Riwayat & logbook','Rekap asesmen dari semua LSP tempat Anda bertugas.',['Unduh logbook untuk RCC MET','Filter per tahun','Hanya terlihat oleh Anda']],
   honor:['Honor','Honor dari tiap LSP, terpisah per LSP.',['Slip honor','Rekap PPh 21','Status pembayaran']],
   daftar:['Pendaftaran','Verifikasi berkas pemohon.',['Terima / tolak / minta perbaikan','Cek kelengkapan otomatis','Pendaftaran massal mitra']],

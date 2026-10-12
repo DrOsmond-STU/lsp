@@ -80,7 +80,8 @@ function muk_staf_lsp(int $lspId): bool
     if (is_platform($m)) {
         return true;
     }
-    if ((int)$m['lsp_id'] !== $lspId) {
+    // Hanya keanggotaan staf LSP; asesor dan asesi tidak pernah dianggap staf walau punya hak validasi (assessment.review).
+    if ((int)$m['lsp_id'] !== $lspId || in_array($m['role'] ?? '', ['asesor', 'asesi'], true)) {
         return false;
     }
     foreach (['registration.verify', 'assessment.monitor', 'decision.manage', 'assessment.review', 'appeal.decide'] as $p) {
@@ -115,7 +116,7 @@ function muk_parties(array $ctx, array $def): array
     return $out;
 }
 
-/** Boleh melihat formulir? Pihaknya sendiri, staf LSP, atau asesor anggota pleno (tanpa data rahasia). */
+/** Boleh melihat formulir? Pihaknya sendiri, staf LSP, asesi pemilik, atau asesor yang ditugaskan. */
 function muk_can_view(array $ctx, array $def): bool
 {
     if (muk_parties($ctx, $def) || muk_staf_lsp($ctx['lsp_id'])) {
@@ -123,10 +124,6 @@ function muk_can_view(array $ctx, array $def): bool
     }
     if ($ctx['asesi_id'] === uid()) {
         return isset($def['ttd']['asesi']) || true;
-    }
-    if ($ctx['lingkup'] === 'permohonan' && can('pleno.participate') && in_array($ctx['lsp_id'], asesor_lsps(), true)
-        && $ctx['row']['status'] === 'menunggu_pleno') {
-        return true;
     }
     return $ctx['asesor_id'] === uid() && in_array($ctx['lsp_id'], asesor_lsps(), true);
 }
@@ -378,7 +375,10 @@ function muk_missing(array $def, array $data, string $party, array $ctx, ?array 
 function muk_find(array $ctx, string $kode, int $fid = 0): ?array
 {
     if ($fid) {
-        $r = q('SELECT * FROM formulir WHERE id = ? AND kode = ?', [$fid, $kode])->fetch();
+        // Formulir yang dipilih lewat id harus milik konteks yang sama (permohonan, jadwal, atau skema) dan LSP yang sama.
+        $scope = ['permohonan' => 'permohonan_id = ?', 'jadwal' => 'jadwal_id = ? AND permohonan_id IS NULL',
+            'skema' => 'skema_id = ? AND permohonan_id IS NULL AND jadwal_id IS NULL'][$ctx['lingkup']] ?? null;
+        $r = $scope ? q("SELECT * FROM formulir WHERE id = ? AND kode = ? AND lsp_id = ? AND $scope", [$fid, $kode, $ctx['lsp_id'], $ctx['id']])->fetch() : null;
     } elseif ($ctx['lingkup'] === 'permohonan') {
         $r = q('SELECT * FROM formulir WHERE permohonan_id = ? AND kode = ?', [$ctx['id'], $kode])->fetch();
     } elseif ($ctx['lingkup'] === 'jadwal') {
@@ -642,6 +642,9 @@ function r_muk_formulir(): void
     // Laporan susulan (FR.AK.05 baru untuk asesi yang belum tercakup laporan sebelumnya).
     $baru = $ctx['lingkup'] === 'jadwal' && $kode === 'AK.05' && ($_GET['baru'] ?? '') === '1';
     $f = $baru ? null : muk_find($ctx, $kode, $fid);
+    if (!$f && $fid && !$baru) {
+        fail('Formulir tidak ditemukan.', 404);
+    }
     if ($f && ((int)$f['lsp_id'] !== $ctx['lsp_id'] || ($ctx['lingkup'] === 'skema' && (int)$f['skema_id'] !== $ctx['id']))) {
         fail('Formulir tidak ditemukan.', 404);
     }
@@ -766,6 +769,9 @@ function muk_write_prep(): array
     $def = muk_def_or_404($kode, $ctx);
     $def['kode'] = $kode;
     $f = muk_find($ctx, $kode, (int)($b['id'] ?? 0));
+    if (!$f && (int)($b['id'] ?? 0)) {
+        fail('Formulir tidak ditemukan.', 404);
+    }
     if ($f && $ctx['lingkup'] === 'jadwal' && $kode === 'AK.05' && $f['status'] === 'final' && ($b['baru'] ?? false) === true) {
         $f = null;
     }
@@ -1265,14 +1271,14 @@ function muk_banding_blocker(array $ctx): ?string
 
 function muk_banding_rows(array $where, array $params): array
 {
-    $rows = q('SELECT b.*, u.nama AS asesi_nama, s.nama AS skema_nama, p.keputusan, p.pleno_oleh, j.asesor_id, d.nama AS pemutus_nama, j.tanggal
+    $rows = q('SELECT b.*, u.nama AS asesi_nama, s.nama AS skema_nama, p.keputusan, p.pleno_oleh, j.asesor_id, p.asesor_id AS penguji_id, d.nama AS pemutus_nama, j.tanggal
                FROM banding b JOIN permohonan p ON p.id = b.permohonan_id JOIN users u ON u.id = b.asesi_id JOIN skema s ON s.id = p.skema_id
                JOIN jadwal j ON j.id = p.jadwal_id LEFT JOIN users d ON d.id = b.diputus_oleh WHERE ' . implode(' AND ', $where) . ' ORDER BY b.id DESC', $params)->fetchAll();
     return array_map(function ($b) {
         return ['id' => (int)$b['id'], 'permohonan_id' => (int)$b['permohonan_id'], 'asesi_nama' => $b['asesi_nama'], 'skema_nama' => $b['skema_nama'],
             'tanggal_uji' => $b['tanggal'], 'keputusan_awal' => $b['keputusan'], 'alasan' => $b['alasan'], 'status' => $b['status'], 'hasil' => $b['hasil'],
             'catatan' => $b['catatan'], 'pemutus_nama' => $b['pemutus_nama'], 'created_at' => $b['created_at'], 'diputus_at' => $b['diputus_at'],
-            'boleh' => $b['status'] === 'diajukan' && can('appeal.decide') && !in_array(uid(), [(int)$b['pleno_oleh'], (int)$b['asesor_id'], (int)$b['asesi_id']], true)];
+            'boleh' => $b['status'] === 'diajukan' && can('appeal.decide') && !in_array(uid(), [(int)$b['pleno_oleh'], (int)$b['asesor_id'], (int)$b['penguji_id'], (int)$b['asesi_id']], true)];
     }, $rows);
 }
 
@@ -1290,12 +1296,12 @@ function r_banding_putus(): void
     csrf_check();
     $m = require_perm('appeal.decide');
     $scope = scope_lsp($m);
-    $b = q('SELECT b.*, p.pleno_oleh, j.asesor_id, s.nama AS skema_nama FROM banding b JOIN permohonan p ON p.id = b.permohonan_id JOIN jadwal j ON j.id = p.jadwal_id
+    $b = q('SELECT b.*, p.pleno_oleh, j.asesor_id, p.asesor_id AS penguji_id, s.nama AS skema_nama FROM banding b JOIN permohonan p ON p.id = b.permohonan_id JOIN jadwal j ON j.id = p.jadwal_id
             JOIN skema s ON s.id = p.skema_id WHERE b.id = ?' . ($scope === null ? '' : ' AND b.lsp_id = ?'), $scope === null ? [int_in('id')] : [int_in('id'), $scope])->fetch();
     if (!$b) {
         fail('Banding tidak ditemukan.', 404);
     }
-    if (in_array(uid(), [(int)$b['pleno_oleh'], (int)$b['asesor_id'], (int)$b['asesi_id']], true)) {
+    if (in_array(uid(), [(int)$b['pleno_oleh'], (int)$b['asesor_id'], (int)$b['penguji_id'], (int)$b['asesi_id']], true)) {
         audit('banding.ditolak_independensi', 'banding:' . $b['id']);
         fail('Banding harus diputus oleh personil yang tidak terlibat dalam asesmen maupun keputusan yang dibanding (PBNSP 201 §9.8.4).', 403);
     }
