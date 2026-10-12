@@ -371,7 +371,7 @@ function apWizard(D) {
   const steps = ['Pilih jadwal', 'Data diri & FR.APL.01', 'Asesmen mandiri (FR.APL.02)', 'Dokumen', 'Konfirmasi'];
   if (!A.mk) { A.mk = 'loading'; api('muk/def?skema_id=' + sk.id).then(v => { A.mk = v; render(); }).catch(e => { A.mk = {error: e.message}; render(); }); }
   const mkReady = A.mk && A.mk !== 'loading' && !A.mk.error;
-  const mkForm = kode => !mkReady ? (A.mk && A.mk.error ? `<p class="alert bad">${A.mk.error}</p>` : loading())
+  const mkForm = kode => !mkReady ? (A.mk && A.mk.error ? `<p class="alert bad">${esc(A.mk.error)}</p>` : loading())
     : `<div id="apMk">${mukRender(Object.assign({}, A.mk[kode], {data: Object.assign({}, A.mk[kode].data, (kode === 'APL.01' ? A.apl01 : A.apl02) || {})}), {embed: true})}</div>`;
   const jad = det.jadwal.find(j => j.id === A.jadwal);
   let body = '';

@@ -19,7 +19,15 @@ function body(): array
 {
     static $body = null;
     if ($body === null) {
-        $raw = file_get_contents('php://input');
+        // Batas ukuran isi permintaan JSON (unggahan berkas memakai multipart, bukan body()).
+        $max = 512 * 1024;
+        if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > $max) {
+            fail('Isian terlalu besar.', 413);
+        }
+        $raw = file_get_contents('php://input', false, null, 0, $max + 1);
+        if (is_string($raw) && strlen($raw) > $max) {
+            fail('Isian terlalu besar.', 413);
+        }
         $body = json_decode($raw === false || $raw === '' ? '[]' : $raw, true);
         if (!is_array($body)) {
             $body = [];

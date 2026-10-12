@@ -120,7 +120,7 @@ function mukRender(F, opts = {}) {
   }).join('')}</div>`).join('');
   const ttd = Object.entries(def.ttd).map(([p, l]) => {
     const t = (F.ttd || {})[p];
-    return `<div><p class="eyebrow">${l}</p>${t ? `<b>${t.nama}</b>${t.no_reg ? `<div class="muted">No. Reg ${t.no_reg}</div>` : ''}<div class="muted" style="font-size:.78rem">Ditandatangani elektronik ${mkWaktu(t.at)}${t.hash ? ` · sidik ${t.hash}` : ''}</div>` : '<span class="chip plain">Belum ditandatangani</span>'}</div>`;
+    return `<div><p class="eyebrow">${l}</p>${t ? `<b>${t.nama}</b>${t.no_reg ? `<div class="muted">No. Reg ${t.no_reg}</div>` : ''}<div class="muted" style="font-size:.78rem">Ditandatangani elektronik ${mkWaktu(t.at)}${t.hash ? ` · sidik ${t.hash}` : ''}</div>${t.utuh === true ? '<span class="chip ok" style="margin-top:.25rem">Isi utuh sejak ditandatangani</span>' : t.utuh === false ? '<span class="chip bad" style="margin-top:.25rem">Isi berubah setelah ditandatangani</span>' : ''}${t.demo ? ' <span class="chip plain" style="margin-top:.25rem">Data contoh</span>' : ''}` : '<span class="chip plain">Belum ditandatangani</span>'}</div>`;
   }).join('');
   const act = opts.embed ? '' : (opts.actions || (pihak.length && !F.catatan ? `<div class="card stack no-print" style="gap:.6rem;border:2px solid var(--brand-b)">
       <label class="toggle"><input type="checkbox" id="mk-setuju"><span>Saya menyatakan isian saya pada formulir ini benar dan menandatanganinya secara elektronik sebagai <b>${pihak.map(p => def.ttd[p]).join(', ')}</b>. Setelah ditandatangani, isian saya tidak dapat diubah.</span></label>
@@ -195,7 +195,7 @@ function pBerkas() {
   if (S.mkF) return `<div class="row no-print"><button class="btn ghost sm" data-x="mkBack">← Kembali ke berkas</button></div>${mukRender(S.mkF)}`;
   const B = mkLazy('berkas:' + S.berkas, 'muk/berkas?permohonan_id=' + S.berkas);
   if (!B) return loading();
-  if (B.error) return `<div class="card"><p class="alert bad">${B.error}</p><button class="btn ghost" data-x="mkClose">Kembali</button></div>`;
+  if (B.error) return `<div class="card"><p class="alert bad">${esc(B.error)}</p><button class="btn ghost" data-x="mkClose">Kembali</button></div>`;
   const p = B.permohonan;
   const pot = B.potensi ? `Potensi asesi ${B.potensi}` : 'Potensi asesi belum ditentukan (FR.AK.07)';
   return `${phead('Berkas asesmen paperless · Buku Kerja 333-25', p.asesi_nama + ' — ' + p.skema_nama, `<button class="btn ghost" data-x="mkClose">← Kembali</button>`)}
@@ -249,7 +249,7 @@ function aplVerif(p) {
   const F = mkLazy('apl01:' + p.id, 'muk/formulir?permohonan_id=' + p.id + '&kode=APL.01');
   const F2 = mkLazy('apl02:' + p.id, 'muk/formulir?permohonan_id=' + p.id + '&kode=APL.02');
   if (!F || !F2) return loading();
-  if (F.error) return `<p class="alert bad">${F.error}</p>`;
+  if (F.error) return `<p class="alert bad">${esc(F.error)}</p>`;
   return `${p.status === 'diajukan' ? `<div class="alert info">${ic('doc')}<span>Verifikasi setiap bukti FR.APL.01 bagian 3 (Memenuhi Syarat / Tidak Memenuhi Syarat / Tidak Ada). Pemohon hanya dapat diterima bila semua bukti Memenuhi Syarat; tanda tangan Admin LSP dibubuhkan otomatis saat Anda memutuskan.</span></div>` : ''}
     <div id="pdMk">${mukRender(F, {embed: true, readonly: p.status !== 'diajukan'})}</div>
     <details><summary style="cursor:pointer;font-weight:700">FR.APL.02 Asesmen mandiri asesi</summary>${mukRender(F2, {embed: true, readonly: true})}</details>`;
@@ -295,7 +295,7 @@ function pMuk() {
   if (S.mkP && S.mkP.sid) {
     const D = mkLazy('perangkat:' + S.mkP.sid, 'muk/perangkat?skema_id=' + S.mkP.sid);
     if (!D) return loading();
-    if (D.error) return `<p class="alert bad">${D.error}</p>`;
+    if (D.error) return `<p class="alert bad">${esc(D.error)}</p>`;
     return `${phead('Perangkat asesmen (MUK) · ' + D.skema.kode, D.skema.nama, `<button class="btn ghost" data-x="mukList">← Semua skema</button>`)}
     <div class="alert info">${ic('shield')}<span>Setiap perangkat disusun penyusun lalu <b>divalidasi oleh asesor lain</b> (blok Penyusun dan Validator). Hanya versi tervalidasi yang dipakai pada asesmen; perubahan menjadi versi baru.</span></div>
     <div class="card">${table(['Perangkat', 'Versi dipakai', 'Versi terbaru', 'Penyusun', 'Validator', ''], D.items.map(it => tr([`<b>${it.judul}</b>`,
@@ -318,7 +318,7 @@ PAGES.mukV = pMuk;
 function pMukEditor() {
   const P = mkLazy('pdetail:' + S.mkP.sid + ':' + S.mkP.kode, 'muk/perangkat/detail?skema_id=' + S.mkP.sid + '&kode=' + S.mkP.kode);
   if (!P) return loading();
-  if (P.error) return `<p class="alert bad">${P.error}</p>`;
+  if (P.error) return `<p class="alert bad">${esc(P.error)}</p>`;
   const pr = P.perangkat;
   const F = {def: P.def, data: S.mkP.draft || P.data, header: P.header, status: pr ? pr.status : 'baru',
     ttd: {penyusun: pr && pr.penyusun && pr.penyusun.at ? {nama: pr.penyusun.nama, no_reg: pr.penyusun.no_met, at: pr.penyusun.at} : undefined,

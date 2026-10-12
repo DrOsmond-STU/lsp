@@ -165,6 +165,10 @@ function migrations(): array
             // Alur paperless sesuai Buku Kerja 333-25 & PBNSP 201: formulir FR.*, perangkat MUK, banding, Komite Teknis.
             muk_migrasi_12();
         },
+        13 => function (): void {
+            // Sidik tanda tangan elektronik yang dapat diverifikasi; tanda tangan data contoh ditandai.
+            muk_migrasi_13();
+        },
     ];
 }
 

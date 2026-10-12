@@ -88,7 +88,8 @@ function muk_migrasi_akun(): void
     }
     foreach (['komite.tdn@demo.portallsp.id', 'mutu.tdn@demo.portallsp.id', 'asesor2@demo.portallsp.id'] as $email) {
         if (!empty($hashes[$email])) {
-            q('UPDATE users SET password_hash = ? WHERE email = ?', [$hashes[$email], $email]);
+            q('UPDATE users SET password_hash = ?, sess_ver = sess_ver + 1 WHERE email = ?', [$hashes[$email], $email]);
+            audit('password.seed', 'user:' . $email);
         }
     }
 }
@@ -163,7 +164,10 @@ function muk_seed_form(array $ctx, string $kode, array $data, array $ttd, ?int $
     foreach ($ttd as $peran => [$uid, $at]) {
         $u = q('SELECT nama, no_met FROM users WHERE id = ?', [$uid])->fetch();
         q('INSERT INTO formulir_ttd (formulir_id, peran, user_id, nama, no_reg, hash, ip, signed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [$fid, $peran, $uid, $u['nama'], $peran === 'asesor' ? $u['no_met'] : null, hash('sha256', $fid . '|' . $peran . '|' . $json), '127.0.0.1', $at]);
+            [$fid, $peran, $uid, $u['nama'], $peran === 'asesor' ? $u['no_met'] : null, '', 'data-demo', $at]);
+    }
+    if ($ttd) {
+        muk_ttd_hash_ulang($fid); // tanda tangan data contoh ditandai 'data-demo' dan diberi sidik yang dapat diverifikasi
     }
     return $fid;
 }
@@ -430,3 +434,23 @@ function muk_migrasi_12(): void
         throw $e;
     }
 }
+
+/**
+ * Migrasi 13: sidik tanda tangan versi 2 (HMAC atas isian kanonik milik penanda tangan, berantai) agar dapat diverifikasi,
+ * dan tanda tangan data contoh ditandai 'data-demo' agar tidak tertukar dengan tanda tangan sungguhan.
+ */
+function muk_migrasi_13(): void
+{
+    db()->beginTransaction();
+    try {
+        q("UPDATE formulir_ttd SET ip = 'data-demo' WHERE ip = '127.0.0.1'");
+        foreach (q('SELECT DISTINCT formulir_id FROM formulir_ttd')->fetchAll(PDO::FETCH_COLUMN) as $fid) {
+            muk_ttd_hash_ulang((int)$fid);
+        }
+        db()->commit();
+    } catch (Throwable $e) {
+        db()->rollBack();
+        throw $e;
+    }
+}
+

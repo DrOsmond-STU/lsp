@@ -175,6 +175,7 @@ let kode;
   check('jadwal muncul di daftar laporan asesor', lap && lap.diuji === 1 && lap.tercakup === 0);
   const ak05 = await signForm(asesor, { jadwal_id: jid }, 'AK.05', 'asesor', { negatif: 'Tidak ada', positif: 'Asesi siap', penolakan: 'Tidak ada', saran: null, catatan: null });
   check('asesor menyerahkan FR.AK.05', ak05.status === 200, ak05.json);
+  check('laporan susulan tanpa asesi yang belum tercakup ditolak (409)', (await asesor.req('muk/formulir/ttd', { jadwal_id: jid, kode: 'AK.05', baru: true, sebagai: 'asesor', setuju: true, data: {} })).status === 409);
   check('Admin LSP tidak dapat memutus sertifikasi (403)', (await tdn.req('pleno/putus', { id: pid, keputusan: 'K', catatan: '' })).status === 403);
   check('Manajer Mutu tidak dapat memutus sertifikasi (403)', (await mutu.req('pleno/putus', { id: pid, keputusan: 'K', catatan: '' })).status === 403);
   check('asesor penguji tidak dapat memutus (403)', (await asesor.req('pleno/putus', { id: pid, keputusan: 'K', catatan: '' })).status === 403);
@@ -224,6 +225,24 @@ console.log('Validasi asesmen FR.VA oleh Manajer Mutu');
   check('FR.VA ditandatangani tim validasi', r.status === 200, r.json);
   check('daftar validasi skema bertambah', (await tdn.req('muk/perangkat?skema_id=' + skemaId)).json.validasi.some(v => v.id === r.json.id));
   check('Keuangan tidak berwenang (403)', (await (await as('keuangan.tdn')).req('muk/formulir/ttd', { skema_id: skemaId, kode: 'VA', sebagai: 'tim', setuju: true, data })).status === 403);
+  const d1 = await mutu.req('muk/formulir/simpan', { skema_id: skemaId, kode: 'VA', sebagai: 'tim', data: { periode: 'sebelum' } });
+  const d2 = await mutu.req('muk/formulir/simpan', { skema_id: skemaId, kode: 'VA', sebagai: 'tim', data: { periode: 'setelah' } });
+  check('simpan FR.VA berulang melanjutkan draf yang sama', d1.status === 200 && d2.status === 200 && d1.json.id === d2.json.id && d1.json.id !== r.json.id, [d1.json, d2.json]);
+}
+
+console.log('Integritas tanda tangan & batas ukuran');
+{
+  let semua = 0, utuh = 0;
+  for (const k of ['APL.01', 'APL.02', 'AK.07', 'AK.01', 'IA.05', 'AK.02', 'AK.04']) {
+    const F = (await sup.req(`muk/formulir?permohonan_id=${pid}&kode=${k}`)).json;
+    for (const t of Object.values(F.ttd || {})) { semua++; if (t.utuh === true) utuh++; }
+  }
+  check('semua tanda tangan berkas terverifikasi utuh', semua >= 10 && semua === utuh, { semua, utuh });
+  const lap = (await sup.req(`muk/formulir?jadwal_id=${jid}&kode=AK.05`)).json;
+  check('tanda tangan FR.AK.05 terverifikasi utuh', lap.ttd.asesor && lap.ttd.asesor.utuh === true);
+  const demo = (await sup.req('muk/formulir?permohonan_id=1&kode=APL.01')).json;
+  check('tanda tangan data contoh ditandai & utuh', Object.values(demo.ttd).every(t => t.demo === true && t.utuh === true) && Object.keys(demo.ttd).length > 0, demo.ttd);
+  check('isian lebih dari 512 KB ditolak (413)', (await asesi.req('muk/formulir/simpan', { permohonan_id: pid, kode: 'AK.03', data: { catatan: 'x'.repeat(600000) } })).status === 413);
 }
 
 console.log('Isolasi formulir: id formulir terikat ke permohonan/jadwal konteksnya');

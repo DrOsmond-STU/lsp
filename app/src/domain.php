@@ -539,6 +539,7 @@ function r_sertifikat_pdf(): void
         audit('sertifikat.pdf', 'sertifikat:' . $c['id'], null, (int)$c['lsp_id']);
     }
     header('Content-Type: application/pdf');
+    header_remove('Content-Security-Policy'); // penampil PDF peramban butuh sumber internalnya sendiri
     header('Content-Disposition: ' . (isset($_GET['unduh']) ? 'attachment' : 'inline') . '; filename="' . $file . '"');
     header('Content-Length: ' . strlen($pdf));
     header('Cache-Control: private, no-store');
@@ -571,6 +572,7 @@ function r_sertifikat_cetak(): void
     $units = units_of((int)$c['skema_id']);
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: private, no-store');
+    header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
     $rows = '';
     foreach ($units as $u) {
         $rows .= '<tr><td>' . $e($u['kode']) . '</td><td>' . $e($u['judul']) . '</td></tr>';

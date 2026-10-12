@@ -5,6 +5,10 @@ require dirname(__DIR__) . '/src/bootstrap.php';
 
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
+// Lapis kedua bila mod_headers tidak aktif: respons API tidak boleh memuat sumber apa pun atau dibingkai.
+header("Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
+header('X-Frame-Options: DENY');
+header_remove('X-Powered-By');
 
 try {
     migrate();

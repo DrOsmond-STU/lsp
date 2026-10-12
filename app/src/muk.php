@@ -384,7 +384,9 @@ function muk_find(array $ctx, string $kode, int $fid = 0): ?array
     } elseif ($ctx['lingkup'] === 'jadwal') {
         $r = q('SELECT * FROM formulir WHERE jadwal_id = ? AND permohonan_id IS NULL AND kode = ? ORDER BY id DESC LIMIT 1', [$ctx['id'], $kode])->fetch();
     } else {
-        $r = null;
+        // Lingkup skema (FR.VA): lanjutkan draf yang ada; formulir baru hanya bila semua yang lama sudah final.
+        $r = q("SELECT * FROM formulir WHERE skema_id = ? AND permohonan_id IS NULL AND jadwal_id IS NULL AND kode = ? AND status <> 'final' ORDER BY id DESC LIMIT 1",
+            [$ctx['id'], $kode])->fetch();
     }
     return $r ?: null;
 }
@@ -393,7 +395,8 @@ function muk_ttd_of(int $fid): array
 {
     $out = [];
     foreach (q('SELECT t.*, u.nama AS user_nama FROM formulir_ttd t JOIN users u ON u.id = t.user_id WHERE t.formulir_id = ? ORDER BY t.id', [$fid])->fetchAll() as $t) {
-        $out[$t['peran']] = ['nama' => $t['nama'], 'no_reg' => $t['no_reg'], 'at' => $t['signed_at'], 'hash' => substr($t['hash'], 0, 16), 'user_id' => (int)$t['user_id']];
+        $out[$t['peran']] = ['nama' => $t['nama'], 'no_reg' => $t['no_reg'], 'at' => $t['signed_at'], 'hash' => substr($t['hash'], 0, 16), 'user_id' => (int)$t['user_id'],
+            'demo' => $t['ip'] === 'data-demo'];
     }
     return $out;
 }
@@ -428,12 +431,132 @@ function muk_no_met(int $uid): ?string
 }
 
 /** Tanda tangan elektronik satu pihak; formulir final bila semua pihak sudah menandatangani. */
+/* ===================== Tanda tangan elektronik: sidik isi yang dapat diverifikasi ===================== */
+
+/** JSON kanonik: kunci objek diurutkan rekursif, sehingga sidik tidak bergantung urutan penyimpanan. */
+function muk_kanonik($v): string
+{
+    $sort = function ($x) use (&$sort) {
+        if (!is_array($x)) {
+            return $x;
+        }
+        if ($x && array_keys($x) !== range(0, count($x) - 1)) {
+            ksort($x, SORT_STRING);
+        }
+        return array_map($sort, $x);
+    };
+    return json_encode($sort($v), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
+
+/** Bagian isian milik satu pihak. Bagian ini terkunci setelah pihak itu menandatangani, jadi sidiknya tetap dapat diverifikasi. */
+function muk_bagian_pihak(array $def, array $data, string $party): array
+{
+    $out = [];
+    foreach (muk_fields($def) as $f) {
+        if ($f['t'] === 'info' || !array_key_exists($f['k'], $data)) {
+            continue;
+        }
+        if ($f['t'] !== 'grid') {
+            if (muk_owner($f, $def) === $party) {
+                $out[$f['k']] = $data[$f['k']];
+            }
+            continue;
+        }
+        if ($f['baris'] === 'bebas') {
+            if (($f['oleh'] ?? $def['pengisi']) === $party) {
+                $out[$f['k']] = $data[$f['k']];
+            }
+            continue;
+        }
+        $mine = [];
+        foreach ($f['kol'] as $c) {
+            if (($c['oleh'] ?? $f['oleh'] ?? $def['pengisi']) === $party) {
+                $mine[$c['k']] = true;
+            }
+        }
+        if (!$mine || !is_array($data[$f['k']])) {
+            continue;
+        }
+        foreach ($data[$f['k']] as $rk => $row) {
+            $sel = is_array($row) ? array_intersect_key($row, $mine) : [];
+            if ($sel) {
+                $out[$f['k']]['r' . $rk] = $sel;
+            }
+        }
+    }
+    return $out;
+}
+
+/**
+ * Sidik tanda tangan (HMAC-SHA256 dengan kunci turunan storage/app.key) atas: formulir, kode, LSP, konteks, peran, penanda tangan,
+ * waktu, IP, rantai sidik tanda tangan sebelumnya, dan isian milik penanda tangan (JSON kanonik).
+ */
+function muk_ttd_hash(array $f, array $def, array $data, string $peran, int $userId, string $at, string $ip, string $prev): string
+{
+    $key = hash_hmac('sha256', 'formulir-ttd-v2', app_key(), true);
+    $msg = implode('|', ['v2', (int)$f['id'], $f['kode'], (int)$f['lsp_id'], (int)$f['permohonan_id'] . ':' . (int)$f['jadwal_id'] . ':' . (int)$f['skema_id'],
+        $peran, $userId, $at, $ip, $prev, muk_kanonik(muk_bagian_pihak($def, $data, $peran))]);
+    return hash_hmac('sha256', $msg, $key);
+}
+
+/** Verifikasi semua tanda tangan formulir: peran => true bila isi & identitas tidak berubah sejak ditandatangani. */
+function muk_ttd_cek(array $f): array
+{
+    $def = muk_defs()[$f['kode']] ?? null;
+    if (!$def) {
+        return [];
+    }
+    $data = json_decode((string)$f['data'], true) ?: [];
+    $prev = '';
+    $out = [];
+    foreach (q('SELECT * FROM formulir_ttd WHERE formulir_id = ? ORDER BY id', [$f['id']])->fetchAll() as $t) {
+        $out[$t['peran']] = hash_equals((string)$t['hash'], muk_ttd_hash($f, $def, $data, $t['peran'], (int)$t['user_id'], (string)$t['signed_at'], (string)$t['ip'], $prev));
+        $prev .= $t['hash'];
+    }
+    return $out;
+}
+
+/** Hitung ulang sidik semua tanda tangan formulir (dipakai migrasi dan data contoh). */
+function muk_ttd_hash_ulang(int $fid): void
+{
+    $f = q('SELECT * FROM formulir WHERE id = ?', [$fid])->fetch();
+    $def = $f ? (muk_defs()[$f['kode']] ?? null) : null;
+    if (!$def) {
+        return;
+    }
+    $data = json_decode((string)$f['data'], true) ?: [];
+    $prev = '';
+    foreach (q('SELECT * FROM formulir_ttd WHERE formulir_id = ? ORDER BY id', [$fid])->fetchAll() as $t) {
+        $h = muk_ttd_hash($f, $def, $data, $t['peran'], (int)$t['user_id'], (string)$t['signed_at'], (string)$t['ip'], $prev);
+        q('UPDATE formulir_ttd SET hash = ? WHERE id = ?', [$h, $t['id']]);
+        $prev .= $h;
+    }
+}
+
 function muk_sign_row(int $fid, string $party, array $data): void
 {
     $u = current_user();
-    $hash = hash('sha256', $fid . '|' . $party . '|' . json_encode($data, JSON_UNESCAPED_UNICODE));
+    $f = q('SELECT * FROM formulir WHERE id = ?', [$fid])->fetch();
+    $def = muk_defs()[$f['kode']];
+    $prev = implode('', q('SELECT hash FROM formulir_ttd WHERE formulir_id = ? ORDER BY id', [$fid])->fetchAll(PDO::FETCH_COLUMN));
+    $at = now();
+    $ip = client_ip();
     q('INSERT INTO formulir_ttd (formulir_id, peran, user_id, nama, no_reg, hash, ip, signed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [$fid, $party, $u['id'], $u['nama'], $party === 'asesor' ? muk_no_met((int)$u['id']) : null, $hash, client_ip(), now()]);
+        [$fid, $party, $u['id'], $u['nama'], $party === 'asesor' ? muk_no_met((int)$u['id']) : null,
+            muk_ttd_hash($f, $def, $data, $party, (int)$u['id'], $at, $ip, $prev), $ip, $at]);
+}
+
+/** Batalkan tanda tangan (mis. berkas dikembalikan untuk perbaikan) dengan jejak lengkap di log audit. */
+function muk_ttd_batal(int $fid, string $peran, string $alasan): void
+{
+    $t = q('SELECT * FROM formulir_ttd WHERE formulir_id = ? AND peran = ?', [$fid, $peran])->fetch();
+    if (!$t) {
+        return;
+    }
+    $f = q('SELECT kode, lsp_id FROM formulir WHERE id = ?', [$fid])->fetch();
+    audit('formulir.ttd_batal', $f['kode'] . ':' . $fid . ':' . $peran . ':' . $alasan . ':oleh=' . $t['user_id'] . ':pada=' . $t['signed_at'] . ':sidik=' . substr($t['hash'], 0, 16),
+        null, (int)$f['lsp_id']);
+    q('DELETE FROM formulir_ttd WHERE id = ?', [$t['id']]);
 }
 
 function muk_refresh_status(int $fid, array $def): string
@@ -650,8 +773,21 @@ function r_muk_formulir(): void
     }
     $data = $f ? (json_decode((string)$f['data'], true) ?: []) : muk_prefill($kode, $ctx);
     $ttd = $f ? muk_ttd_of((int)$f['id']) : [];
+    if ($f) {
+        // Setiap tanda tangan diverifikasi ulang terhadap isi yang tersimpan sekarang.
+        $cek = muk_ttd_cek($f);
+        foreach ($ttd as $p => $t) {
+            $ttd[$p]['utuh'] = $cek[$p] ?? false;
+            if (!$ttd[$p]['utuh']) {
+                audit('formulir.ttd_tidak_utuh', $kode . ':' . $f['id'] . ':' . $p, null, $ctx['lsp_id']);
+            }
+        }
+    }
     $pmap = muk_perangkat_map($def, $ctx, $data);
     $parties = muk_parties($ctx, $def);
+    if ($f && !$parties && $ctx['asesi_id'] !== uid() && in_array($kode, ['APL.01', 'APL.02', 'AK.02', 'AK.04'], true)) {
+        audit('formulir.lihat', $kode . ':' . $f['id'], null, $ctx['lsp_id']); // data pribadi/hasil asesi dibaca pihak lain
+    }
     $untukAsesi = $ctx['asesi_id'] === uid() && !muk_staf_lsp($ctx['lsp_id']);
     if ($kode === 'IA.05' && in_array('asesor', $parties, true)) {
         $data = muk_ia05_autoscore($data, $pmap['IA.05'] ?? null);
@@ -757,6 +893,18 @@ function r_muk_ttd(): void
         throw $e;
     }
     audit('formulir.ttd', $def['kode'] . ':' . $id . ':' . $party, null, $ctx['lsp_id']);
+    // Keputusan penting juga dicatat dengan nama aksinya sendiri agar mudah ditelusuri.
+    $sasaran = 'permohonan:' . $ctx['id'];
+    if ($def['kode'] === 'APL.02' && $party === 'asesor') {
+        audit('pra.' . (($data['rekom'] ?? '') === 'dapat' ? 'lanjut' : 'tidak_lanjut'), $sasaran, null, $ctx['lsp_id']);
+    } elseif ($def['kode'] === 'AK.01' && $party === 'asesor') {
+        audit('ak01.bebas_benturan_kepentingan', $sasaran, null, $ctx['lsp_id']);
+    } elseif ($def['kode'] === 'AK.02' && $party === 'asesor') {
+        $bk = array_filter($data['unit'] ?? [], function ($r) { return ($r['hasil'] ?? '') === 'BK'; });
+        audit('asesmen.' . ($bk ? 'BK' : 'K'), $sasaran . ':unit_bk=' . count($bk), null, $ctx['lsp_id']);
+    } elseif ($def['kode'] === 'AK.04' && $party === 'asesi') {
+        audit('banding.ajukan', $sasaran, null, $ctx['lsp_id']);
+    }
     json_out(['ok' => true, 'id' => $id, 'status' => $st]);
 }
 
@@ -773,7 +921,20 @@ function muk_write_prep(): array
         fail('Formulir tidak ditemukan.', 404);
     }
     if ($f && $ctx['lingkup'] === 'jadwal' && $kode === 'AK.05' && $f['status'] === 'final' && ($b['baru'] ?? false) === true) {
+        // Laporan susulan hanya bila ada asesi yang sudah diases (FR.AK.02) tetapi belum tercakup laporan final.
+        $belum = 0;
+        foreach (q("SELECT p.id FROM permohonan p JOIN formulir a ON a.permohonan_id = p.id AND a.kode = 'AK.02'
+                    JOIN formulir_ttd t ON t.formulir_id = a.id AND t.peran = 'asesor' WHERE p.jadwal_id = ?", [$ctx['id']])->fetchAll(PDO::FETCH_COLUMN) as $pid) {
+            $belum += muk_ak05_mencakup((int)$pid, $ctx['id']) ? 0 : 1;
+        }
+        if (!$belum) {
+            fail('Semua asesi yang sudah diases telah tercakup laporan FR.AK.05; laporan susulan tidak diperlukan.', 409);
+        }
         $f = null;
+    }
+    if (!$f) {
+        // Batas pembuatan formulir baru per pengguna (mencegah pembuatan massal).
+        limit_per_user('formulir', 'created_by', 300, 3600, 'Terlalu banyak formulir baru dibuat dalam satu jam. Coba lagi nanti.');
     }
     if ($f && (int)$f['lsp_id'] !== $ctx['lsp_id']) {
         fail('Formulir tidak ditemukan.', 404);
@@ -1107,6 +1268,12 @@ function r_muk_perangkat_detail(): void
         fail('Perangkat tidak dikenal.', 404);
     }
     $s = muk_skema_scope($sid, false);
+    // Perangkat memuat kunci jawaban: tertutup bagi pengguna yang sedang menjadi asesi aktif di skema ini (mis. asesor yang ikut uji).
+    if (q("SELECT 1 FROM permohonan WHERE asesi_id = ? AND skema_id = ? AND status NOT IN ('kompeten', 'belum_kompeten', 'ditolak', 'dibatalkan', 'tidak_lanjut')",
+        [uid(), $sid])->fetch()) {
+        audit('access.denied', 'perangkat:' . $sid . ':' . $kode);
+        fail('Anda sedang terdaftar sebagai asesi pada skema ini, sehingga tidak boleh membuka perangkat asesmennya.', 403);
+    }
     $p = q('SELECT * FROM muk_perangkat WHERE skema_id = ? AND kode = ? ORDER BY versi DESC LIMIT 1', [$sid, $kode])->fetch();
     $ctx = muk_ctx_skema($sid);
     $def = ['kode' => $kode, 'judul' => muk_perangkat_defs()[$kode]['judul'], 'pengisi' => 'penyusun', 'ttd' => ['penyusun' => 'Penyusun', 'validator' => 'Validator'],
@@ -1356,7 +1523,7 @@ function muk_isi_pendaftaran(array $ctx): string
                 . (count($miss) > 5 ? ' (dan ' . (count($miss) - 5) . ' lainnya)' : '') . '.', 422);
         }
         $id = muk_save($ctx, $kode, $data, $f);
-        q("DELETE FROM formulir_ttd WHERE formulir_id = ? AND peran = 'asesi'", [$id]);
+        muk_ttd_batal($id, 'asesi', 'diajukan_ulang');
         muk_sign_row($id, 'asesi', $data);
         muk_refresh_status($id, $def);
         $out[$kode] = $data;
@@ -1403,7 +1570,7 @@ function muk_buka_perbaikan(array $ctx): void
     foreach (['APL.01', 'APL.02'] as $kode) {
         $f = muk_find($ctx, $kode);
         if ($f) {
-            q("DELETE FROM formulir_ttd WHERE formulir_id = ? AND peran = 'asesi'", [$f['id']]);
+            muk_ttd_batal((int)$f['id'], 'asesi', 'perbaikan');
             q("UPDATE formulir SET status = 'draf' WHERE id = ?", [$f['id']]);
         }
     }
