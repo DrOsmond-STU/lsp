@@ -89,6 +89,9 @@ export async function laporan(asesor, jadwalId) {
   let F = (await asesor.req(`muk/formulir?jadwal_id=${jadwalId}&kode=AK.05`)).json;
   const baru = F.status === 'final';
   if (baru) F = (await asesor.req(`muk/formulir?jadwal_id=${jadwalId}&kode=AK.05&baru=1`)).json;
-  const data = fillFor(F, 'asesor', {penolakan: 'Tidak ada'});
+  // Rekomendasi per asesi mengikuti FR.AK.02 (sudah terisi otomatis di laporan).
+  const rek = {};
+  for (const [k, v] of Object.entries((F.data || {}).asesi || {})) rek[k] = { rekom: v.rekom || 'K', ket: v.ket || (v.rekom === 'BK' ? 'Unit yang belum kompeten sesuai FR.AK.02' : null) };
+  const data = fillFor(F, 'asesor', {penolakan: 'Tidak ada', asesi: rek});
   return asesor.req('muk/formulir/ttd', {jadwal_id: jadwalId, kode: 'AK.05', id: F.id || undefined, baru: baru || undefined, sebagai: 'asesor', setuju: true, data});
 }

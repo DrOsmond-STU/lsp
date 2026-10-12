@@ -113,14 +113,15 @@ function mukRender(F, opts = {}) {
   const def = F.def, data = F.data || {};
   const pihak = opts.readonly ? [] : (F.pihak || []);
   const edit = owner => pihak.includes(owner);
-  const secs = def.bagian.map(b => `<div class="muk-sec"><h3>${b.j}</h3>${b.f.map(f => {
+  const pribadi = F.pribadi && F.pribadi.length ? `<table class="muk-head no-stack"><tbody>${F.pribadi.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</tbody></table><p class="muted" style="font-size:.78rem">Data pribadi diambil dari profil Anda; ubah di menu Profil bila ada yang keliru.</p>` : '';
+  const secs = def.bagian.map((b, bi) => `<div class="muk-sec"><h3>${b.j}</h3>${bi === 0 ? pribadi : ''}${b.f.map(f => {
     if (f.t === 'info') return `<div class="muk-info">${f.l ? `<b>${f.l}</b>` : ''}${(f.v || []).map(x => `<div>${x}</div>`).join('')}</div>`;
     if (f.t === 'grid') return `<div class="stack" style="gap:.5rem">${f.l ? `<b>${f.l}</b>` : ''}${mkGrid(f, F, edit)}</div>`;
     return `<label class="f"><span>${f.l}${f.wajib && edit(mkOwner(f, null, def)) ? ' <span class="muted">*</span>' : ''}</span>${mkInput(f, data[f.k], edit(mkOwner(f, null, def)), {f: f.k})}</label>`;
   }).join('')}</div>`).join('');
   const ttd = Object.entries(def.ttd).map(([p, l]) => {
     const t = (F.ttd || {})[p];
-    return `<div><p class="eyebrow">${l}</p>${t ? `<b>${t.nama}</b>${t.no_reg ? `<div class="muted">No. Reg ${t.no_reg}</div>` : ''}<div class="muted" style="font-size:.78rem">Ditandatangani elektronik ${mkWaktu(t.at)}${t.hash ? ` · sidik ${t.hash}` : ''}</div>${t.utuh === true ? '<span class="chip ok" style="margin-top:.25rem">Isi utuh sejak ditandatangani</span>' : t.utuh === false ? '<span class="chip bad" style="margin-top:.25rem">Isi berubah setelah ditandatangani</span>' : ''}${t.demo ? ' <span class="chip plain" style="margin-top:.25rem">Data contoh</span>' : ''}` : '<span class="chip plain">Belum ditandatangani</span>'}</div>`;
+    return `<div><p class="eyebrow">${l}</p>${t ? `<b>${t.nama}</b>${t.no_reg ? `<div class="muted">No. Reg ${t.no_reg}</div>` : ''}<div class="muted" style="font-size:.78rem">Ditandatangani elektronik ${mkWaktu(t.at)}${t.hash ? ` · sidik ${t.hash}` : ''}</div>${t.utuh === true ? '<span class="chip ok" style="margin-top:.25rem">Isi utuh sejak ditandatangani</span>' : t.utuh === false ? '<span class="chip bad" style="margin-top:.25rem">Isi berubah setelah ditandatangani</span>' : ''}${t.demo ? ' <span class="chip plain" style="margin-top:.25rem" title="Tanda tangan ini dibuat saat data demo disiapkan">Data demo</span>' : ''}` : '<span class="chip plain">Belum ditandatangani</span>'}</div>`;
   }).join('');
   const act = opts.embed ? '' : (opts.actions || (pihak.length && !F.catatan ? `<div class="card stack no-print" style="gap:.6rem;border:2px solid var(--brand-b)">
       <label class="toggle"><input type="checkbox" id="mk-setuju"><span>Saya menyatakan isian saya pada formulir ini benar dan menandatanganinya secara elektronik sebagai <b>${pihak.map(p => def.ttd[p]).join(', ')}</b>. Setelah ditandatangani, isian saya tidak dapat diubah.</span></label>
@@ -392,7 +393,7 @@ MENU.asesor.splice(MENU.asesor.findIndex(it => it[0] === 'pleno'), 0, ['laporanA
 MENU.asesor.splice(MENU.asesor.findIndex(it => it[0] === 'riwayat'), 0, ['muk', 'Perangkat Asesmen (MUK)', 'book', 'muk.manage']);
 (function () {
   const i = MENU.admin.findIndex(it => it[0] === 'plenoA');
-  MENU.admin.splice(i + 1, 0, ['banding', 'Banding Asesmen', 'shield', 'appeal.decide'], ['muk', 'Perangkat Asesmen (MUK)', 'book', 'muk.manage'], ['mukV', 'Validasi Asesmen (FR.VA)', 'check', 'assessment.review']);
+  MENU.admin.splice(i + 1, 0, ['banding', 'Banding Asesmen', 'shield', 'appeal.view'], ['muk', 'Perangkat Asesmen (MUK)', 'book', 'muk.manage'], ['mukV', 'Validasi Asesmen (FR.VA)', 'check', 'assessment.review']);
   const j = MENU.super.findIndex(it => it[0] === 'plenoA');
-  if (j >= 0) MENU.super.splice(j + 1, 0, ['banding', 'Banding Asesmen', 'shield', 'appeal.decide'], ['muk', 'Perangkat Asesmen (MUK)', 'book', 'muk.manage']);
+  if (j >= 0) MENU.super.splice(j + 1, 0, ['banding', 'Banding Asesmen', 'shield', 'appeal.view'], ['muk', 'Perangkat Asesmen (MUK)', 'book', 'muk.manage']);
 })();

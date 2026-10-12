@@ -138,6 +138,9 @@ const PAGES = [];
   ok('FR.IA.03 ditandatangani', t.includes('ditandatangani'), t);
   t = await isiTtd(asr, 'IA.05', async p => { ok('asesor melihat kunci & penilaian otomatis', (await p.textContent('#mkDoc')).includes('Kunci Jawaban')); });
   ok('FR.IA.05 dinilai & ditandatangani asesor', t.includes('ditandatangani'), t);
+  // Asesi ikut menandatangani instrumen yang diisi asesor (FR.IA.01–03) sebelum rekaman FR.AK.02.
+  await nav(pub, 'jadwal'); await pub.locator('button[data-x="mkOpen"]').first().click(); await pub.waitForTimeout(900);
+  for (const k of ['IA.01', 'IA.02', 'IA.03']) ok('asesi menandatangani ' + k, (await isiTtd(pub, k)).includes('ditandatangani'));
   t = await isiTtd(asr, 'AK.02', async p => { await pilihSemua(p, '#mkDoc input[data-c="hasil"][value="K"]'); await p.screenshot({ path: OUT + 'p5-ak02.png', fullPage: true }); });
   ok('FR.AK.02 ditandatangani → menunggu pleno', t.includes('ditandatangani'), t);
 

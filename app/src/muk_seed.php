@@ -441,9 +441,19 @@ function muk_migrasi_12(): void
  */
 function muk_migrasi_13(): void
 {
+    seed_rbac_missing(); // hak baru: appeal.view; Manajer Mutu ikut memutus banding
+    // Banding diterima memberi hak asesmen ulang tanpa biaya; permohonan ulangnya dicatat di sini.
+    db()->exec('ALTER TABLE banding ADD COLUMN ulang_permohonan_id ' . ddl()['fk'] . ' NULL');
     db()->beginTransaction();
     try {
         q("UPDATE formulir_ttd SET ip = 'data-demo' WHERE ip = '127.0.0.1'");
+        if (q('SELECT 1 FROM users WHERE email = ?', ['admin.tdn@demo.portallsp.id'])->fetch()) {
+            // Data contoh lama mencatat asesor sebagai pemutus pleno; sesuai PBNSP 201 keputusan dicatat atas nama Komite Teknis LSP-nya.
+            foreach (q("SELECT lsp_id, MIN(user_id) AS uid FROM memberships WHERE role = 'komite_teknis' AND status = 'aktif' GROUP BY lsp_id")->fetchAll() as $k) {
+                q("UPDATE permohonan SET pleno_oleh = ? WHERE lsp_id = ? AND pleno_oleh IS NOT NULL AND pleno_oleh <> ?
+                   AND pleno_oleh IN (SELECT user_id FROM memberships WHERE role = 'asesor')", [$k['uid'], $k['lsp_id'], $k['uid']]);
+            }
+        }
         foreach (q('SELECT DISTINCT formulir_id FROM formulir_ttd')->fetchAll(PDO::FETCH_COLUMN) as $fid) {
             muk_ttd_hash_ulang((int)$fid);
         }

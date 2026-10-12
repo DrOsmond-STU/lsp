@@ -1,7 +1,7 @@
 // Uji alur sertifikasi paperless sesuai Buku Kerja 333-25 & PBNSP 201: formulir FR.*, tanda tangan elektronik,
 // gerbang status, pemisahan tugas (asesor ≠ pemutus, validator ≠ penyusun, pemutus banding tidak terlibat), kerahasiaan kunci jawaban.
 import { readFileSync } from 'node:fs';
-import { fillFor, signForm, aplData, verifikasi } from './lib-muk.mjs';
+import { fillFor, signForm, aplData, verifikasi, praAsesmen, asesmen, laporan } from './lib-muk.mjs';
 const BASE = process.env.BASE || 'http://127.0.0.1:8099';
 const MAIL = new URL('../storage/mail.log', import.meta.url).pathname;
 const PW = 'Demo-Pass-2026';
@@ -125,6 +125,8 @@ const ctx = () => ({ permohonan_id: pid });
   const b = await asesor.req('muk/berkas?permohonan_id=' + pid);
   check('instrumen aktif dari FR.MAPA.02 untuk potensi 1', JSON.stringify(b.json.instrumen) === JSON.stringify(['IA.01', 'IA.02', 'IA.03', 'IA.05']), b.json.instrumen);
   check('asesi tidak bisa menandatangani AK.01 sebelum asesor (409)', (await signForm(asesi, ctx(), 'AK.01', 'asesi')).status === 409);
+  check('asesi belum bisa melihat soal instrumen sebelum siap uji (403)', (await asesi.req(`muk/formulir?permohonan_id=${pid}&kode=IA.05`)).status === 403);
+  check('asesor belum bisa mengisi instrumen sebelum siap uji (409)', (await signForm(asesor, ctx(), 'IA.01', 'asesor', { rekomendasi: 'K' })).status === 409);
   check('asesor dengan benturan kepentingan ditolak', (await signForm(asesor, ctx(), 'AK.01', 'asesor', { coi: 'Tidak', banding_dijelaskan: 'Ya' })).status === 422);
   const ak01 = await signForm(asesor, ctx(), 'AK.01', 'asesor', { coi: 'Ya', banding_dijelaskan: 'Ya', bukti: ['observasi', 'tulis', 'tanya'] });
   check('FR.AK.01 ditandatangani asesor', ak01.status === 200, ak01.json);
@@ -186,18 +188,52 @@ let kode;
   check('asesor menandatangani tinjauan FR.AK.06', (await signForm(asesor, { jadwal_id: jid }, 'AK.06', 'asesor', { 'prinsip.*': { sesuai: ['V', 'R', 'A'] } })).status === 200);
 }
 
-console.log('Banding FR.AK.04');
+console.log('Banding FR.AK.04: hanya atas keputusan BK, pemutus independen, asesmen ulang tanpa biaya');
 {
-  const bd = await signForm(asesi, ctx(), 'AK.04', 'asesi', { 'tanya.*': { jawab: 'Ya' }, alasan: 'Saya menilai satu soal tertulis ambigu.' });
+  check('banding atas keputusan Kompeten ditolak (409)', (await signForm(asesi, ctx(), 'AK.04', 'asesi', { 'tanya.*': { jawab: 'Ya' }, alasan: 'Coba banding atas hasil kompeten.' })).status === 409);
+  // Asesi kedua pada jadwal yang sama dinyatakan Belum Kompeten.
+  const eko = new Client(); await eko.req('auth/me');
+  const reg = await eko.req('auth/register', { nama: 'Eko Banding', nik: '3171011506980003', tanggal_lahir: '1998-06-15', jenis_kelamin: 'L',
+    email: 'eko.muk@contoh.id', no_hp: '081266667777', password: 'Banding-Uji-2026', consent_privacy: true, consent_marketing: false, website: '' });
+  check('registrasi asesi kedua', reg.status === 201, reg.json);
+  const tok = [...readFileSync(MAIL, 'utf8').matchAll(/To: eko\.muk@contoh\.id[\s\S]*?verifikasi=([0-9a-f]{64})/g)].pop()[1];
+  await eko.req('auth/verify', { token: tok });
+  for (const j of ['ktp', 'ijazah', 'foto']) await eko.upload(j, PNG);
+  const ap = await eko.req('asesi/apply', { jadwal_id: jid, ...(await aplData(eko, skemaId)), consent: true });
+  const pid2 = ap.json.id;
+  check('asesi kedua mendaftar', ap.status === 201, ap.json);
+  check('verifikasi asesi kedua', (await tdn.req('lsp/pendaftaran/putus', { id: pid2, aksi: 'terima', catatan: '', verifikasi: await verifikasi(tdn, pid2, 'MS') })).status === 200);
+  const tg = (await eko.req('asesi/tagihan')).json.items.find(t => t.permohonan_id === pid2);
+  await eko.req('asesi/bayar', { id: tg.id, metode: 'QRIS' });
+  const st1 = await praAsesmen(asesor, eko, pid2);
+  check('pra-asesmen asesi kedua', st1.every(x => x === 200), st1);
+  const st2 = await asesmen(asesor, eko, pid2, 'BK');
+  check('asesmen asesi kedua: BK', st2.every(x => x === 200), st2);
+  const lap = await laporan(asesor, jid);
+  check('laporan susulan FR.AK.05 untuk asesi kedua', lap.status === 200, lap.json);
+  check('Komite memutus berbeda dari rekomendasi tanpa catatan ditolak (422)', (await komite.req('pleno/putus', { id: pid2, keputusan: 'K', catatan: '' })).status === 422);
+  check('Komite memutus BK', (await komite.req('pleno/putus', { id: pid2, keputusan: 'BK', catatan: 'Sesuai rekomendasi asesor' })).status === 200);
+  const c2 = { permohonan_id: pid2 };
+  const bd = await signForm(eko, c2, 'AK.04', 'asesi', { 'tanya.*': { jawab: 'Ya' }, alasan: 'Saya menilai satu soal tertulis ambigu.' });
   check('asesi mengajukan banding (FR.AK.04)', bd.status === 200, bd.json);
-  const lst = (await komite.req('banding')).json.items.find(b => b.permohonan_id === pid);
+  check('banding kedua untuk permohonan sama ditolak', (await signForm(eko, c2, 'AK.04', 'asesi', { 'tanya.*': { jawab: 'Ya' }, alasan: 'Ulang' })).status === 409);
+  const lst = (await komite.req('banding')).json.items.find(b => b.permohonan_id === pid2);
   check('banding tampil untuk Komite, tetapi pemutus pleno tidak boleh memutus', lst && lst.boleh === false);
   check('pemutus pleno ditolak memutus banding (403)', (await komite.req('banding/putus', { id: lst.id, hasil: 'ditolak', catatan: 'Keputusan tetap karena bukti cukup.' })).status === 403);
+  check('Admin LSP dapat memantau banding', (await tdn.req('banding')).json.items.some(b => b.id === lst.id));
   check('Admin LSP tidak berwenang memutus banding (403)', (await tdn.req('banding/putus', { id: lst.id, hasil: 'ditolak', catatan: 'Keputusan tetap karena bukti cukup.' })).status === 403);
-  const put = await sup.req('banding/putus', { id: lst.id, hasil: 'ditolak', catatan: 'Soal sudah divalidasi; keputusan tetap.' });
-  check('personil tidak terlibat memutus banding', put.status === 200, put.json);
-  check('banding tidak bisa diputus dua kali (409)', (await sup.req('banding/putus', { id: lst.id, hasil: 'diterima', catatan: 'Coba ubah keputusan banding.' })).status === 409);
-  check('banding kedua untuk permohonan sama ditolak', (await signForm(asesi, ctx(), 'AK.04', 'asesi', { 'tanya.*': { jawab: 'Ya' }, alasan: 'Ulang' })).status === 409);
+  check('asesor penguji tidak boleh memutus banding (403)', (await asesor.req('banding/putus', { id: lst.id, hasil: 'ditolak', catatan: 'Keputusan tetap karena bukti cukup.' })).status === 403);
+  const put = await mutu.req('banding/putus', { id: lst.id, hasil: 'diterima', catatan: 'Soal nomor 1 ambigu; asesmen ulang tanpa biaya.' });
+  check('Manajer Mutu (tidak terlibat) memutus banding: diterima', put.status === 200, put.json);
+  check('banding tidak bisa diputus dua kali (409)', (await sup.req('banding/putus', { id: lst.id, hasil: 'ditolak', catatan: 'Coba ubah keputusan banding.' })).status === 409);
+  const row = (await eko.req('asesi/permohonan')).json.items.find(x => x.id === pid2);
+  check('asesi melihat banding diterima & hak asesmen ulang', row.banding && row.banding.hasil === 'diterima' && row.banding.listing_id > 0, row.banding);
+  const ul = await eko.req('asesi/apply', { jadwal_id: jid, ...(await aplData(eko, skemaId)), consent: true, banding_id: lst.id });
+  check('asesmen ulang didaftarkan tanpa biaya', ul.status === 201, ul.json);
+  check('hak asesmen ulang tidak bisa dipakai dua kali (409)', (await eko.req('asesi/apply', { jadwal_id: jid, ...(await aplData(eko, skemaId)), consent: true, banding_id: lst.id })).status === 409);
+  check('verifikasi asesmen ulang → langsung pra-asesmen tanpa tagihan', (await tdn.req('lsp/pendaftaran/putus', { id: ul.json.id, aksi: 'terima', catatan: '', verifikasi: await verifikasi(tdn, ul.json.id, 'MS') })).status === 200);
+  const r2 = (await eko.req('asesi/permohonan')).json.items.find(x => x.id === ul.json.id);
+  check('status asesmen ulang: pra_asesmen, tanpa tagihan', r2.status === 'pra_asesmen' && !r2.tagihan && r2.harga === 0, r2);
 }
 
 console.log('Perangkat asesmen: penyusun ≠ validator, berversi');
@@ -215,6 +251,29 @@ console.log('Perangkat asesmen: penyusun ≠ validator, berversi');
   check('versi 2 kini dipakai', pv2.valid.versi === 2);
   check('asesi tidak bisa membuka perangkat (kunci jawaban) (404/403)', [403, 404].includes((await asesi.req('muk/perangkat/detail?skema_id=' + skemaId + '&kode=IA.05')).status));
   check('LSP lain tidak bisa membuka perangkat (404)', (await pbi.req('muk/perangkat/detail?skema_id=' + skemaId + '&kode=IA.05')).status === 404);
+}
+
+console.log('Perangkat: semua penyunting tidak boleh memvalidasi; Manajer Mutu dapat memvalidasi');
+{
+  const det = (await asesorLain.req('muk/perangkat/detail?skema_id=' + skemaId + '&kode=IA.07')).json;
+  const items = det.data.items.concat([{ pertanyaan: 'Jelaskan cara menguji fungsi login.', kunci: 'Uji kasus valid, tidak valid, dan batas percobaan.' }]);
+  check('asesor lain menyunting draf versi baru', (await asesorLain.req('muk/perangkat/simpan', { skema_id: skemaId, kode: 'IA.07', data: { items } })).status === 200);
+  check('asesor penguji menandatangani sebagai penyusun', (await asesor.req('muk/perangkat/ttd', { skema_id: skemaId, kode: 'IA.07', sebagai: 'penyusun', setuju: true, data: {} })).status === 200);
+  check('penyunting draf tidak boleh memvalidasi (403)', (await asesorLain.req('muk/perangkat/ttd', { skema_id: skemaId, kode: 'IA.07', sebagai: 'validator', aksi: 'valid', setuju: true })).status === 403);
+  const vm = await mutu.req('muk/perangkat/ttd', { skema_id: skemaId, kode: 'IA.07', sebagai: 'validator', aksi: 'valid', setuju: true, catatan: 'Divalidasi Manajer Mutu' });
+  check('Manajer Mutu memvalidasi perangkat', vm.status === 200, vm.json);
+}
+
+console.log('Master skema: elemen/KUK dan atribut tidak hilang saat disimpan');
+{
+  const sk = (await tdn.req('lsp/skema')).json.items.find(s => s.id === skemaId);
+  const body = { id: sk.id, kode: sk.kode, nama: sk.nama, bidang: sk.bidang, kkni: sk.kkni, harga: sk.harga, deskripsi: sk.deskripsi, persyaratan: sk.persyaratan, status: sk.status };
+  check('simpan ulang tanpa atribut kemasan/masa berlaku mempertahankan nilai lama', (await tdn.req('lsp/skema', { ...body, units_text: sk.units_text })).status === 201);
+  const sk2 = (await tdn.req('lsp/skema')).json.items.find(s => s.id === skemaId);
+  check('elemen, KUK, kemasan, masa berlaku tetap', sk2.units_text === sk.units_text && sk2.kemasan === sk.kemasan && sk2.masa_berlaku_tahun === sk.masa_berlaku_tahun && sk2.banding_hari === sk.banding_hari);
+  check('mengubah unit skema yang sudah dipakai ditolak (409)', (await tdn.req('lsp/skema', { ...body, units_text: sk.units_text.replace(/^- .*$/m, '- Elemen diganti | KUK baru') })).status === 409);
+  const cert = (await asesi.req('asesi/sertifikat')).json.items.find(x => x.kode === kode);
+  check('masa berlaku sertifikat mengikuti skema', cert && Number(cert.berlaku.slice(0, 4)) - Number(cert.terbit.slice(0, 4)) === sk.masa_berlaku_tahun, cert);
 }
 
 console.log('Validasi asesmen FR.VA oleh Manajer Mutu');

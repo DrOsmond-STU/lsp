@@ -176,7 +176,7 @@ console.log('Harga tagihan dikunci saat mendaftar; perubahan skema tayang ditinj
   if (!p) { console.log('  (lewati: tidak ada pendaftaran berstatus diajukan)'); } else {
     const sk = (await tdn.req('lsp/skema')).json.items.find(s => s.id === p.skema_id);
     const body = { id: sk.id, kode: sk.kode, nama: sk.nama, bidang: sk.bidang, kkni: sk.kkni, harga: sk.harga, deskripsi: sk.deskripsi || '', persyaratan: sk.persyaratan || '',
-      status: sk.status, units_text: sk.units.map(u => `${u.kode} | ${u.judul}`).join('\n') };
+      status: sk.status, units_text: sk.units_text };
     const naik = await tdn.req('lsp/skema', { ...body, harga: sk.harga + 4000000 });
     check('biaya skema dinaikkan', naik.status === 201, naik.json);
     if (sk.tayang) {

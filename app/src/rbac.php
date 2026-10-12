@@ -62,19 +62,21 @@ const PERM_DEFS = [
     'blog.manage'           => 'Mengelola artikel blog (CMS)',
     'muk.manage'            => 'Menyusun & memvalidasi perangkat asesmen (MAPA, MUK)',
     'appeal.decide'         => 'Memutus banding asesmen (FR.AK.04)',
+    'appeal.view'           => 'Memantau banding asesmen (FR.AK.04)',
     'assessment.review'     => 'Meninjau proses (FR.AK.06) & validasi asesmen (FR.VA)',
 ];
 
 /** Admin Platform tidak dicantumkan di sini: ia selalu memegang SEMUA hak akses (lihat role_perm_map). */
 const ROLE_PERMS = [
     // Keputusan sertifikasi dipegang Komite Teknis yang tidak ikut mengases (PBNSP 201 §9.4.4), bukan Admin LSP / Manajer Mutu.
-    'admin_lsp'      => ['lsp.dashboard', 'registration.verify', 'schedule.manage', 'assessment.monitor', 'muk.manage',
+    'admin_lsp'      => ['lsp.dashboard', 'registration.verify', 'schedule.manage', 'assessment.monitor', 'muk.manage', 'appeal.view',
                          'master.manage', 'alumni.view', 'listing.manage', 'quality.manage', 'finance.manage', 'crm.manage',
                          'report.bnsp', 'settings.manage', 'user.manage', 'rbac.view', 'notif.log', 'ai.use', 'blog.manage',
                          // Admin LSP membuka semua data LSP-nya, termasuk semua TUK di bawah LSP itu.
                          'tuk.dashboard', 'tuk.applicants', 'tuk.schedule', 'tuk.facility', 'tuk.chat', 'tuk.alumni'],
-    'manajer_mutu'   => ['lsp.dashboard', 'quality.manage', 'alumni.view', 'report.bnsp', 'assessment.monitor', 'assessment.review', 'ai.use'],
-    'komite_teknis'  => ['lsp.dashboard', 'decision.manage', 'appeal.decide', 'assessment.monitor', 'alumni.view', 'ai.use'],
+    // Manajer Mutu menangani keluhan & banding (sistem mutu) dan memvalidasi perangkat; tidak memutus sertifikasi.
+    'manajer_mutu'   => ['lsp.dashboard', 'quality.manage', 'alumni.view', 'report.bnsp', 'assessment.monitor', 'assessment.review', 'appeal.view', 'appeal.decide', 'ai.use'],
+    'komite_teknis'  => ['lsp.dashboard', 'decision.manage', 'appeal.view', 'appeal.decide', 'assessment.monitor', 'alumni.view', 'ai.use'],
     'keuangan'       => ['lsp.dashboard', 'finance.manage', 'ai.use'],
     'marketing'      => ['lsp.dashboard', 'listing.manage', 'crm.manage', 'blog.manage', 'ai.use'],
     'admin_tuk'      => ['tuk.dashboard', 'tuk.applicants', 'tuk.schedule', 'tuk.facility', 'tuk.chat', 'tuk.alumni', 'ai.use'],

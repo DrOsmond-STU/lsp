@@ -30,7 +30,7 @@ const NEED = {
   // Formulir paperless: cukup login; isinya dibatasi per pihak/LSP (diuji di muk.test.mjs).
   'muk/formulir': 'auth', 'muk/formulir/simpan': 'auth', 'muk/formulir/ttd': 'auth', 'muk/berkas': 'auth', 'muk/jadwal': 'auth', 'muk/perangkat': 'auth',
   'muk/perangkat/detail': 'auth', 'muk/perangkat/simpan': ['muk.manage'], 'muk/perangkat/ttd': ['muk.manage'], 'muk/def': ['application.own'],
-  'banding': ['appeal.decide'], 'banding/putus': ['appeal.decide'],
+  'banding': ['appeal.decide', 'appeal.view'], 'banding/putus': ['appeal.decide'],
   'pleno': ['decision.manage', 'pleno.participate'], 'pleno/putus': ['decision.manage', 'pleno.participate'],
   'chat': 'auth', 'chat/kirim': 'auth', 'chat/ruang': 'auth', // isi dibatasi: asesor/asesi hanya ruang jadwalnya, staf hanya LSP-nya
   'lsp/dashboard': ['lsp.dashboard'], 'lsp/pendaftaran': ['registration.verify'], 'lsp/pendaftaran/putus': ['registration.verify'],

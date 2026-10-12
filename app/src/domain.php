@@ -71,7 +71,7 @@ function issue_certificate(array $p): array
     // Nama skema, LSP, dan pemegang disalin saat terbit: sertifikat tidak ikut berubah bila data master diganti kemudian.
     q('INSERT INTO sertifikat (lsp_id, permohonan_id, user_id, skema_id, nomor, kode, terbit, berlaku, status, created_at, skema_nama, skema_kode, lsp_nama, nama_pemegang)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [$p['lsp_id'], $p['id'], $p['asesi_id'], $p['skema_id'], 'TMP-' . $kode, $kode, today(), date('Y-m-d', strtotime('+3 years')), 'aktif', now(),
+        [$p['lsp_id'], $p['id'], $p['asesi_id'], $p['skema_id'], 'TMP-' . $kode, $kode, today(), date('Y-m-d', strtotime('+' . max(1, min(10, (int)(q('SELECT masa_berlaku_tahun FROM skema WHERE id = ?', [$p['skema_id']])->fetchColumn() ?: 3))) . ' years')), 'aktif', now(),
          $info['sn'], $info['sk'], $info['ln'], $info['un']]);
     $id = (int)db()->lastInsertId();
     $nomor = sprintf('LSP-%s/%s/%s/%05d', $info['lk'] ?: ('L' . $info['lid']), $info['sk'], date('Y'), $id);
@@ -328,6 +328,17 @@ function r_asesi_apply(): void
     if ((body()['consent'] ?? false) !== true) {
         fail('Setujui pembagian data diri dan dokumen Anda ke LSP ini.', 422);
     }
+    // Asesmen ulang tanpa biaya setelah banding diterima (PBNSP 201: tindak lanjut banding).
+    $bandingId = (int)(body()['banding_id'] ?? 0);
+    $harga = (int)$j['harga'];
+    if ($bandingId) {
+        $bd = q("SELECT b.id FROM banding b JOIN permohonan p ON p.id = b.permohonan_id
+                 WHERE b.id = ? AND b.asesi_id = ? AND b.hasil = 'diterima' AND b.ulang_permohonan_id IS NULL AND p.skema_id = ?", [$bandingId, $uid, $j['skema_id']])->fetch();
+        if (!$bd) {
+            fail('Hak asesmen ulang dari banding tidak ditemukan atau sudah dipakai.', 409);
+        }
+        $harga = 0;
+    }
     $tujuan = str_in('tujuan', 80, 'Tujuan asesmen');
     if (!in_array($tujuan, ['Sertifikasi', 'Sertifikasi ulang', 'Pengakuan Kompetensi Terkini (PKT)', 'Rekognisi Pembelajaran Lampau (RPL)', 'Lainnya'], true)) {
         $tujuan = 'Sertifikasi';
@@ -343,12 +354,16 @@ function r_asesi_apply(): void
         $ins = q("INSERT INTO permohonan (lsp_id, asesi_id, skema_id, jadwal_id, status, tujuan, apl02, created_at, updated_at, diajukan_at, harga)
            SELECT ?, ?, ?, ?, 'diajukan', ?, ?, ?, ?, ?, ? FROM jadwal WHERE id = ?
              AND kuota > (SELECT COUNT(*) FROM permohonan WHERE jadwal_id = ? AND status IN (" . in_list_sql(P_AKTIF) . "))",
-            array_merge([$j['lsp_id'], $uid, $j['skema_id'], $j['id'], $tujuan, '{}', $t, $t, $t, (int)$j['harga'], $j['id'], $j['id']], P_AKTIF));
+            array_merge([$j['lsp_id'], $uid, $j['skema_id'], $j['id'], $tujuan, '{}', $t, $t, $t, $harga, $j['id'], $j['id']], P_AKTIF));
         if ($ins->rowCount() !== 1) {
             db()->rollBack();
             fail('Kuota jadwal ini sudah penuh. Pilih jadwal lain.', 409);
         }
         $pid = (int)db()->lastInsertId();
+        if ($bandingId && q('UPDATE banding SET ulang_permohonan_id = ?, updated_at = ? WHERE id = ? AND ulang_permohonan_id IS NULL', [$pid, $t, $bandingId])->rowCount() !== 1) {
+            db()->rollBack();
+            fail('Hak asesmen ulang dari banding sudah dipakai.', 409);
+        }
         // FR.APL.01 dan FR.APL.02 diisi dan ditandatangani elektronik oleh asesi (paperless).
         q('UPDATE permohonan SET apl02 = ? WHERE id = ?', [muk_isi_pendaftaran(muk_ctx_permohonan($pid)), $pid]);
         db()->commit();
@@ -386,6 +401,12 @@ function r_asesi_permohonan(): void
         $x['tugas'] = in_array($r['status'], ['perbaikan', 'pra_asesmen', 'siap_uji', 'menunggu_pleno', 'kompeten', 'belum_kompeten'], true) ? muk_tugas_asesi((int)$r['id']) : null;
         $sc = q('SELECT id, nomor, kode FROM sertifikat WHERE permohonan_id = ?', [$r['id']])->fetch();
         $x['sertifikat'] = $sc ? ['id' => (int)$sc['id'], 'nomor' => $sc['nomor'], 'kode' => $sc['kode']] : null;
+        $bd = q('SELECT id, status, hasil, catatan, ulang_permohonan_id FROM banding WHERE permohonan_id = ?', [$r['id']])->fetch();
+        $x['banding'] = $bd ? ['id' => (int)$bd['id'], 'status' => $bd['status'], 'hasil' => $bd['hasil'], 'catatan' => $bd['catatan'],
+            'ulang' => $bd['ulang_permohonan_id'] ? (int)$bd['ulang_permohonan_id'] : null,
+            'listing_id' => $bd['hasil'] === 'diterima' && !$bd['ulang_permohonan_id']
+                ? ((int)q("SELECT id FROM listings WHERE skema_id = ? AND status = 'tayang' ORDER BY id LIMIT 1", [$r['skema_id']])->fetchColumn() ?: null) : null] : null;
+        $x['banding_batas'] = $r['diputuskan_at'] && !$bd && $r['status'] === 'belum_kompeten' && !muk_banding_blocker(muk_ctx_permohonan((int)$r['id']));
         unset($x['dokumen']);
         $items[] = $x;
     }
@@ -770,6 +791,9 @@ function r_pleno_putus(): void
     $cat = str_in('catatan', 500, 'Catatan');
     if (!in_array($k, ['K', 'BK'], true)) {
         fail('Pilih keputusan Kompeten (K) atau Belum Kompeten (BK).', 422);
+    }
+    if ($k !== $p['rekomendasi'] && text_len((string)$cat) < 10) {
+        fail('Keputusan berbeda dari rekomendasi asesor: tuliskan dasar keputusannya di catatan/berita acara (minimal 10 karakter).', 422);
     }
     db()->beginTransaction();
     try {

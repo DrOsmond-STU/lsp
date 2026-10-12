@@ -617,12 +617,19 @@ function muk_prefill(string $kode, array $ctx): array
         foreach (muk_rows(['baris' => 'asesi'], $ctx, null, false) as $r) {
             $ak = json_decode((string)q("SELECT data FROM formulir WHERE permohonan_id = ? AND kode = 'AK.02'", [(int)$r['key']])->fetchColumn(), true) ?: [];
             $bk = [];
+            $kodeBk = [];
             foreach ($ak['unit'] ?? [] as $uid => $x) {
                 if (($x['hasil'] ?? '') === 'BK') {
                     $bk[] = $units[$uid] ?? $uid;
+                    $kodeBk[] = strtok($units[$uid] ?? (string)$uid, ' ');
                 }
             }
-            $rows[$r['key']] = ['rekom' => $bk ? 'BK' : 'K', 'ket' => $bk ? implode('; ', $bk) : null];
+            // Kode + judul unit bila muat; bila terlalu panjang cukup kode unitnya (batas kolom 500 karakter).
+            $ket = implode('; ', $bk);
+            if (text_len($ket) > 500) {
+                $ket = cut(implode('; ', $kodeBk), 500);
+            }
+            $rows[$r['key']] = ['rekom' => $bk ? 'BK' : 'K', 'ket' => $bk ? $ket : null];
         }
         $banding = (int)q('SELECT COUNT(*) FROM banding b JOIN permohonan p ON p.id = b.permohonan_id WHERE p.jadwal_id = ?', [$ctx['id']])->fetchColumn();
         $d = ['asesi' => $rows, 'penolakan' => $banding ? "Ada ($banding banding)" : 'Tidak ada'];
@@ -643,6 +650,11 @@ function muk_potensi(array $ctx): ?string
 /** Instrumen yang dipakai untuk asesi: peta FR.MAPA.02 skema untuk potensi asesinya, ditambah kesepakatan FR.AK.07. */
 function muk_instrumen_aktif(array $ctx): array
 {
+    // Rencana yang disepakati di FR.AK.01 dibekukan saat asesor menandatangani, agar perubahan FR.MAPA.02 kemudian tidak mengubahnya.
+    $ak01 = json_decode((string)(muk_find($ctx, 'AK.01')['data'] ?? ''), true) ?: [];
+    if (isset($ak01['_instrumen']) && is_array($ak01['_instrumen'])) {
+        return array_values(array_filter($ak01['_instrumen'], 'is_string'));
+    }
     $pot = muk_potensi($ctx);
     $mapa = muk_perangkat_valid($ctx['skema_id'], 'MAPA.02');
     if (!$pot || !$mapa) {
@@ -682,7 +694,38 @@ function muk_def_payload(array $def, array $ctx, array $perangkatMap, bool $untu
     return $out;
 }
 
+/** Data pribadi FR.APL.01 Bagian 1 dari profil (tidak disalin ke isi formulir). NIK lengkap hanya untuk asesi sendiri & staf verifikasi. */
+function muk_pribadi(int $asesiId, int $lspId): array
+{
+    $u = q('SELECT u.nama, u.email, p.nik_enc, p.tanggal_lahir, p.jenis_kelamin, p.no_hp FROM users u LEFT JOIN asesi_profiles p ON p.user_id = u.id WHERE u.id = ?', [$asesiId])->fetch();
+    if (!$u) {
+        return [];
+    }
+    $nik = '';
+    if ($u['nik_enc']) {
+        try {
+            $nik = decrypt_text((string)$u['nik_enc']);
+        } catch (Throwable $e) {
+            $nik = '';
+        }
+    }
+    $penuh = $asesiId === uid() || (can('registration.verify') && muk_staf_lsp($lspId));
+    return [['Nama lengkap', $u['nama']], ['NIK', $nik === '' ? '—' : ($penuh ? $nik : mask_nik($nik))],
+        ['Tanggal lahir', $u['tanggal_lahir'] ?: '—'], ['Jenis kelamin', ['L' => 'Laki-laki', 'P' => 'Perempuan'][$u['jenis_kelamin'] ?? ''] ?? '—'],
+        ['No. HP', $u['no_hp'] ?: '—'], ['Email', $u['email']]];
+}
+
 function muk_header(array $ctx): array
+{
+    $h = muk_header_dasar($ctx);
+    $kemasan = q('SELECT kemasan FROM skema WHERE id = ?', [$ctx['skema_id']])->fetchColumn();
+    if ($kemasan) {
+        $h['skema_judul'] .= ' (' . $kemasan . ')';
+    }
+    return $h;
+}
+
+function muk_header_dasar(array $ctx): array
 {
     if ($ctx['lingkup'] === 'permohonan') {
         $r = $ctx['row'];
@@ -789,16 +832,25 @@ function r_muk_formulir(): void
         audit('formulir.lihat', $kode . ':' . $f['id'], null, $ctx['lsp_id']); // data pribadi/hasil asesi dibaca pihak lain
     }
     $untukAsesi = $ctx['asesi_id'] === uid() && !muk_staf_lsp($ctx['lsp_id']);
+    if ($untukAsesi && !empty($def['instrumen'])) {
+        // Soal tidak boleh terlihat sebelum waktunya: hanya setelah siap uji, pada/sesudah hari uji, dan bila instrumen dipakai untuk asesi ini.
+        $st = $ctx['row']['status'];
+        if (!in_array($st, ['siap_uji', 'menunggu_pleno', 'kompeten', 'belum_kompeten'], true) || $ctx['row']['tanggal'] > today()
+            || !in_array($kode, muk_instrumen_aktif($ctx), true)) {
+            fail('Instrumen asesmen ini belum dapat dibuka.', 403);
+        }
+    }
     if ($kode === 'IA.05' && in_array('asesor', $parties, true)) {
         $data = muk_ia05_autoscore($data, $pmap['IA.05'] ?? null);
     }
     if ($untukAsesi) {
         $data = muk_for_asesi($def, $data, $ttd);
     }
-    unset($data['_perangkat']);
+    unset($data['_perangkat'], $data['_instrumen']);
     json_out([
         'kode' => $kode, 'id' => $f ? (int)$f['id'] : null, 'status' => $f['status'] ?? 'baru', 'def' => muk_def_payload($def, $ctx, $pmap, $untukAsesi),
-        'header' => muk_header($ctx), 'data' => (object)$data, 'ttd' => (object)$ttd,
+        'header' => muk_header($ctx), 'pribadi' => $kode === 'APL.01' && $ctx['lingkup'] === 'permohonan' ? muk_pribadi($ctx['asesi_id'], $ctx['lsp_id']) : null,
+        'data' => (object)$data, 'ttd' => (object)$ttd,
         'pihak' => array_values(array_filter($parties, function ($p) use ($ttd) { return !isset($ttd[$p]); })),
         'perangkat' => $pmap ? array_map(function ($p) { return $p ? ['versi' => (int)$p['versi'], 'status' => $p['status']] : null; }, $pmap) : null,
         'catatan' => muk_blocker($kode, $ctx, $ttd),
@@ -818,7 +870,9 @@ function muk_blocker(string $kode, array $ctx, array $ttd): ?string
     }
     if (!empty($def['instrumen'])) {
         if ($st !== 'siap_uji') {
-            return $st === 'pra_asesmen' ? 'Instrumen asesmen diisi setelah FR.AK.01 ditandatangani asesor dan asesi.' : null;
+            return $st === 'pra_asesmen' || $st === 'menunggu_bayar' || $st === 'diajukan' || $st === 'perbaikan'
+                ? 'Instrumen asesmen diisi setelah FR.AK.01 ditandatangani asesor dan asesi.'
+                : 'Instrumen asesmen sudah ditutup karena rekaman asesmen (FR.AK.02) telah ditandatangani.';
         }
         if ($ctx['row']['tanggal'] > today()) {
             return 'Instrumen asesmen baru dapat diisi pada atau setelah tanggal uji (' . $ctx['row']['tanggal'] . ').';
@@ -863,11 +917,6 @@ function r_muk_ttd(): void
     if ($def['kode'] === 'IA.05' && $party === 'asesor') {
         $data = muk_ia05_autoscore($data, $pmap['IA.05'] ?? null);
     }
-    $miss = muk_missing($def, $data, $party, $ctx, $pmap);
-    $miss = array_merge($miss, muk_rules($def['kode'], $data, $party, $ctx));
-    if ($miss) {
-        fail('Lengkapi dulu: ' . implode('; ', array_slice($miss, 0, 6)) . (count($miss) > 6 ? ' (dan ' . (count($miss) - 6) . ' lainnya)' : '') . '.', 422);
-    }
     // Urutan tanda tangan mengikuti formulir: pihak sebelumnya harus sudah menandatangani.
     $ttd = $f ? muk_ttd_of((int)$f['id']) : [];
     foreach (array_keys($def['ttd']) as $p) {
@@ -878,8 +927,16 @@ function r_muk_ttd(): void
             fail('Formulir ini harus ditandatangani ' . $def['ttd'][$p] . ' terlebih dahulu.', 409);
         }
     }
+    $miss = muk_missing($def, $data, $party, $ctx, $pmap);
+    $miss = array_merge($miss, muk_rules($def['kode'], $data, $party, $ctx));
+    if ($miss) {
+        fail('Lengkapi dulu: ' . implode('; ', array_slice($miss, 0, 6)) . (count($miss) > 6 ? ' (dan ' . (count($miss) - 6) . ' lainnya)' : '') . '.', 422);
+    }
     if ($party === 'asesor' && !muk_no_met(uid())) {
         fail('Nomor registrasi asesor (No. Reg MET) Anda belum tercatat. Minta Admin LSP melengkapinya di data asesor.', 409);
+    }
+    if ($def['kode'] === 'AK.01' && $party === 'asesor') {
+        $data['_instrumen'] = muk_instrumen_aktif($ctx);
     }
     db()->beginTransaction();
     try {
@@ -1051,8 +1108,28 @@ function muk_rules(string $kode, array $data, string $party, array $ctx): array
         }
         foreach (muk_instrumen_aktif($ctx) as $ia) {
             $f = muk_find($ctx, $ia);
-            if (!$f || !isset(muk_ttd_of((int)$f['id'])['asesor'])) {
-                $e[] = MUK_INSTRUMEN[$ia] . ' belum ditandatangani asesor';
+            if (!$f || $f['status'] !== 'final') {
+                $e[] = MUK_INSTRUMEN[$ia] . ' belum lengkap ditandatangani (asesor' . (isset(muk_defs()[$ia]['ttd']['asesi']) ? ' dan asesi' : '') . ')';
+            }
+        }
+    }
+    if ($kode === 'AK.01' && $party === 'asesi') {
+        $ak07 = muk_find($ctx, 'AK.07');
+        if (!$ak07 || !isset(muk_ttd_of((int)$ak07['id'])['asesi'])) {
+            $e[] = 'Tandatangani dulu FR.AK.07 (potensi asesi dan penyesuaian yang disepakati)';
+        }
+    }
+    if ($kode === 'AK.05' && $party === 'asesor') {
+        // Laporan harus sesuai rekaman asesmen (FR.AK.02) tiap asesi.
+        foreach ($data['asesi'] ?? [] as $pid => $r) {
+            $p = q('SELECT p.rekomendasi, u.nama FROM permohonan p JOIN users u ON u.id = p.asesi_id WHERE p.id = ? AND p.jadwal_id = ?', [(int)$pid, $ctx['id']])->fetch();
+            if (!$p || !$p['rekomendasi']) {
+                continue;
+            }
+            if (($r['rekom'] ?? '') !== $p['rekomendasi']) {
+                $e[] = 'Rekomendasi ' . $p['nama'] . ' harus sama dengan FR.AK.02 (' . ($p['rekomendasi'] === 'K' ? 'Kompeten' : 'Belum Kompeten') . ')';
+            } elseif ($p['rekomendasi'] === 'BK' && text_len((string)($r['ket'] ?? '')) < 3) {
+                $e[] = 'Tuliskan unit yang dinyatakan BK untuk ' . $p['nama'];
             }
         }
     }
@@ -1076,6 +1153,19 @@ function muk_after_sign(string $kode, string $party, array $ctx, array $data, in
     if ($kode === 'APL.02' && $party === 'asesor' && ($data['rekom'] ?? '') === 'tidak') {
         set_status($ctx['id'], 'pra_asesmen', 'tidak_lanjut', ['rekom_pra' => 'tidak', 'catatan_pra' => $data['catatan'] ?? 'Asesmen tidak dapat dilanjutkan (FR.APL.02).']);
         notify([$ctx['asesi_id']], $ctx['lsp_id'], 'pra.tidak', 'Pra-asesmen: belum dapat dilanjutkan', 'Catatan asesor: ' . ($data['catatan'] ?? '-'), 'jadwal');
+        // Biaya uji sudah dibayar: Admin LSP & Keuangan perlu menindaklanjuti (pengembalian atau penjadwalan ulang sesuai kebijakan LSP).
+        notify(array_values(array_unique(array_merge(users_with_perm('registration.verify', $ctx['lsp_id']), users_with_perm('finance.manage', $ctx['lsp_id'])))),
+            $ctx['lsp_id'], 'pra.tidak', 'Asesi tidak dapat dilanjutkan: tindak lanjuti biaya',
+            "{$p['asesi_nama']} ({$p['skema_nama']}) dinyatakan belum dapat dilanjutkan pada pra-asesmen. Tindak lanjuti biaya uji yang sudah dibayar sesuai kebijakan LSP.", 'asesmenA');
+    }
+    $idef = muk_defs()[$kode] ?? [];
+    if (!empty($idef['instrumen']) && $party === 'asesor' && isset($idef['ttd']['asesi']) && $st !== 'final') {
+        notify([$ctx['asesi_id']], $ctx['lsp_id'], 'instrumen.ttd', 'Tandatangani ' . $kode,
+            "Asesor sudah mengisi {$kode} untuk asesmen {$p['skema_nama']}. Periksa dan tandatangani di berkas asesmen Anda.", 'jadwal');
+    }
+    if ($party === 'asesi' && ((!empty($idef['instrumen']) && $st !== 'final') || $kode === 'AK.03') && $ctx['asesor_id']) {
+        notify([$ctx['asesor_id']], $ctx['lsp_id'], 'asesi.ttd', $kode === 'AK.03' ? 'Umpan balik asesi (FR.AK.03) masuk' : 'Jawaban asesi masuk: ' . $kode,
+            "{$p['asesi_nama']} ({$p['skema_nama']}) sudah menandatangani {$kode}." . ($kode === 'AK.03' ? '' : ' Lanjutkan penilaian dan tanda tangan Anda.'), 'asesmen');
     }
     if ($kode === 'AK.01' && $party === 'asesor') {
         notify([$ctx['asesi_id']], $ctx['lsp_id'], 'ak01.ttd', 'Tandatangani persetujuan asesmen',
@@ -1280,13 +1370,12 @@ function r_muk_perangkat_detail(): void
         'bagian' => muk_perangkat_bagian($kode)];
     $me = uid();
     $pihak = [];
-    if (can('muk.manage')) {
-        if (!$p || $p['status'] === 'draf' || $p['status'] === 'valid') {
-            $pihak[] = 'penyusun';
-        }
-        if ($p && $p['status'] === 'menunggu_validasi' && (int)$p['penyusun_id'] !== $me) {
-            $pihak[] = 'validator';
-        }
+    if (can('muk.manage') && (!$p || $p['status'] === 'draf' || $p['status'] === 'valid')) {
+        $pihak[] = 'penyusun';
+    }
+    $kontrib = $p ? array_map('intval', (json_decode((string)$p['data'], true) ?: [])['_kontributor'] ?? []) : [];
+    if ((can('muk.manage') || can('assessment.review')) && $p && $p['status'] === 'menunggu_validasi' && (int)$p['penyusun_id'] !== $me && !in_array($me, $kontrib, true)) {
+        $pihak[] = 'validator';
     }
     json_out(['kode' => $kode, 'def' => muk_def_payload($def, $ctx, [], false), 'header' => muk_header($ctx),
         'perangkat' => $p ? muk_perangkat_row($p) : null, 'data' => (object)($p ? (json_decode((string)$p['data'], true) ?: []) : muk_perangkat_awal($kode, $sid)),
@@ -1336,19 +1425,24 @@ function r_muk_perangkat_ttd(): void
 {
     require_method('POST');
     csrf_check();
-    require_perm('muk.manage');
+    require_auth();
     $b = body();
     $sebagai = is_string($b['sebagai'] ?? null) ? $b['sebagai'] : '';
     if ($sebagai === 'validator') {
-        $s = muk_skema_scope(int_in('skema_id'), true);
+        // Validator: asesor lain (muk.manage) atau Manajer Mutu/tim validasi (assessment.review).
+        if (!can('muk.manage') && !can('assessment.review')) {
+            require_perm('muk.manage');
+        }
+        $s = muk_skema_scope(int_in('skema_id'), false);
         $kode = str_in('kode', 20);
         $p = q("SELECT * FROM muk_perangkat WHERE skema_id = ? AND kode = ? ORDER BY versi DESC LIMIT 1", [$s['id'], $kode])->fetch();
         if (!$p || $p['status'] !== 'menunggu_validasi') {
             fail('Perangkat ini tidak sedang menunggu validasi.', 409);
         }
-        if ((int)$p['penyusun_id'] === uid()) {
+        $kontrib = array_map('intval', (json_decode((string)$p['data'], true) ?: [])['_kontributor'] ?? []);
+        if ((int)$p['penyusun_id'] === uid() || in_array(uid(), $kontrib, true)) {
             audit('perangkat.ditolak_independensi', "$kode:" . $p['id']);
-            fail('Validator harus orang yang berbeda dari penyusun perangkat.', 403);
+            fail('Validator harus orang yang berbeda dari penyusun dan semua yang ikut menyunting perangkat ini.', 403);
         }
         if (!muk_no_met(uid()) && !can('decision.manage') && !can('quality.manage') && !can('registration.verify')) {
             fail('Nomor registrasi (No. Reg MET) Anda belum tercatat.', 409);
@@ -1371,6 +1465,7 @@ function r_muk_perangkat_ttd(): void
         audit('perangkat.validasi.' . ($aksi === 'kembalikan' ? 'kembali' : 'valid'), "$kode:" . $p['id'], null, (int)$s['lsp_id']);
         json_out(['ok' => true]);
     }
+    require_perm('muk.manage');
     if ((body()['setuju'] ?? false) !== true) {
         fail('Centang pernyataan tanda tangan elektronik terlebih dahulu.', 422);
     }
@@ -1400,7 +1495,8 @@ function r_muk_perangkat_ttd(): void
     } else {
         fail('Perangkat sudah menunggu validasi.', 409);
     }
-    notify(array_values(array_diff(users_with_perm('muk.manage', (int)$s['lsp_id']), [uid()])), (int)$s['lsp_id'], 'perangkat.validasi', 'Perangkat menunggu validasi',
+    notify(array_values(array_diff(array_unique(array_merge(users_with_perm('muk.manage', (int)$s['lsp_id']), users_with_perm('assessment.review', (int)$s['lsp_id']))), $data['_kontributor'])),
+        (int)$s['lsp_id'], 'perangkat.validasi', 'Perangkat menunggu validasi',
         "$kode skema {$s['nama']} disusun " . current_user()['nama'] . ' dan menunggu validasi.', 'muk');
     audit('perangkat.ttd_penyusun', $kode, null, (int)$s['lsp_id']);
     json_out(['ok' => true]);
@@ -1418,6 +1514,9 @@ function muk_perangkat_prep(): array
     $data = $p ? (json_decode((string)$p['data'], true) ?: []) : muk_perangkat_awal($kode, (int)$s['id']);
     $in = is_array(body()['data'] ?? null) ? body()['data'] : [];
     $data = muk_merge($def, $data, $in, 'penyusun', muk_ctx_skema((int)$s['id']), []);
+    // Semua yang ikut menyusun versi ini dicatat; tidak seorang pun dari mereka boleh memvalidasinya.
+    $lama = !$p || $p['status'] === 'valid' ? [] : array_map('intval', is_array($data['_kontributor'] ?? null) ? $data['_kontributor'] : []);
+    $data['_kontributor'] = array_values(array_unique(array_merge($lama, [uid()])));
     return [$s, $kode, $p, $data];
 }
 
@@ -1426,8 +1525,8 @@ function muk_perangkat_prep(): array
 function muk_banding_blocker(array $ctx): ?string
 {
     $p = $ctx['row'];
-    if (!in_array($p['status'], ['kompeten', 'belum_kompeten'], true) || !$p['diputuskan_at']) {
-        return 'Banding dapat diajukan setelah keputusan sertifikasi ditetapkan.';
+    if ($p['status'] !== 'belum_kompeten' || !$p['diputuskan_at']) {
+        return $p['status'] === 'kompeten' ? 'Banding diajukan atas keputusan Belum Kompeten.' : 'Banding dapat diajukan setelah keputusan sertifikasi ditetapkan.';
     }
     $hari = (int)(q('SELECT banding_hari FROM skema WHERE id = ?', [$ctx['skema_id']])->fetchColumn() ?: 7);
     if (strtotime($p['diputuskan_at']) + $hari * 86400 < time()) {
@@ -1452,7 +1551,7 @@ function muk_banding_rows(array $where, array $params): array
 function r_banding(): void
 {
     require_method('GET');
-    $m = require_perm('appeal.decide');
+    $m = require_perm(can('appeal.decide') ? 'appeal.decide' : 'appeal.view');
     $scope = scope_lsp($m);
     json_out(['items' => muk_banding_rows($scope === null ? ['1=1'] : ['b.lsp_id = ?'], $scope === null ? [] : [$scope])]);
 }
@@ -1488,8 +1587,10 @@ function r_banding_putus(): void
     notify([(int)$b['asesi_id']], (int)$b['lsp_id'], 'banding.' . $hasil, $hasil === 'diterima' ? 'Banding diterima' : 'Banding ditolak',
         "Banding skema {$b['skema_nama']}: $cat", 'jadwal');
     if ($hasil === 'diterima') {
-        notify(users_with_perm('schedule.manage', (int)$b['lsp_id']), (int)$b['lsp_id'], 'banding.diterima', 'Banding diterima: jadwalkan asesmen ulang',
-            "Banding asesi pada skema {$b['skema_nama']} diterima. Tindak lanjut: $cat", 'jadwalA');
+        notify([(int)$b['asesi_id']], (int)$b['lsp_id'], 'banding.ulang', 'Hak asesmen ulang tanpa biaya',
+            "Karena banding diterima, Anda dapat mendaftar asesmen ulang skema {$b['skema_nama']} tanpa biaya dari menu Jadwal Saya.", 'jadwal');
+        notify(users_with_perm('schedule.manage', (int)$b['lsp_id']), (int)$b['lsp_id'], 'banding.diterima', 'Banding diterima: siapkan asesmen ulang',
+            "Banding asesi pada skema {$b['skema_nama']} diterima; asesi berhak asesmen ulang tanpa biaya (asesor lain bila perlu). Tindak lanjut: $cat", 'jadwalA');
     }
     json_out(['ok' => true]);
 }
@@ -1564,6 +1665,20 @@ function muk_verifikasi_apl01(array $ctx, string $aksi, string $catatan): void
     muk_refresh_status($id, $def);
 }
 
+/** Saat berkas dikembalikan untuk perbaikan: simpan status tiap bukti (tanpa tanda tangan) agar asesi tahu bukti mana yang perlu diperbaiki. */
+function muk_catat_verifikasi(array $ctx): void
+{
+    $in = is_array(body()['verifikasi'] ?? null) ? body()['verifikasi'] : [];
+    if (!$in) {
+        return;
+    }
+    $def = muk_defs()['APL.01'] + ['kode' => 'APL.01'];
+    $f = muk_find($ctx, 'APL.01');
+    $data = $f ? (json_decode((string)$f['data'], true) ?: []) : muk_prefill('APL.01', $ctx);
+    $data = muk_merge($def, $data, array_intersect_key($in, ['dasar' => 1, 'admin_bukti' => 1]), 'admin', $ctx, []);
+    muk_save($ctx, 'APL.01', $data, $f);
+}
+
 /** Saat berkas dikembalikan untuk perbaikan: buka kunci isian asesi pada FR.APL.01/02. */
 function muk_buka_perbaikan(array $ctx): void
 {
@@ -1618,7 +1733,8 @@ function r_muk_def(): void
     $out = [];
     foreach (['APL.01', 'APL.02'] as $kode) {
         $out[$kode] = ['kode' => $kode, 'def' => muk_def_payload(muk_defs()[$kode], $ctx, [], true), 'data' => (object)muk_prefill($kode, $ctx), 'ttd' => (object)[], 'pihak' => ['asesi'],
-            'header' => ['skema_judul' => $s['nama'], 'skema_nomor' => $s['kode'], 'lsp' => $s['lsp_nama'], 'asesi' => current_user()['nama']]];
+            'header' => ['skema_judul' => $s['nama'] . ' (' . ($s['kemasan'] ?? 'KKNI') . ')', 'skema_nomor' => $s['kode'], 'lsp' => $s['lsp_nama'], 'asesi' => current_user()['nama']],
+            'pribadi' => $kode === 'APL.01' ? muk_pribadi(uid(), (int)$s['lsp_id']) : null];
     }
     $out['siap'] = (bool)muk_elemen($sid);
     json_out($out);

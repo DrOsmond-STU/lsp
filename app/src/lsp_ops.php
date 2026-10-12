@@ -124,24 +124,51 @@ function r_lsp_pendaftaran_putus(): void
         db()->beginTransaction();
         try {
             muk_verifikasi_apl01($ctx, 'terima', $cat);
-            set_status((int)$p['id'], 'diajukan', 'menunggu_bayar', ['diverifikasi_at' => now(), 'catatan_admin' => $cat ?: null]);
-            $tid = new_invoice((int)$p['lsp_id'], (int)$p['id'], null, (int)$p['asesi_id'], 'Uji kompetensi ' . $p['skema_nama'], (int)$p['harga']);
+            if ((int)$p['harga'] === 0) {
+                // Asesmen ulang hasil banding (atau uji tanpa biaya): langsung ke pra-asesmen tanpa tagihan.
+                set_status((int)$p['id'], 'diajukan', 'pra_asesmen', ['diverifikasi_at' => now(), 'catatan_admin' => $cat ?: null, 'dibayar_at' => now()]);
+            } else {
+                set_status((int)$p['id'], 'diajukan', 'menunggu_bayar', ['diverifikasi_at' => now(), 'catatan_admin' => $cat ?: null]);
+                new_invoice((int)$p['lsp_id'], (int)$p['id'], null, (int)$p['asesi_id'], 'Uji kompetensi ' . $p['skema_nama'], (int)$p['harga']);
+            }
             db()->commit();
         } catch (Throwable $e) {
             db()->rollBack();
             throw $e;
         }
-        notify([(int)$p['asesi_id']], (int)$p['lsp_id'], 'permohonan.diterima', 'Berkas lengkap, silakan bayar',
-            'Berkas ' . $p['skema_nama'] . ' sudah diverifikasi. Bayar Rp' . number_format((int)$p['harga'], 0, ',', '.') . ' dalam 7 hari.', 'bayar');
+        if ((int)$p['harga'] === 0) {
+            notify([(int)$p['asesi_id']], (int)$p['lsp_id'], 'permohonan.diterima', 'Berkas lengkap, masuk pra-asesmen',
+                'Berkas ' . $p['skema_nama'] . ' sudah diverifikasi tanpa biaya. Asesor akan menghubungi Anda untuk konsultasi pra-asesmen.', 'jadwal');
+            if ($p['jadwal_asesor_id']) {
+                notify([(int)$p['jadwal_asesor_id']], (int)$p['lsp_id'], 'pra.baru', 'Pra-asesmen baru',
+                    $p['asesi_nama'] . ' (' . $p['skema_nama'] . ', ' . $p['tanggal'] . ') siap ditinjau.', 'pra');
+            }
+        } else {
+            notify([(int)$p['asesi_id']], (int)$p['lsp_id'], 'permohonan.diterima', 'Berkas lengkap, silakan bayar',
+                'Berkas ' . $p['skema_nama'] . ' sudah diverifikasi. Bayar Rp' . number_format((int)$p['harga'], 0, ',', '.') . ' dalam 7 hari.', 'bayar');
+        }
     } elseif ($aksi === 'perbaikan') {
-        set_status((int)$p['id'], 'diajukan', 'perbaikan', ['catatan_admin' => $cat]);
-        muk_buka_perbaikan($ctx);
+        db()->beginTransaction();
+        try {
+            set_status((int)$p['id'], 'diajukan', 'perbaikan', ['catatan_admin' => $cat]);
+            muk_catat_verifikasi($ctx);
+            muk_buka_perbaikan($ctx);
+            db()->commit();
+        } catch (Throwable $e) {
+            db()->rollBack();
+            throw $e;
+        }
         notify([(int)$p['asesi_id']], (int)$p['lsp_id'], 'permohonan.perbaikan', 'Berkas perlu perbaikan', "Skema {$p['skema_nama']}: $cat", 'jadwal');
     } elseif ($aksi === 'tolak') {
         db()->beginTransaction();
-        muk_verifikasi_apl01($ctx, 'tolak', $cat);
-        set_status((int)$p['id'], 'diajukan', 'ditolak', ['catatan_admin' => $cat]);
-        db()->commit();
+        try {
+            muk_verifikasi_apl01($ctx, 'tolak', $cat);
+            set_status((int)$p['id'], 'diajukan', 'ditolak', ['catatan_admin' => $cat]);
+            db()->commit();
+        } catch (Throwable $e) {
+            db()->rollBack();
+            throw $e;
+        }
         notify([(int)$p['asesi_id']], (int)$p['lsp_id'], 'permohonan.ditolak', 'Pendaftaran ditolak', "Skema {$p['skema_nama']}: $cat", 'jadwal');
     } else {
         fail('Aksi tidak valid.', 422);
@@ -350,10 +377,12 @@ function r_lsp_skema(): void
         $units[] = [cut($parts[0], 40), cut($parts[1], 255), max(1, min(20, (int)($parts[2] ?? 1))), []];
     }
     if (!$units) fail('Isi minimal satu unit kompetensi.', 422);
-    $kemasan = str_in('kemasan', 20) ?: 'KKNI';
+    // Atribut yang tidak dikirim tetap memakai nilai lama (klien lama tidak menimpa dengan nilai bawaan).
+    $lamaSk = int_in('id') ? q('SELECT kemasan, masa_berlaku_tahun, banding_hari FROM skema WHERE id = ?', [int_in('id')])->fetch() : null;
+    $kemasan = array_key_exists('kemasan', body()) ? (str_in('kemasan', 20) ?: 'KKNI') : ($lamaSk['kemasan'] ?? 'KKNI');
     if (!in_array($kemasan, ['KKNI', 'Okupasi', 'Klaster'], true)) fail('Kemasan skema tidak valid.', 422);
-    $berlaku = int_in('masa_berlaku_tahun') ?: 3;
-    $banding = int_in('banding_hari') ?: 7;
+    $berlaku = array_key_exists('masa_berlaku_tahun', body()) ? int_in('masa_berlaku_tahun') : (int)($lamaSk['masa_berlaku_tahun'] ?? 3);
+    $banding = array_key_exists('banding_hari', body()) ? int_in('banding_hari') : (int)($lamaSk['banding_hari'] ?? 7);
     if ($berlaku < 1 || $berlaku > 10 || $banding < 1 || $banding > 60) fail('Masa berlaku (1–10 tahun) atau batas banding (1–60 hari) tidak valid.', 422);
     $desk = str_in('deskripsi', 2000, 'Deskripsi');
     $syarat = str_in('persyaratan', 2000, 'Persyaratan');
@@ -382,6 +411,33 @@ function r_lsp_skema(): void
                 q('DELETE FROM skema_elemen WHERE unit_id IN (SELECT id FROM skema_units WHERE skema_id = ?)', [$id]);
                 q('DELETE FROM skema_units WHERE skema_id = ?', [$id]);
                 skema_units_simpan($id, $units);
+            } else {
+                // Skema sudah dipakai: unit tidak boleh berubah; elemen/KUK hanya boleh ditambahkan pada unit yang belum memilikinya.
+                $lama = muk_units($id);
+                $el = [];
+                foreach (muk_elemen($id) as $e) {
+                    $el[$e['unit_id']][] = [$e['judul'], $e['kuk']];
+                }
+                $beda = count($lama) !== count($units);
+                foreach ($lama as $i => $u) {
+                    $n = $units[$i] ?? null;
+                    if ($beda || !$n || $n[0] !== $u['kode'] || $n[1] !== $u['judul'] || (int)$n[2] !== (int)$u['kelompok']
+                        || (isset($el[$u['id']]) && json_encode($n[3]) !== json_encode($el[$u['id']]))) {
+                        $beda = true;
+                        break;
+                    }
+                }
+                if ($beda) {
+                    fail('Unit kompetensi, elemen, dan KUK tidak dapat diubah karena skema sudah dipakai di pendaftaran (rekaman asesmen merujuknya). '
+                        . 'Kembalikan isian unit seperti semula, atau buat skema baru.', 409);
+                }
+                foreach ($lama as $i => $u) {
+                    if (!isset($el[$u['id']])) {
+                        foreach ($units[$i][3] as $no => [$judul, $kuk]) {
+                            q('INSERT INTO skema_elemen (unit_id, no, judul, kuk) VALUES (?, ?, ?, ?)', [$u['id'], $no + 1, $judul, json_encode($kuk, JSON_UNESCAPED_UNICODE)]);
+                        }
+                    }
+                }
             }
         } else {
             q('INSERT INTO skema (lsp_id, kode, nama, bidang, kkni, harga, deskripsi, persyaratan, status, kemasan, masa_berlaku_tahun, banding_hari, created_at, updated_at)
