@@ -63,7 +63,7 @@ node tests/crud.test.mjs            # 103 uji: buat/baca/ubah/hapus semua data (
 node tests/security.test.mjs        # 50 uji: regresi temuan audit keamanan
 node tests/reset.test.mjs           # 25 uji: lupa password
 node tests/sertifikat.test.mjs      # 36 uji: PDF sertifikat, kode QR, tanda tangan digital, hak unduh
-node tests/muk.test.mjs             # 88 uji: formulir asesmen paperless (FR.APL/AK/IA/MAPA/VA), Komite Teknis, banding
+node tests/muk.test.mjs             # 125 uji: formulir asesmen paperless (FR.APL/AK/IA/MAPA/VA), Komite Teknis, banding
 
 TZ=Asia/Jakarta NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # alur paperless: APL.01/02 s.d. keputusan Komite dan sertifikat
 NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs                  # buka semua menu untuk 9 peran
@@ -74,7 +74,7 @@ NODE_PATH=$(npm root -g) node tests/ui/reset.cjs                       # lupa pa
 NODE_PATH=$(npm root -g) node tests/ui/pindai-purwarupa.cjs            # 112 halaman: tidak ada sisa purwarupa
 ```
 
-Hasil terakhir (12 Oktober 2026, v17, formulir paperless): semua 2.384 uji API lulus di SQLite dan MariaDB, semua uji browser lulus, dan audit responsif tanpa masalah.
+Hasil terakhir (12 Oktober 2026, v17.1, setelah audit keamanan & kelengkapan): semua 2.422 uji API lulus di SQLite dan MariaDB, semua uji browser lulus, dan audit responsif tanpa masalah.
 
 ## Ringkasan keamanan
 
