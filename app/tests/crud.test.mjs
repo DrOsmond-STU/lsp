@@ -182,6 +182,30 @@ console.log('Pengguna & asesor');
   check('nonaktifkan', (await tdn.req('users/status', { membership_id: mid, status: 'nonaktif' })).status === 200 && (await find()).status === 'nonaktif');
   check('aktifkan', (await tdn.req('users/status', { membership_id: mid, status: 'aktif' })).status === 200 && (await find()).status === 'aktif');
   check('LSP lain tidak bisa mengubah (404)', (await pbi.req('users/status', { membership_id: mid, status: 'nonaktif' })).status === 404);
+  // Ubah pengguna: nama, peran, password sementara
+  const daftarTdn = (await tdn.req('users')).json.items;
+  check('staf bisa diubah, akun sendiri dan asesor tidak', (await find()).bisa_ubah === true && daftarTdn.find(u => u.is_me).bisa_ubah === false
+    && daftarTdn.filter(u => u.role === 'asesor').every(u => !u.bisa_ubah));
+  const sesiStaf = new Client(); await sesiStaf.req('auth/me'); await sesiStaf.req('auth/login', { email, password: 'Staf-Awal-2026' });
+  check('ubah nama', (await tdn.req('users/ubah', { membership_id: mid, nama: 'Staf Uji Diubah' })).status === 200 && (await find()).nama === 'Staf Uji Diubah');
+  check('ubah peran keuangan → marketing', (await tdn.req('users/ubah', { membership_id: mid, role: 'marketing' })).status === 200 && (await find()).role === 'marketing');
+  check('peran platform tidak bisa diberikan (403)', (await tdn.req('users/ubah', { membership_id: mid, role: 'platform_admin' })).status === 403);
+  check('tanpa perubahan ditolak (422)', (await tdn.req('users/ubah', { membership_id: mid, nama: 'Staf Uji Diubah', role: 'marketing' })).status === 422);
+  check('nama terlalu pendek ditolak (422)', (await tdn.req('users/ubah', { membership_id: mid, nama: 'AB' })).status === 422);
+  check('password sementara lemah ditolak (422)', (await tdn.req('users/ubah', { membership_id: mid, password: 'pendek' })).status === 422);
+  check('LSP lain tidak bisa mengubah pengguna ini (404)', (await pbi.req('users/ubah', { membership_id: mid, nama: 'Coba Dibajak' })).status === 404);
+  check('akun sendiri tidak bisa diubah dari menu ini (409)', (await tdn.req('users/ubah', { membership_id: daftarTdn.find(u => u.is_me).membership_id, role: 'keuangan' })).status === 409);
+  const asr = daftarTdn.find(u => u.role === 'asesor');
+  check('akun asesor tidak diubah dari menu Pengguna (409)', (await tdn.req('users/ubah', { membership_id: asr.membership_id, nama: 'Asesor Diubah' })).status === 409);
+  check('atur password sementara', (await tdn.req('users/ubah', { membership_id: mid, password: 'Sementara-2026x' })).status === 200);
+  check('sesi lama staf keluar setelah password diatur ulang', !(await sesiStaf.req('auth/me')).json.user);
+  const lg = new Client(); await lg.req('auth/me'); const rl = await lg.req('auth/login', { email, password: 'Sementara-2026x' });
+  check('masuk dengan password sementara → wajib ganti password', rl.status === 200 && rl.json.user?.must_change_password === true, rl.json.user);
+  const adminTdn = (await sup.req('users?lsp=1')).json.items.filter(u => u.role === 'admin_lsp' && u.status === 'aktif');
+  if (adminTdn.length === 1) {
+    check('Admin LSP terakhir tidak bisa dipindah peran (409)', (await sup.req('users/ubah', { membership_id: adminTdn[0].membership_id, role: 'keuangan' })).status === 409
+      && (await sup.req('users?lsp=1')).json.items.find(u => u.membership_id === adminTdn[0].membership_id).role === 'admin_lsp');
+  }
   check('peran platform tidak bisa diberikan Admin LSP (422/403)', [403, 422].includes((await tdn.req('users', { email: 'x.' + email, nama: 'Coba Platform', role: 'platform_admin', password: 'Staf-Awal-2026' })).status));
   const ae = `asesor.${uniq.toLowerCase()}@contoh.id`;
   check('tambah asesor baru', (await tdn.req('lsp/asesor', { email: ae, nama: 'Asesor Uji CRUD', password: 'Asesor-Awal-2026' })).status === 201);

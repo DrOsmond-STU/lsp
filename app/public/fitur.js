@@ -1284,9 +1284,38 @@ function pUntuk() {
     : `<div class="plans">${r.paket.map((p, i) => `<div class="card plan ${i === 1 ? 'feat' : ''}"><div class="spread"><h3>${p.nama}</h3>${i === 1 ? '<span class="chip info">Paling dipilih</span>' : ''}</div><p style="margin-top:.6rem"><span class="price" style="font-size:1.6rem">${fmtRp(p.biaya)}</span><span class="muted">/bulan</span></p><ul><li>Hingga ${Number(p.kuota).toLocaleString('id-ID')} asesi/tahun</li>${((PAKET_INFO[p.nama] || {}).fitur || []).map(f => `<li>${f}</li>`).join('')}</ul>${tombol(p)}</div>`).join('')}</div>${k ? '' : '<p class="muted" style="text-align:center">Untuk berlangganan, hubungi pengelola PortalLSP.</p>'}`;
   return `<section class="block"><div class="wrap stack" style="gap:1.6rem"><div style="text-align:center"><p class="eyebrow">Untuk LSP</p><h2>Pilih paket sesuai skala LSP Anda</h2><p class="muted" style="margin-top:.3rem">Biaya langganan per LSP per bulan.</p></div>${isi}</div></section>`;
 }
+/* Lupa password: minta tautan lewat email, lalu atur password baru dari tautan itu. */
+function pLupa() {
+  return `<section class="block"><div class="wrap" style="max-width:480px">
+    <form class="card stack" id="lupaForm" novalidate>
+      <div><p class="eyebrow">Lupa password</p><h2>Atur ulang password</h2><p class="muted" style="margin-top:.3rem">Masukkan email akun Anda. Kami kirim tautan untuk membuat password baru. Tautan berlaku 1 jam dan hanya bisa dipakai sekali.</p></div>
+      ${S.lupaErr ? `<p class="alert bad" role="alert">${esc(S.lupaErr)}</p>` : ''}
+      ${S.lupaOk ? `<p class="alert info" role="status">${ic('check')}<span>${esc(S.lupaOk)}</span></p>` : ''}
+      <label class="f">Email<input id="lp-email" type="email" autocomplete="username" required maxlength="190" value="${esc(S.loginEmail || '')}"></label>
+      <button class="btn lg" type="submit" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Mengirim…' : 'Kirim tautan atur ulang'}</button>
+      <button type="button" class="btn ghost sm" data-go="login">Kembali ke halaman Masuk</button>
+    </form></div></section>`;
+}
+function pReset() {
+  const wrap = isi => `<section class="block"><div class="wrap" style="max-width:480px">${isi}</div></section>`;
+  if (!S.resetToken || S.resetBad) {
+    return wrap(`<div class="card stack"><div><p class="eyebrow">Atur ulang password</p><h2>Tautan tidak dapat dipakai</h2></div>
+      <p class="alert bad" role="alert">${esc(S.resetBad || 'Tautan atur ulang password tidak ditemukan.')}</p>
+      <button type="button" class="btn lg" data-go="lupa">Minta tautan baru</button><button type="button" class="btn ghost sm" data-go="login">Kembali ke halaman Masuk</button></div>`);
+  }
+  if (!S.resetInfo) return wrap(`<div class="card"><p class="muted">Memeriksa tautan…</p></div>`);
+  return wrap(`<form class="card stack" id="resetForm" novalidate>
+      <div><p class="eyebrow">Atur ulang password</p><h2>Buat password baru</h2><p class="muted" style="margin-top:.3rem">Untuk akun <b class="mono">${esc(S.resetInfo.email)}</b>. Setelah disimpan, semua sesi lama akun ini otomatis keluar.</p></div>
+      ${S.resetErr ? `<p class="alert bad" role="alert">${esc(S.resetErr)}</p>` : ''}
+      <label class="f">Password baru<input id="rs-pass" type="password" autocomplete="new-password" required minlength="10" maxlength="72"></label>
+      <label class="f">Ulangi password baru<input id="rs-pass2" type="password" autocomplete="new-password" required minlength="10" maxlength="72"></label>
+      <p class="muted" style="font-size:.82rem">Minimal 10 karakter, berisi huruf dan angka, dan tidak memuat nama email Anda.</p>
+      <button class="btn lg green" type="submit" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Menyimpan…' : 'Simpan password baru'}</button>
+    </form>`);
+}
 const _go = go;
 go = function (page, extra = {}) { if (page === 'blog' && !('blogSlug' in extra)) extra = Object.assign({}, extra, {blogSlug: null}); _go(page, extra); };
-const PUB_PAGES = () => ({beranda: pBeranda, cari: pCari, detail: pDetail, jadwal: pJadwal, lsp: pLsp, lms: pLms, verif: pVerif, untuk: pUntuk, login: pLogin, daftar: pDaftar, blog: pBlogPub});
+const PUB_PAGES = () => ({beranda: pBeranda, cari: pCari, detail: pDetail, jadwal: pJadwal, lsp: pLsp, lms: pLms, verif: pVerif, untuk: pUntuk, login: pLogin, lupa: pLupa, reset: pReset, daftar: pDaftar, blog: pBlogPub});
 publik = function () {
   document.title = TITLE0;
   return topbar() + (PUB_PAGES()[S.page] || pBeranda)() + `<footer><div class="wrap spread"><span class="row">${ic('shield')}<b>PortalLSP</b><span class="muted">Platform sertifikasi kompetensi untuk LSP berlisensi BNSP</span></span><button class="btn ghost sm" data-go="blog">Blog</button></div></footer>`;

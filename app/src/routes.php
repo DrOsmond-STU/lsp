@@ -24,10 +24,14 @@ function dispatch(string $route): void
         'reviews/decide' => 'r_review_decide',
         'users' => 'r_users',
         'users/status' => 'r_user_status',
+        'users/ubah' => 'r_user_update',
         'rbac' => 'r_rbac',
         'auth/register' => 'do_register',
         'auth/verify' => 'do_verify_email',
         'auth/resend-verification' => 'do_resend_verification',
+        'auth/forgot' => 'do_forgot_password',
+        'auth/reset-check' => 'do_reset_check',
+        'auth/reset' => 'do_reset_password',
         'profile' => 'r_profile',
         'notifications' => 'r_notifications',
         'notifications/count' => 'r_notif_count',
@@ -309,13 +313,15 @@ function r_users(): void
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         // Admin Platform: semua keanggotaan di semua LSP (termasuk akun platform & asesi pribadi) bila tanpa filter.
         $scope = scope_lsp($m);
-        $rows = q('SELECT m.id, m.role, m.status, u.nama, u.email, u.last_login_at, t.nama AS tuk_nama, l.nama AS lsp_nama
+        $rows = q('SELECT m.id, m.role, m.status, u.nama, u.email, u.last_login_at, t.nama AS tuk_nama, l.nama AS lsp_nama,
+                   (SELECT COUNT(*) FROM memberships m2 WHERE m2.user_id = m.user_id AND (m2.lsp_id IS NULL OR m2.lsp_id <> m.lsp_id)) AS lain
                    FROM memberships m JOIN users u ON u.id = m.user_id LEFT JOIN tuk t ON t.id = m.tuk_id LEFT JOIN lsp l ON l.id = m.lsp_id'
                    . ($scope === null ? '' : ' WHERE m.lsp_id = ?') . ' ORDER BY l.nama, m.status, m.role, u.nama', $scope === null ? [] : [$scope])->fetchAll();
         $items = array_map(function ($r) use ($m) {
             return ['membership_id' => (int)$r['id'], 'nama' => $r['nama'], 'email' => $r['email'], 'role' => $r['role'],
                 'role_nama' => role_label($r['role']), 'status' => $r['status'], 'tuk_nama' => $r['tuk_nama'], 'lsp_nama' => $r['lsp_nama'],
-                'last_login_at' => $r['last_login_at'], 'is_me' => (int)$r['id'] === (int)$m['id']];
+                'last_login_at' => $r['last_login_at'], 'is_me' => (int)$r['id'] === (int)$m['id'],
+                'bisa_ubah' => (int)$r['id'] !== (int)$m['id'] && in_array($r['role'], USER_EDITABLE_ROLES, true) && (is_platform($m) || (int)$r['lain'] === 0)];
         }, $rows);
         $roles = array_map(function ($c) { return ['code' => $c, 'nama' => role_label($c)]; }, LSP_ASSIGNABLE_ROLES);
         json_out(['items' => $items, 'assignable_roles' => $roles]);
@@ -355,6 +361,104 @@ function r_users(): void
     notify([$uid], $lspId, 'akun.dibuat', 'Akun PortalLSP Anda sudah dibuat',
         'Anda ditambahkan sebagai ' . role_label($role) . ' di ' . $target['nama'] . '. Minta password sementara kepada Admin LSP Anda, lalu ganti saat pertama masuk.');
     json_out(['ok' => true], 201);
+}
+
+/** Peran yang datanya (nama, peran, password sementara) boleh diubah dari menu Pengguna. Asesor dan asesi mengelola akunnya sendiri. */
+const USER_EDITABLE_ROLES = ['admin_lsp', 'manajer_mutu', 'keuangan', 'marketing', 'admin_tuk'];
+
+/** Ubah pengguna LSP: nama, peran (antar-peran staf), dan/atau password sementara. */
+function r_user_update(): void
+{
+    require_method('POST');
+    csrf_check();
+    $m = require_perm('user.manage');
+    $mid = int_in('membership_id');
+    $row = is_platform($m)
+        ? q('SELECT m.id, m.user_id, m.role, m.status, m.lsp_id, u.nama, u.email, l.nama AS lsp_nama FROM memberships m JOIN users u ON u.id = m.user_id LEFT JOIN lsp l ON l.id = m.lsp_id WHERE m.id = ?', [$mid])->fetch()
+        : q('SELECT m.id, m.user_id, m.role, m.status, m.lsp_id, u.nama, u.email, l.nama AS lsp_nama FROM memberships m JOIN users u ON u.id = m.user_id LEFT JOIN lsp l ON l.id = m.lsp_id WHERE m.id = ? AND m.lsp_id = ?', [$mid, (int)scope_lsp($m)])->fetch();
+    if (!$row) {
+        audit('access.denied', 'membership:' . $mid);
+        fail('Pengguna tidak ditemukan.', 404);
+    }
+    if ((int)$row['id'] === (int)$m['id']) {
+        fail('Data akun Anda sendiri diubah lewat menu Ganti password atau oleh admin lain.', 409);
+    }
+    if (!in_array($row['role'], USER_EDITABLE_ROLES, true)) {
+        fail('Akun ' . role_label($row['role']) . ' tidak diubah dari menu ini.', 409);
+    }
+    $uid = (int)$row['user_id'];
+    if (!is_platform($m)) {
+        // Akun yang juga terdaftar di LSP lain (atau akun asesi pribadi) bukan wewenang Admin LSP ini.
+        $lain = (int)q('SELECT COUNT(*) FROM memberships WHERE user_id = ? AND (lsp_id IS NULL OR lsp_id <> ?)', [$uid, (int)$row['lsp_id']])->fetchColumn();
+        if ($lain > 0) {
+            audit('access.denied', 'user.update:' . $mid);
+            fail('Akun ini juga dipakai di luar LSP Anda, jadi tidak bisa diubah dari sini. Hubungi Admin Platform.', 403);
+        }
+    }
+    $b = body();
+    $nama = array_key_exists('nama', $b) ? str_in('nama', 120, 'Nama') : $row['nama'];
+    $role = array_key_exists('role', $b) ? str_in('role', 40) : $row['role'];
+    $pw = $b['password'] ?? '';
+    if (!is_string($pw)) {
+        $pw = '';
+    }
+    if (text_len($nama) < 3) fail('Nama minimal 3 karakter.', 422);
+    if ($role !== $row['role']) {
+        if ($row['role'] === 'admin_tuk' || !in_array($role, LSP_ASSIGNABLE_ROLES, true)) {
+            fail('Peran ini tidak boleh diberikan dari menu Pengguna.', 403);
+        }
+    }
+    if ($pw !== '') {
+        validate_new_password($pw, $row['email']);
+    }
+    if ($nama === $row['nama'] && $role === $row['role'] && $pw === '') {
+        fail('Tidak ada perubahan.', 422);
+    }
+    $t = now();
+    db()->beginTransaction();
+    try {
+        if ($role !== $row['role']) {
+            // Admin LSP terakhir yang aktif tidak boleh dipindah ke peran lain (diperiksa di UPDATE yang sama).
+            $guard = '';
+            $gp = [];
+            if ($row['role'] === 'admin_lsp' && $row['status'] === 'aktif') {
+                $guard = " AND (SELECT n FROM (SELECT COUNT(*) AS n FROM memberships WHERE lsp_id = ? AND role = 'admin_lsp' AND status = 'aktif') x) > 1";
+                $gp = [(int)$row['lsp_id']];
+            }
+            if (q('UPDATE memberships SET role = ? WHERE id = ?' . $guard, array_merge([$role, $mid], $gp))->rowCount() !== 1) {
+                db()->rollBack();
+                fail('LSP harus punya minimal satu Admin LSP aktif.', 409);
+            }
+        }
+        if ($nama !== $row['nama']) {
+            q('UPDATE users SET nama = ?, updated_at = ? WHERE id = ?', [$nama, $t, $uid]);
+        }
+        if ($pw !== '') {
+            // Password sementara: wajib diganti saat masuk; semua sesi lama keluar.
+            q('UPDATE users SET password_hash = ?, must_change_password = 1, sess_ver = sess_ver + 1, updated_at = ? WHERE id = ?',
+                [password_hash($pw, PASSWORD_DEFAULT), $t, $uid]);
+            q('DELETE FROM login_attempts WHERE email = ? AND success = 0', [$row['email']]);
+        }
+        db()->commit();
+    } catch (Throwable $e) {
+        if (db()->inTransaction()) {
+            db()->rollBack();
+        }
+        throw $e;
+    }
+    forget_user_cache();
+    $ubah = array_values(array_filter([$nama !== $row['nama'] ? 'nama' : '', $role !== $row['role'] ? 'peran ' . $row['role'] . '→' . $role : '', $pw !== '' ? 'password sementara' : '']));
+    audit('user.updated', 'membership:' . $mid . ' (' . implode(', ', $ubah) . ')');
+    $lspId = $row['lsp_id'] === null ? null : (int)$row['lsp_id'];
+    if ($role !== $row['role']) {
+        notify([$uid], $lspId, 'akun.peran_diubah', 'Peran Anda diubah',
+            'Peran Anda di ' . ($row['lsp_nama'] ?? 'PortalLSP') . ' sekarang ' . role_label($role) . '. Menu yang tampil menyesuaikan peran baru.');
+    }
+    if ($pw !== '') {
+        notify([$uid], $lspId, 'akun.password_diubah', 'Password Anda diatur ulang oleh admin',
+            'Admin mengatur ulang password akun PortalLSP Anda. Minta password sementara kepada admin, lalu ganti saat pertama masuk.');
+    }
+    json_out(['ok' => true]);
 }
 
 function r_user_status(): void

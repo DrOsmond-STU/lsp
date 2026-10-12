@@ -89,6 +89,28 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   check('tautan Unduh PDF menghasilkan berkas PDF', pdf.ct === 'application/pdf' && pdf.head === '%PDF-', JSON.stringify(pdf));
   check('tanpa scroll horizontal di ponsel', await r.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
+  console.log('Pengguna: ubah nama, peran, password sementara');
+  {
+    const p = await open('admin.tdn@demo.portallsp.id');
+    const email = `ui.staf.${tag}@contoh.id`;
+    await api(p, 'users', { email, nama: 'Staf UI Uji', role: 'keuangan', password: 'Staf-Awal-2026' });
+    await menu(p, 'users');
+    const baris = p.locator('tr', { hasText: email });
+    check('tombol Ubah tampil untuk staf', await baris.locator('[data-uedit]').count() === 1);
+    check('tidak ada tombol Ubah untuk akun sendiri', await p.locator('tr', { hasText: 'admin.tdn@demo.portallsp.id' }).locator('[data-uedit]').count() === 0);
+    await baris.locator('[data-uedit]').click(); await p.waitForSelector('#userEditForm');
+    await p.fill('#ue-nama', 'Staf UI Diubah'); await p.selectOption('#ue-role', 'marketing');
+    await p.click('#userEditForm button[type=submit]'); await p.waitForTimeout(1200);
+    const isi = await p.locator('tr', { hasText: email }).innerText();
+    check('nama dan peran tersimpan', isi.includes('Staf UI Diubah') && /Marketing/i.test(isi), isi);
+    await p.locator('tr', { hasText: email }).locator('[data-uedit]').click(); await p.waitForSelector('#userEditForm');
+    await p.fill('#ue-pass', 'pendek'); await p.click('#userEditForm button[type=submit]'); await p.waitForTimeout(800);
+    check('password sementara lemah ditolak dengan pesan', /Password minimal 10/.test(await p.locator('#userEditForm').innerText()));
+    await p.fill('#ue-pass', 'Sementara-2026x'); await p.click('#userEditForm button[type=submit]'); await p.waitForTimeout(1200);
+    check('password sementara disimpan', await p.locator('#userEditForm').count() === 0);
+    await p.close();
+  }
+
   check('tanpa error JavaScript', errs.length === 0, errs.slice(0, 3).join(' | '));
   console.log(`\n${pass} lulus, ${fail} gagal`);
   await b.close();

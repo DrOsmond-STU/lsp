@@ -152,6 +152,15 @@ function migrations(): array
             // Data demo lengkap: riwayat 11 bulan, antrean di setiap tahap, notifikasi, tiket, CRM, mutu, sarpras, chat, kelas.
             seed_demo_lengkap();
         },
+        11 => function (): void {
+            // Atur ulang password lewat email: hanya hash token yang disimpan, berlaku 1 jam, sekali pakai.
+            $d = ddl();
+            db()->exec("CREATE TABLE password_resets (id {$d['pk']}, user_id {$d['fk']} NOT NULL, token_hash VARCHAR(64) NOT NULL,
+                ip VARCHAR(45) NOT NULL, expires_at DATETIME NOT NULL, used_at DATETIME NULL, created_at DATETIME NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id)){$d['end']}");
+            db()->exec('CREATE INDEX idx_pw_reset_token ON password_resets (token_hash)');
+            db()->exec('CREATE INDEX idx_pw_reset_user ON password_resets (user_id, created_at)');
+        },
     ];
 }
 

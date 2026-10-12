@@ -18,7 +18,7 @@ class Client {
 const NEED = {
   'auth/switch': 'auth', 'auth/password': 'auth', 'auth/resend-verification': 'auth',
   'catalog': 'public', 'listings': ['listing.manage'], 'listings/submit': ['listing.manage'], 'listings/withdraw': ['listing.manage'],
-  'reviews': ['listing.review'], 'reviews/decide': ['listing.review'], 'users': ['user.manage'], 'users/status': ['user.manage'], 'rbac': ['rbac.view'],
+  'reviews': ['listing.review'], 'reviews/decide': ['listing.review'], 'users': ['user.manage'], 'users/status': ['user.manage'], 'users/ubah': ['user.manage'], 'rbac': ['rbac.view'],
   'profile': ['profile.own'], 'notifications': 'auth', 'notifications/count': 'auth', 'notifications/read': 'auth', 'notifications/settings': 'auth',
   'notifications/test': 'auth', 'notifications/log': ['notif.log'], 'ai/chat': ['ai.use'], 'lsps': ['lsp.manage'],
   'dokumen': 'auth', 'dokumen/upload': ['profile.own'], 'dokumen/file': 'auth',
@@ -51,7 +51,7 @@ const login = async who => { const c = new Client(); await c.req('auth/me'); con
 // Semua rute di dispatch() harus terdaftar di NEED (rute baru tanpa aturan = gagal).
 import { readFileSync } from 'node:fs';
 const routesSrc = readFileSync(new URL('../src/routes.php', import.meta.url), 'utf8');
-const all = [...routesSrc.matchAll(/'([a-z0-9/_-]+)'\s*=>\s*'(?:r|do)_[a-z0-9_]+'/g)].map(m => m[1]).filter(r => !['auth/me', 'auth/login', 'auth/logout', 'auth/register', 'auth/verify'].includes(r));
+const all = [...routesSrc.matchAll(/'([a-z0-9/_-]+)'\s*=>\s*'(?:r|do)_[a-z0-9_]+'/g)].map(m => m[1]).filter(r => !['auth/me', 'auth/login', 'auth/logout', 'auth/register', 'auth/verify', 'auth/forgot', 'auth/reset-check', 'auth/reset'] /* publik, diuji di reset.test.mjs */.includes(r));
 for (const r of all) check(`aturan akses terdaftar untuk ${r}`, r in NEED);
 
 const clients = { anonim: await (async () => { const c = new Client(); await c.req('auth/me'); c.perms = []; c.anon = true; return c; })() };

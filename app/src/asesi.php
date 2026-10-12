@@ -179,7 +179,7 @@ function do_register(): void
     $waOptIn = (body()['consent_wa'] ?? false) === true;
 
     if (q('SELECT id FROM users WHERE email = ?', [$email])->fetch()) {
-        fail('Email ini sudah terdaftar. Silakan masuk, atau hubungi admin bila lupa password.', 409);
+        fail('Email ini sudah terdaftar. Silakan masuk, atau pakai "Lupa password?" di halaman Masuk.', 409);
     }
     $nikHash = nik_index($nik);
     if (q('SELECT user_id FROM asesi_profiles WHERE nik_hash = ?', [$nikHash])->fetch()) {

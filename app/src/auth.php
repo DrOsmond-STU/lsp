@@ -4,6 +4,10 @@ declare(strict_types=1);
 const MAX_FAIL_PER_EMAIL = 5;
 const MAX_FAIL_PER_IP = 20;
 const LOCK_WINDOW_SEC = 900;
+const RESET_TTL_SEC = 3600;              // tautan atur ulang password berlaku 1 jam
+const MAX_RESET_REQ_PER_IP_HOUR = 10;    // permintaan "lupa password" per IP per jam
+const RESET_GAP_SEC = 120;               // jeda minimum antar-email atur ulang ke akun yang sama
+const MAX_RESET_PER_USER_DAY = 5;
 
 /** $touch = false untuk permintaan latar (polling) agar tidak memperpanjang batas idle sesi. */
 function start_session(bool $touch = true): void
@@ -293,4 +297,113 @@ function do_change_password(): void
         'Password akun PortalLSP Anda diganti pada ' . date('d-m-Y H:i') . ' WIB. Bila bukan Anda yang menggantinya, segera hubungi Admin LSP.');
     forget_user_cache();
     json_out(['ok' => true] + me_payload());
+}
+
+/**
+ * Lupa password: kirim tautan atur ulang ke email. Jawaban selalu sama agar tidak bisa dipakai menebak email terdaftar.
+ * Hanya hash token yang disimpan; tautan berlaku 1 jam dan sekali pakai.
+ */
+function do_forgot_password(): void
+{
+    require_method('POST');
+    csrf_check();
+    $email = strtolower(str_in('email', 190, 'Email'));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        fail('Format email tidak valid.', 422);
+    }
+    $ip = client_ip();
+    $jam = date('Y-m-d H:i:s', time() - 3600);
+    $n = (int)q("SELECT COUNT(*) FROM audit_logs WHERE action = 'password.reset_request' AND ip = ? AND created_at >= ?", [$ip, $jam])->fetchColumn();
+    if ($n >= MAX_RESET_REQ_PER_IP_HOUR) {
+        fail('Terlalu banyak permintaan dari jaringan ini. Coba lagi dalam satu jam.', 429);
+    }
+    $u = q('SELECT id, nama, email, status FROM users WHERE email = ?', [$email])->fetch();
+    audit('password.reset_request', $email, $u ? (int)$u['id'] : null, null);
+    if ($u && $u['status'] === 'aktif' && count(memberships((int)$u['id'])) > 0) {
+        $uid = (int)$u['id'];
+        $last = q('SELECT MAX(created_at) FROM password_resets WHERE user_id = ?', [$uid])->fetchColumn();
+        $sehari = (int)q('SELECT COUNT(*) FROM password_resets WHERE user_id = ? AND created_at >= ?', [$uid, date('Y-m-d H:i:s', time() - 86400)])->fetchColumn();
+        // Batas per akun dilewati diam-diam: jawaban tetap sama supaya tidak membocorkan apa pun.
+        if ((!$last || strtotime((string)$last) <= time() - RESET_GAP_SEC) && $sehari < MAX_RESET_PER_USER_DAY) {
+            $token = bin2hex(random_bytes(32));
+            q('UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL', [now(), $uid]);
+            q('INSERT INTO password_resets (user_id, token_hash, ip, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
+                [$uid, hash('sha256', $token), $ip, date('Y-m-d H:i:s', time() + RESET_TTL_SEC), now()]);
+            $link = app_url() . '/?reset=' . $token;
+            $ok = send_mail($u['email'], 'Atur ulang password akun PortalLSP',
+                "Halo {$u['nama']},\n\nKami menerima permintaan untuk mengatur ulang password akun PortalLSP Anda.\n" .
+                "Buka tautan berikut untuk membuat password baru (berlaku 1 jam, sekali pakai):\n\n$link\n\n" .
+                "Abaikan email ini bila Anda tidak memintanya; password Anda tidak berubah.\n\nPortalLSP");
+            audit($ok ? 'password.reset_sent' : 'password.reset_mail_failed', 'user:' . $uid, $uid, null);
+        }
+    }
+    json_out(['ok' => true, 'message' => 'Bila email itu terdaftar dan aktif, kami sudah mengirim tautan untuk mengatur ulang password. Tautan berlaku 1 jam. Periksa juga folder spam.']);
+}
+
+/** Baris token atur ulang yang masih berlaku, atau gagal dengan pesan yang jelas. */
+function reset_row(string $token): array
+{
+    if (!preg_match('/^[0-9a-f]{64}$/', $token)) {
+        fail('Tautan atur ulang password tidak valid.', 422);
+    }
+    $row = q('SELECT r.id, r.user_id, r.expires_at, r.used_at, u.email, u.status FROM password_resets r JOIN users u ON u.id = r.user_id WHERE r.token_hash = ?',
+        [hash('sha256', $token)])->fetch();
+    if (!$row || $row['used_at'] !== null || $row['status'] !== 'aktif') {
+        fail('Tautan atur ulang password tidak valid atau sudah dipakai. Minta tautan baru dari halaman Masuk.', 422);
+    }
+    if ($row['expires_at'] < now()) {
+        fail('Tautan atur ulang password sudah kedaluwarsa. Minta tautan baru dari halaman Masuk.', 422);
+    }
+    return $row;
+}
+
+function do_reset_check(): void
+{
+    require_method('POST');
+    csrf_check();
+    $row = reset_row(str_in('token', 64));
+    [$nama, $dom] = explode('@', $row['email'], 2);
+    json_out(['ok' => true, 'email' => mb_substr($nama, 0, 2) . str_repeat('•', max(1, min(6, mb_strlen($nama) - 2))) . '@' . $dom]);
+}
+
+function do_reset_password(): void
+{
+    require_method('POST');
+    csrf_check();
+    $row = reset_row(str_in('token', 64));
+    $new = body()['password'] ?? '';
+    if (!is_string($new)) {
+        fail('Isian tidak valid.', 422);
+    }
+    validate_new_password($new, $row['email']);
+    $uid = (int)$row['user_id'];
+    db()->beginTransaction();
+    try {
+        // Bersyarat agar token yang sama tidak bisa dipakai dua kali bersamaan.
+        if (q('UPDATE password_resets SET used_at = ? WHERE id = ? AND used_at IS NULL', [now(), $row['id']])->rowCount() !== 1) {
+            db()->rollBack();
+            fail('Tautan atur ulang password sudah dipakai. Minta tautan baru dari halaman Masuk.', 422);
+        }
+        q('UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL', [now(), $uid]);
+        // sess_ver naik: semua sesi lama akun ini otomatis keluar.
+        q('UPDATE users SET password_hash = ?, must_change_password = 0, sess_ver = sess_ver + 1, updated_at = ? WHERE id = ?',
+            [password_hash($new, PASSWORD_DEFAULT), now(), $uid]);
+        // Kunci login karena salah password dibuka, supaya pemilik akun bisa langsung masuk.
+        q('DELETE FROM login_attempts WHERE email = ? AND success = 0', [$row['email']]);
+        db()->commit();
+    } catch (Throwable $e) {
+        if (db()->inTransaction()) {
+            db()->rollBack();
+        }
+        throw $e;
+    }
+    audit('password.reset', 'user:' . $uid, $uid, null);
+    notify([$uid], null, 'akun.password_diubah', 'Password akun Anda diatur ulang',
+        'Password akun PortalLSP Anda diatur ulang lewat tautan email pada ' . date('d-m-Y H:i') . ' WIB. Bila bukan Anda yang melakukannya, segera hubungi Admin LSP.');
+    $cur = current_user();
+    if ($cur && (int)$cur['id'] === $uid) {
+        clear_session();
+    }
+    forget_user_cache();
+    json_out(['ok' => true, 'message' => 'Password baru sudah disimpan. Silakan masuk dengan password baru.']);
 }

@@ -6,7 +6,7 @@ Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran peng
 - **Situs demo:** https://demo-lsp.semestateknologiutama.com (database MySQL terpisah, lihat bagian 15)
 - **Kode sumber:** folder `app/` di repositori ini
 - **Rancangan fitur awal:** [`docs/rancangan-fitur.md`](rancangan-fitur.md)
-- **Versi terpasang:** v15 (11 Oktober 2026): data demo lengkap di setiap menu (riwayat 11 bulan, antrean di setiap tahap proses)
+- **Versi terpasang:** v15 di produksi; v16 di situs demo (lupa password, ubah pengguna, kode purwarupa dibersihkan)
 
 ---
 
@@ -333,7 +333,7 @@ Setiap PDF sertifikat **ditandatangani secara digital oleh LSP penerbit**. Tanda
 | TUK | ✓ | ✓ | ✓ | Hapus (beserta sarananya) bila belum punya jadwal atau akun Admin TUK; selain itu nonaktif | Admin LSP |
 | Asesor | ✓ (akun baru atau akun terdaftar) | ✓ | — | Aktif/nonaktif langsung dari tab Asesor | Admin LSP |
 | Jadwal | ✓ | ✓ | ✓ (tervalidasi) | Hapus bila belum ada pendaftar; selain itu status batal | Admin LSP |
-| Pengguna LSP | ✓ | ✓ | — | Aktif/nonaktif (riwayat tetap tersimpan) | Admin LSP |
+| Pengguna LSP | ✓ | ✓ | Nama, peran (antar-peran staf), password sementara. Tidak untuk akun sendiri, akun asesor/asesi, atau akun yang juga dipakai di LSP lain. Admin LSP aktif terakhir tidak bisa dipindah peran. | Aktif/nonaktif (riwayat tetap tersimpan) | Admin LSP |
 | CRM | ✓ | ✓ | ✓ + pindah tahap | Hapus | Admin LSP, Marketing |
 | Mutu | ✓ | ✓ | ✓ | Hapus bila belum selesai (item selesai = rekaman mutu) | Admin LSP, Manajer Mutu |
 | Sarana & prasarana | ✓ | ✓ | ✓ | Hapus | Admin TUK, Admin LSP |
@@ -560,8 +560,9 @@ Aturan pengiriman:
 | Password | `password_hash` (bcrypt) dengan rehash otomatis. Minimal 10 karakter (maks. 72 byte, batas bcrypt), wajib huruf dan angka. Akun yang dibuat admin wajib ganti password saat login pertama. |
 | Sesi | Cookie `HttpOnly`, `Secure`, `SameSite=Lax`. ID sesi diganti saat login, ganti konteks, dan ganti password. Ganti password langsung mengakhiri semua sesi lain akun itu (kolom `users.sess_ver`). Idle timeout 30 menit, maksimal 8 jam. File sesi di luar docroot; halaman publik tanpa cookie tidak membuat sesi. |
 | CSRF | Token per sesi di header `X-CSRF-Token` + cek `Origin` untuk setiap POST |
+| Lupa password | Tautan atur ulang lewat email (`password_resets`, migrasi 11): token acak 256-bit, yang disimpan hanya hash SHA-256-nya, berlaku 1 jam, sekali pakai (dikunci dengan `UPDATE ... WHERE used_at IS NULL`). Jawaban selalu sama untuk email terdaftar maupun tidak. Batas 10 permintaan per IP per jam, satu email per akun per 2 menit, maks. 5 per hari. Setelah password baru disimpan, semua sesi lama keluar (`sess_ver`) dan kunci login karena salah password dibuka. Admin LSP juga bisa mengatur password sementara untuk staf dari menu Pengguna (wajib diganti saat masuk). |
 | Brute force | Kunci setelah 5 gagal per email atau 20 per IP dalam 15 menit. Pesan error sama untuk email terdaftar maupun tidak. Pendaftaran asesi maks. 30 percobaan per IP per jam; pesan NIK ganda dibuat umum agar tidak bisa dipakai menebak NIK; kirim ulang email verifikasi maks. 5 per 24 jam. |
-| RBAC | Dari tabel `roles` / `permissions` / `role_permissions`, diperiksa di setiap endpoint. Matriks 1.221 kombinasi peran × endpoint diuji otomatis (`tests/rbac-matrix.test.mjs`); rute baru tanpa aturan akses membuat uji gagal. |
+| RBAC | Dari tabel `roles` / `permissions` / `role_permissions`, diperiksa di setiap endpoint. Matriks 1.232 kombinasi peran × endpoint diuji otomatis (`tests/rbac-matrix.test.mjs`); rute baru tanpa aturan akses membuat uji gagal. |
 | Konflik kepentingan | Asesor tidak bisa menguji, mem-pra-asesmen, atau memutus pleno berkasnya sendiri; tidak bisa ditugaskan pada jadwal yang ia ikuti sebagai peserta; tidak bisa mendaftar sebagai peserta di jadwal yang ia uji. Penguji tidak boleh memutus pleno asesinya. |
 | Integritas proses | Status permohonan berpindah dengan kondisi `WHERE status = ...` (aman dari klik ganda). Kuota jadwal dicek atomik saat pendaftaran. Dokumen tidak bisa diganti selama permohonan diproses. Jadwal: skema tidak bisa diganti bila sudah ada peserta, kuota ≥ peserta, status `selesai`/`batal` final, bentrok asesor dicek ulang saat tanggal berubah. Masa berlaku lisensi BNSP dan nama LSP hanya diubah Admin Platform. Minimal satu Admin Platform aktif selalu dijaga. Biaya uji dikunci saat mendaftar; sertifikat menyimpan salinan nama skema/LSP/pemegang; perubahan isi publik skema menarik listing tayang untuk ditinjau ulang. Penghapusan data master dicek terhadap data yang masih merujuknya. |
 | Isolasi LSP | `lsp_id` selalu dari sesi; data LSP lain dibalas 404 (lihat bagian 4) |
@@ -650,6 +651,7 @@ Semua endpoint: `api.php?r=<rute>`.
 | `auth/switch` | Ganti konteks (LSP / peran) |
 | `auth/password` | Ganti password |
 | `auth/register`, `auth/verify`, `auth/resend-verification` | Pendaftaran asesi mandiri dan verifikasi email |
+| `auth/forgot`, `auth/reset-check`, `auth/reset` | Lupa password: kirim tautan atur ulang ke email, cek tautan, simpan password baru (publik, tanpa login) |
 | `profile` | Profil asesi (GET), ubah profil / lengkapi NIK (POST) |
 
 ### Listing, pengguna, platform
@@ -659,7 +661,7 @@ Semua endpoint: `api.php?r=<rute>`.
 | `catalog` | publik | Katalog listing tayang |
 | `listings` (GET/POST; `id` = ubah), `listings/submit`, `listings/withdraw`, `listings/hapus`, `listings/turunkan` | `listing.manage` | Etalase LSP |
 | `reviews`, `reviews/decide` | `listing.review` | Kurasi listing |
-| `users`, `users/status` | `user.manage` | Pengguna LSP |
+| `users`, `users/status`, `users/ubah` | `user.manage` | Pengguna LSP: tambah, aktif/nonaktif, ubah nama/peran/password sementara |
 | `rbac` | `rbac.view` | Matriks peran |
 | `lsps` | login | Daftar LSP (platform: semua) |
 | `platform/dashboard` | `platform.dashboard` | Ringkasan platform |
@@ -837,6 +839,7 @@ Riwayat versi di produksi:
 | v13 | Halaman Untuk LSP membaca harga dan kuota dari server (`pub/paket`), sehingga selalu sama dengan Paket & Tagihan; tombol demo palsu diganti tautan `kontak_sales`; footer "Purwarupa UI/UX" diganti deskripsi produk; versi aset `?v=14`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 | v14 | Label "Terdaftar PSE · Server di Indonesia" dihapus dari footer portal publik dan aplikasi, karena status PSE belum dikonfirmasi; versi aset `?v=15`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 | v15 | Data demo lengkap (migrasi 10, `src/seed_lengkap.php`): riwayat sertifikasi 11 bulan di empat LSP, permohonan di setiap tahap proses, sertifikat akan habis/kedaluwarsa/dicabut, notifikasi dan log pengiriman, tiket dengan balasan, CRM, mutu, sarana TUK, group chat, kelas, profil asesi. Stempel waktu data contoh lama dirapikan dan jadwal asesor demo yang bentrok dialihkan. Hanya berjalan bila akun demo ada. Kartu KPI sempit dengan angka panjang (mis. nominal rupiah di layar 1024 px) kini menaruh ikon di atas angka agar tidak menimbulkan scroll horizontal; versi aset `?v=16`. Dideploy 11 Okt 2026, cadangan database `storage/backup-db-pra-v15.sqlite`. Karena data migrasi 6 di produksi dibuat 2 hari lebih awal, lima jadwal contoh sempat bentrok dengan jadwal asesor yang sama; sudah digeser (cadangan `storage/backup-db-pra-v15b.sqlite`) dan seed kini memilih tanggal kosong otomatis. |
+| v16 | Fitur **Lupa password** (migrasi 11, tabel `password_resets`): tautan atur ulang lewat email, halaman Lupa password dan Buat password baru. **Ubah pengguna** di menu Pengguna (nama, peran, password sementara). Kode tampilan purwarupa lama yang sudah tidak dipakai (dashboard, halaman publik, dan data contoh statis di `app.js`) dihapus; pemindai otomatis memastikan tidak ada teks purwarupa, label "contoh", atau tombol tanpa aksi di 112 halaman. Perbaikan seed riwayat jadwal asesor lintas LSP. Versi aset `?v=17`. Situs demo `demo-lsp` (MySQL) dibuat 12 Okt 2026. |
 
 ### Situs demo (demo-lsp)
 
@@ -889,27 +892,32 @@ node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server ti
 node tests/platform.test.mjs        # 27 uji: akses penuh Admin Platform + isolasi Admin LSP + harga paket publik
 node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
 node tests/blog.test.mjs            # 83 uji: CMS blog (akses, isolasi, terjadwal, moderasi, sampul, API publik)
-node tests/rbac-matrix.test.mjs     # 1.221 uji: setiap peran × setiap endpoint sesuai hak akses
-node tests/crud.test.mjs            # 89 uji: buat/baca/ubah/hapus semua data + penjaga rujukan, cakupan LSP, hak akses
+node tests/rbac-matrix.test.mjs     # 1.232 uji: setiap peran × setiap endpoint sesuai hak akses
+node tests/crud.test.mjs            # 103 uji: buat/baca/ubah/hapus semua data (termasuk ubah pengguna) + penjaga rujukan, cakupan LSP, hak akses
 node tests/security.test.mjs        # 49 uji: regresi temuan audit keamanan (putaran 1 dan 2)
+node tests/reset.test.mjs           # 25 uji: lupa password (tanpa bocor email, sekali pakai, sesi lama keluar, kunci login dibuka, batas IP)
 node tests/sertifikat.test.mjs      # 36 uji: PDF sertifikat (struktur, isi, lampiran), tanda tangan digital (sah, deteksi perubahan, penanda tangan, kunci), hak unduh, QR, regresi encoder QR
 
 NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # uji browser: daftar asesi s.d. sertifikat terverifikasi
 NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs  # uji browser: buka semua menu untuk 7 peran
 NODE_PATH=$(npm root -g) node tests/ui/blog.cjs        # uji browser: tulis, pratinjau, terbitkan, sampul, baca, moderasi
 NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs   # audit responsif: semua halaman × 7 peran × 4 ukuran layar
-NODE_PATH=$(npm root -g) node tests/ui/crud.cjs        # uji browser tombol ubah/hapus/turunkan, nonaktif asesor, ubah profil, unduh PDF
+NODE_PATH=$(npm root -g) node tests/ui/crud.cjs        # uji browser tombol ubah/hapus/turunkan, nonaktif asesor, ubah pengguna, ubah profil, unduh PDF
+NODE_PATH=$(npm root -g) node tests/ui/reset.cjs       # uji browser lupa password: minta tautan, tautan palsu, password baru, masuk
+NODE_PATH=$(npm root -g) node tests/ui/pindai-purwarupa.cjs  # pindai semua halaman publik + semua menu 8 akun: tidak boleh ada teks purwarupa, label "contoh", atau tombol tanpa aksi
 ```
+
+Semua suite bisa dijalankan terhadap MySQL/MariaDB dengan mengganti `dsn` di `config.php` dan mengatur `BASE` ke alamat server uji.
 
 Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php` lalu hapus `storage/test.sqlite`). Suite berbagi data (mis. NIK contoh) dan batas login per IP, sehingga menjalankan semuanya berturut-turut pada satu database bisa memicu kegagalan palsu. `tests/ui/alur-asesi.cjs` membuat jadwal "hari ini", jadi jalankan dengan `TZ=Asia/Jakarta`.
 
-Hasil terakhir (11 Oktober 2026, v15, dengan data demo lengkap):
+Hasil terakhir (12 Oktober 2026, v16), dijalankan dua kali: SQLite dan MariaDB (MySQL):
 
-- Semua 1.738 uji API lulus pada database baru (termasuk 1.221 uji matriks RBAC, 89 uji CRUD, 49 uji keamanan, dan 36 uji sertifikat PDF dan tanda tangan digital), plus 24 uji browser blog dan 19 uji browser CRUD (termasuk harga paket di halaman Untuk LSP, footer tanpa label PSE dan unduh PDF dari Dompet Sertifikat).
+- Semua 1.813 uji API lulus di kedua database: 49 api, 29 pendaftaran, 47 notifikasi/AI, 27 platform, 108 alur, 83 blog, 1.232 matriks RBAC, 103 CRUD, 49 keamanan, 25 lupa password, 36 sertifikat PDF dan tanda tangan digital.
+- Uji browser lulus di kedua database: CRUD 24, blog 24, lupa password 11, alur asesi lengkap (daftar → verifikasi → bayar → pra-asesmen → asesmen → pleno → sertifikat → verifikasi publik), dan semua menu di 7 peran tanpa error JavaScript.
+- Pemindai purwarupa: 112 halaman (publik + semua menu 8 akun) tanpa teks purwarupa, label "contoh", atau tombol yang hanya memunculkan notifikasi.
 - Kode QR di PDF hasil render terbaca oleh jsQR dan ZXing pada 72, 110, dan 200 dpi.
-- Uji browser alur asesi (daftar → verifikasi → bayar → pra-asesmen → asesmen → pleno → sertifikat → verifikasi publik) lulus.
-- Uji browser membuka semua menu di 7 peran tanpa error JavaScript dan tanpa halaman kosong/placeholder.
-- Audit responsif: 548 tampilan (halaman publik + semua menu 7 peran, termasuk formulir dan panel detail) di lebar 360, 390, 768, dan 1024 px; tidak ada elemen yang keluar layar dan tidak ada scroll horizontal.
+- Audit responsif: 548 tampilan di lebar 360, 390, 768, dan 1024 px; tidak ada elemen yang keluar layar dan tidak ada scroll horizontal.
 
 ---
 

@@ -63,7 +63,7 @@ console.log('Verifikasi email');
   check('email verifikasi tercatat', existsSync(MAIL));
   const log = readFileSync(MAIL, 'utf8');
   const m = [...log.matchAll(/To: siti\.asesi@contoh\.id[\s\S]*?\?verifikasi=([0-9a-f]{64})/g)].pop();
-  check('tautan memakai app_url dari config', /http:\/\/127\.0\.0\.1:8099\/\?verifikasi=/.test(log));
+  check('tautan memakai app_url dari config', log.includes(BASE + '/?verifikasi='));
   const anon = await fresh();
   check('token palsu ditolak', (await anon.req('auth/verify', { token: 'a'.repeat(64) })).status === 422);
   const v = await anon.req('auth/verify', { token: m && m[1] });

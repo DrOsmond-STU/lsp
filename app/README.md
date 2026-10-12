@@ -45,7 +45,7 @@ php tests/make-test-config.php      # config SQLite + akun demo khusus lokal (pa
 php -S 127.0.0.1:8099 -t public     # buka http://127.0.0.1:8099
 ```
 
-Akun demo dan data contoh dijelaskan di dokumentasi bagian 17. Data demo lengkap (riwayat 11 bulan, antrean di setiap tahap) dibuat oleh migrasi 10 (`src/seed_lengkap.php`) bila akun demo ada. Contoh verifikasi sertifikat: `/?cek=TDN7K3P9QX`.
+Akun demo dan data contoh dijelaskan di dokumentasi bagian 17. Data demo lengkap (riwayat 11 bulan, antrean di setiap tahap) dibuat oleh migrasi 10 (`src/seed_lengkap.php`) bila akun demo ada. Migrasi 11 menambah tabel `password_resets` untuk fitur Lupa password. Contoh verifikasi sertifikat: `/?cek=TDN7K3P9QX`.
 
 ## Pengujian
 
@@ -58,9 +58,10 @@ node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server ti
 node tests/platform.test.mjs        # 27 uji: akses penuh Admin Platform + isolasi Admin LSP + harga paket publik
 node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
 node tests/blog.test.mjs            # 83 uji: CMS blog
-node tests/rbac-matrix.test.mjs     # 1.221 uji: setiap peran × setiap endpoint
-node tests/crud.test.mjs            # 89 uji: buat/baca/ubah/hapus semua data
+node tests/rbac-matrix.test.mjs     # 1.232 uji: setiap peran × setiap endpoint
+node tests/crud.test.mjs            # 103 uji: buat/baca/ubah/hapus semua data (termasuk ubah pengguna)
 node tests/security.test.mjs        # 49 uji: regresi temuan audit keamanan
+node tests/reset.test.mjs           # 25 uji: lupa password
 node tests/sertifikat.test.mjs      # 36 uji: PDF sertifikat, kode QR, tanda tangan digital, hak unduh
 
 TZ=Asia/Jakarta NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # daftar asesi s.d. sertifikat terverifikasi
@@ -68,6 +69,8 @@ NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs                  # buka se
 NODE_PATH=$(npm root -g) node tests/ui/blog.cjs                        # CMS blog s.d. halaman artikel publik
 NODE_PATH=$(npm root -g) node tests/ui/crud.cjs                        # harga paket, tombol ubah/hapus, profil, unduh PDF
 NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs                   # 548 tampilan di lebar 360/390/768/1024 px
+NODE_PATH=$(npm root -g) node tests/ui/reset.cjs                       # lupa password sampai masuk dengan password baru
+NODE_PATH=$(npm root -g) node tests/ui/pindai-purwarupa.cjs            # 112 halaman: tidak ada sisa purwarupa
 ```
 
 Hasil terakhir (11 Oktober 2026, v15, dengan data demo lengkap): semua 1.738 uji API lulus, semua uji browser lulus, dan audit responsif tanpa masalah.
