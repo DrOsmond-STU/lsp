@@ -78,6 +78,11 @@ console.log('Skema');
   check('LSP lain tidak bisa menghapus (404)', (await pbi.req('lsp/skema/hapus', { id })).status === 404);
   check('Marketing tidak punya hak (403)', (await mkt.req('lsp/skema/hapus', { id })).status === 403);
   check('hapus', (await tdn.req('lsp/skema/hapus', { id })).status === 200 && !(await find()));
+  // Skema dengan elemen/KUK dan draf perangkat: hapus harus membersihkan baris anak (kunci asing), bukan menolak sebagai "sudah dipakai".
+  const c2 = await tdn.req('lsp/skema', { ...body, kode: 'SKE-' + uniq, units_text: units + '\n- Elemen uji | KUK 1.1; KUK 1.2' });
+  const d2 = await tdn.req('muk/perangkat/simpan', { skema_id: c2.json.id, kode: 'IA.02', data: { items: [{ kelompok: 'Uji', skenario: 'Skenario uji hapus', peralatan: '-', durasi: '30 menit' }] } });
+  const h2 = await tdn.req('lsp/skema/hapus', { id: c2.json.id });
+  check('skema dengan elemen & draf perangkat bisa dihapus', c2.status === 201 && d2.status === 200 && h2.status === 200 && !(await tdn.req('lsp/skema')).json.items.find(s => s.id === c2.json.id), { c2: c2.json, d2: d2.json, h2: h2.json });
   const dipakai = (await tdn.req('lsp/skema')).json.items[0];
   const h = await tdn.req('lsp/skema/hapus', { id: dipakai.id });
   check('skema yang sudah dipakai tidak bisa dihapus (409)', h.status === 409 && /nonaktif/.test(h.json.error || ''), h.json);

@@ -1,8 +1,13 @@
 // Uji langsung situs demo (HTTPS, database sungguhan). Tidak meninggalkan data: setiap data uji dibuat, dibaca, diubah, lalu dihapus.
 // Jalankan: BASE=https://demo-lsp.example DEMO_PW=... node tests/live-demo.test.mjs
+//   atau DEMO_PW_FILE=/jalur/berkas (baris "akun password", akun tanpa @domain) bila tiap akun berbeda password.
+// Pengguna, tiket, dan perangkat uji tidak punya aksi hapus di aplikasi: dibersihkan oleh skrip pelaksana (SQL) sesudah uji ini.
+import { readFileSync } from 'node:fs';
 const BASE = process.env.BASE;
-const PW = process.env.DEMO_PW;
-if (!BASE || !PW) { console.error('Set BASE dan DEMO_PW'); process.exit(2); }
+const PWS = {};
+if (process.env.DEMO_PW_FILE) for (const l of readFileSync(process.env.DEMO_PW_FILE, 'utf8').split('\n')) { const [a, p] = l.trim().split(/\s+/); if (a && p) PWS[a] = p; }
+const pwOf = n => PWS[n] || process.env.DEMO_PW;
+if (!BASE || (!process.env.DEMO_PW && !Object.keys(PWS).length)) { console.error('Set BASE dan DEMO_PW atau DEMO_PW_FILE'); process.exit(2); }
 let pass = 0, failN = 0;
 const check = (n, c, x = '') => { if (c) { pass++; console.log('  ok  ', n); } else { failN++; console.log('  FAIL', n, typeof x === 'string' ? x : JSON.stringify(x).slice(0, 300)); } };
 class Client {
@@ -16,7 +21,7 @@ class Client {
     let j = {}; try { j = await res.json(); } catch {} if (j.csrf) this.csrf = j.csrf; return { status: res.status, json: j };
   }
 }
-const login = async n => { const c = new Client(); await c.req('auth/me'); const r = await c.req('auth/login', { email: n + '@demo.portallsp.id', password: PW }); check('masuk sebagai ' + n, r.status === 200, r.json); return c; };
+const login = async n => { const c = new Client(); await c.req('auth/me'); const r = await c.req('auth/login', { email: n + '@demo.portallsp.id', password: pwOf(n) }); check('masuk sebagai ' + n, r.status === 200, r.json); return c; };
 const pad = n => String(n).padStart(2, '0');
 const tgl = days => { const d = new Date(Date.now() + days * 86400000); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const TAG = 'UJILIVE' + Date.now().toString(36).toUpperCase();
@@ -24,17 +29,20 @@ const ok2 = r => r.status === 200 || r.status === 201;
 
 console.log('Masuk semua akun demo');
 const C = {};
-for (const n of ['superadmin', 'admin.tdn', 'marketing.tdn', 'keuangan.tdn', 'admin.pbi', 'tuk.kuningan', 'asesor', 'asesi']) C[n] = await login(n);
+for (const n of ['superadmin', 'admin.tdn', 'marketing.tdn', 'keuangan.tdn', 'admin.pbi', 'tuk.kuningan', 'asesor', 'asesor2', 'asesi', 'komite.tdn', 'mutu.tdn']) C[n] = await login(n);
 
 console.log('Baca semua menu (data dari database)');
 const MENU = {
   superadmin: ['platform/dashboard', 'reviews', 'platform/paket', 'skkni', 'tiket', 'audit', 'rbac', 'lsps', 'users', 'notifications/log', 'blog', 'listings'],
-  'admin.tdn': ['lsp/dashboard', 'lsp/pendaftaran', 'lsp/jadwal', 'lsp/asesmen', 'lsp/hasil', 'lsp/skema', 'lsp/tuk', 'lsp/asesor', 'lsp/alumni', 'listings', 'lsp/keuangan', 'lsp/crm', 'lsp/mutu', 'lsp/laporan', 'users', 'notifications/log', 'lsp/pengaturan', 'tiket', 'blog', 'tuk/sarpras', 'chat/ruang'],
+  'admin.tdn': ['lsp/dashboard', 'lsp/pendaftaran', 'lsp/jadwal', 'lsp/asesmen', 'lsp/hasil', 'lsp/skema', 'lsp/tuk', 'lsp/asesor', 'lsp/alumni', 'listings', 'lsp/keuangan', 'lsp/crm', 'lsp/mutu', 'lsp/laporan', 'users', 'notifications/log', 'lsp/pengaturan', 'tiket', 'blog', 'tuk/sarpras', 'chat/ruang', 'muk/perangkat', 'banding'],
   'marketing.tdn': ['listings', 'blog', 'lsp/crm'],
   'keuangan.tdn': ['lsp/keuangan'],
   'admin.pbi': ['lsp/dashboard', 'lsp/pendaftaran', 'lsp/alumni'],
   'tuk.kuningan': ['tuk/dashboard', 'tuk/pemohon', 'tuk/jadwal', 'tuk/sarpras', 'tuk/alumni'],
-  asesor: ['asesor/jadwal', 'asesor/pra', 'asesor/asesmen', 'pleno', 'asesor/riwayat', 'asesor/honor'],
+  asesor: ['asesor/jadwal', 'asesor/pra', 'asesor/asesmen', 'pleno', 'asesor/riwayat', 'asesor/honor', 'muk/perangkat'],
+  asesor2: ['asesor/jadwal', 'asesor/pra', 'asesor/asesmen', 'asesor/riwayat', 'muk/perangkat'],
+  'komite.tdn': ['lsp/dashboard', 'pleno', 'banding', 'lsp/asesmen', 'lsp/hasil', 'lsp/alumni'],
+  'mutu.tdn': ['lsp/dashboard', 'lsp/mutu', 'lsp/laporan', 'lsp/asesmen', 'lsp/alumni', 'banding', 'muk/perangkat'],
   asesi: ['asesi/permohonan', 'asesi/tagihan', 'asesi/sertifikat', 'asesi/kelas', 'profile', 'dokumen', 'notifications'],
 };
 let kosong = [];
@@ -53,12 +61,12 @@ console.log('  info: menu tanpa baris data:', kosong.filter(k => k.endsWith('kos
 console.log('Siklus buat → baca → ubah → hapus');
 const tdnC = C['admin.tdn'], mktC = C['marketing.tdn'], tukC = C['tuk.kuningan'], supC = C.superadmin;
 { // Skema
-  const units = 'J.62UJI00.001.1 | Unit uji satu\nJ.62UJI00.002.1 | Unit uji dua';
+  const units = 'J.62UJI00.001.1 | Unit uji satu\n- Elemen uji satu | KUK 1.1; KUK 1.2\nJ.62UJI00.002.1 | Unit uji dua';
   const body = { kode: TAG, nama: 'Skema ' + TAG, bidang: 'TIK', kkni: '4', harga: 800000, units_text: units, deskripsi: 'Skema uji langsung.', persyaratan: 'SMA.', status: 'aktif' };
   const c = await tdnC.req('lsp/skema', body); const id = c.json.id;
   const find = async () => (await tdnC.req('lsp/skema')).json.items.find(s => s.id === id);
   check('Skema: buat', c.status === 201, c.json);
-  check('Skema: baca (2 unit)', (await find())?.units.length === 2);
+  { const sk = await find(); check('Skema: baca (2 unit, elemen & KUK tersimpan)', sk?.units.length === 2 && /- Elemen uji satu \| KUK 1\.1; KUK 1\.2/.test(sk.units_text || ''), sk && { units: sk.units, units_text: sk.units_text }); }
   check('Skema: ubah', ok2(await tdnC.req('lsp/skema', { ...body, id, nama: 'Skema ' + TAG + ' diubah' })) && (await find())?.nama.endsWith('diubah'));
   check('Skema: hapus', (await tdnC.req('lsp/skema/hapus', { id })).status === 200 && !(await find()));
 }
@@ -136,6 +144,68 @@ const tdnC = C['admin.tdn'], mktC = C['marketing.tdn'], tukC = C['tuk.kuningan']
   check('Profil asesi: dikembalikan', b.status === 200 && (await r.req('profile')).json.no_hp === p.no_hp, b.json);
 }
 
+{ // Pengguna (staf LSP): buat → baca → ubah nama/peran → nonaktif/aktif. Baris dibersihkan skrip pelaksana.
+  const email = `staf.${TAG.toLowerCase()}@contoh.id`;
+  const c = await tdnC.req('users', { email, nama: 'Staf Uji Langsung', role: 'keuangan', password: 'Staf-Awal-' + TAG });
+  const find = async () => (await tdnC.req('users')).json.items.find(u => u.email === email);
+  check('Pengguna: buat staf', c.status === 201, c.json);
+  const u0 = await find(); const mid = u0?.membership_id;
+  check('Pengguna: baca', u0?.role === 'keuangan' && u0.bisa_ubah === true, u0);
+  check('Pengguna: ubah nama & peran', (await tdnC.req('users/ubah', { membership_id: mid, nama: 'Staf Uji Diubah', role: 'marketing' })).status === 200 && (await find())?.nama === 'Staf Uji Diubah' && (await find())?.role === 'marketing');
+  check('Pengguna: nonaktifkan lalu aktifkan', (await tdnC.req('users/status', { membership_id: mid, status: 'nonaktif' })).status === 200 && (await find())?.status === 'nonaktif'
+    && (await tdnC.req('users/status', { membership_id: mid, status: 'aktif' })).status === 200 && (await find())?.status === 'aktif');
+  check('Pengguna: LSP lain tidak bisa mengubah (404)', (await C['admin.pbi'].req('users/ubah', { membership_id: mid, nama: 'Coba Dibajak' })).status === 404);
+  const s2 = new Client(); await s2.req('auth/me');
+  check('Pengguna: staf baru bisa masuk', (await s2.req('auth/login', { email, password: 'Staf-Awal-' + TAG })).status === 200);
+  await s2.req('auth/logout', {});
+}
+{ // Tiket support: buat → balas → tutup. Baris dibersihkan skrip pelaksana.
+  const c = await tdnC.req('tiket', { judul: 'Tiket ' + TAG, isi: 'Mohon bantuan uji langsung.', prioritas: 'normal' }); const id = c.json.id;
+  const find = async cl => (await cl.req('tiket')).json.items.find(t => t.id === id);
+  check('Tiket: buat', c.status === 201, c.json);
+  check('Tiket: Admin Platform membalas → proses', (await supC.req('tiket/balas', { id, isi: 'Sedang kami cek.' })).status === 200 && (await find(supC))?.status === 'proses');
+  check('Tiket: tutup → selesai', (await supC.req('tiket/balas', { id, isi: '', status: 'selesai' })).status === 200 && (await find(tdnC))?.status === 'selesai');
+}
+{ // Pengaturan LSP: ubah lalu kembalikan.
+  const cur = (await tdnC.req('lsp/pengaturan')).json.lsp;
+  const body = { nama: cur.nama, kota: cur.kota, alamat: 'Jl. Uji ' + TAG, telepon: cur.telepon || '', email: cur.email || '', website: cur.website || '', deskripsi: cur.deskripsi || '', honor_per_asesi: cur.honor_per_asesi };
+  check('Pengaturan LSP: ubah alamat', (await tdnC.req('lsp/pengaturan', body)).status === 200 && (await tdnC.req('lsp/pengaturan')).json.lsp.alamat === 'Jl. Uji ' + TAG);
+  check('Pengaturan LSP: dikembalikan', (await tdnC.req('lsp/pengaturan', { ...body, alamat: cur.alamat || '' })).status === 200 && (await tdnC.req('lsp/pengaturan')).json.lsp.alamat === (cur.alamat || ''));
+}
+{ // Perangkat asesmen (MUK): draf baru disimpan asesor → dibaca → diubah. Draf dibersihkan skrip pelaksana.
+  const daftar = (await C.asesor.req('muk/perangkat')).json.items || [];
+  let target = null;
+  for (const s of daftar) { const d = (await C.asesor.req('muk/perangkat?skema_id=' + s.id)).json; const it = (d.items || []).find(x => x.kode === 'IA.02'); if (it && (!it.terbaru || it.terbaru.status === 'valid')) { target = s; break; } }
+  if (!target) console.log('  info: semua skema sudah punya draf IA.02, uji perangkat dilewati');
+  else {
+    const c = await C.asesor.req('muk/perangkat/simpan', { skema_id: target.id, kode: 'IA.02', data: { items: [{ kelompok: 'Kelompok ' + TAG, skenario: 'Skenario uji langsung ' + TAG, peralatan: 'Komputer', durasi: '60 menit' }] } });
+    check('Perangkat: simpan draf IA.02', c.status === 200 && c.json.id > 0, c.json);
+    const d = (await C.asesor.req('muk/perangkat/detail?skema_id=' + target.id + '&kode=IA.02')).json;
+    check('Perangkat: baca draf', d.perangkat?.status === 'draf' && d.data?.items?.[0]?.kelompok === 'Kelompok ' + TAG, d.perangkat);
+    const u = await C.asesor.req('muk/perangkat/simpan', { skema_id: target.id, kode: 'IA.02', data: { items: [{ kelompok: 'Kelompok ' + TAG + ' diubah', skenario: 'Skenario uji langsung ' + TAG, peralatan: 'Komputer', durasi: '60 menit' }] } });
+    const d2 = (await C.asesor.req('muk/perangkat/detail?skema_id=' + target.id + '&kode=IA.02')).json;
+    check('Perangkat: ubah draf (id tetap)', u.status === 200 && u.json.id === c.json.id && (d2.data?.items?.[0]?.kelompok || '').endsWith('diubah'), u.json);
+  }
+}
+{ // Formulir paperless: berkas asesi dan formulir dibaca dari database.
+  const pm = (await C.asesi.req('asesi/permohonan')).json.items || [];
+  const p = pm.find(x => ['siap_uji', 'kompeten', 'belum_kompeten', 'pra_asesmen', 'menunggu_pleno'].includes(x.status)) || pm[0];
+  const b = p ? await C.asesi.req('muk/berkas?permohonan_id=' + p.id) : null;
+  check('Formulir: berkas asesi terbaca', !!b && b.status === 200 && (b.json.items || []).length > 0, b?.json);
+  const f = b && (b.json.items || []).find(x => x.kode === 'APL.01');
+  const r = f ? await C.asesi.req('muk/formulir?permohonan_id=' + p.id + '&kode=APL.01') : null;
+  check('Formulir: FR.APL.01 terbaca dengan tanda tangan', !!r && r.status === 200 && r.json.ttd && typeof r.json.ttd === 'object' && Object.keys(r.json.ttd).length > 0, r?.json && { status: r.json.status, ttd: r.json.ttd });
+  const pl = await C['komite.tdn'].req('pleno');
+  check('Pleno: Komite melihat berkas menunggu keputusan', pl.status === 200 && Array.isArray(pl.json.items), pl.json);
+  const bd = await C['mutu.tdn'].req('banding');
+  check('Banding: Manajer Mutu melihat daftar', bd.status === 200 && Array.isArray(bd.json.items), bd.json);
+}
+{ // Notifikasi: preferensi diubah lalu dikembalikan.
+  const r = C.asesi; const s0 = (await r.req('notifications/settings')).json;
+  check('Notifikasi: ubah preferensi email', (await r.req('notifications/settings', { email_on: !s0.email_on, wa_on: false, wa_number: '', wa_consent: false })).status === 200 && (await r.req('notifications/settings')).json.email_on === !s0.email_on);
+  check('Notifikasi: dikembalikan', (await r.req('notifications/settings', { email_on: s0.email_on, wa_on: false, wa_number: '', wa_consent: false })).status === 200 && (await r.req('notifications/settings')).json.email_on === s0.email_on);
+}
+
 console.log('Tidak ada data uji yang tertinggal');
 {
   const sisa = [];
@@ -143,7 +213,9 @@ console.log('Tidak ada data uji yang tertinggal');
   await cek(tdnC, 'lsp/skema', s => (s.kode || '').includes(TAG)); await cek(tdnC, 'lsp/tuk', t => t.nama.includes(TAG)); await cek(tdnC, 'lsp/jadwal', j => (j.catatan || '').includes(TAG));
   await cek(mktC, 'lsp/crm', x => (x.organisasi || '').includes(TAG)); await cek(tdnC, 'lsp/mutu', x => x.judul.includes(TAG)); await cek(tukC, 'tuk/sarpras', x => x.nama.includes(TAG));
   await cek(mktC, 'listings', l => l.judul.includes(TAG)); await cek(mktC, 'blog', p => p.judul.includes(TAG));
-  check('semua data uji sudah terhapus', sisa.length === 0, sisa.join(', '));
+  check('data uji yang punya aksi hapus sudah terhapus', sisa.length === 0, sisa.join(', '));
+  console.log('  info: pengguna/tiket/perangkat uji (tanpa aksi hapus di aplikasi) dibersihkan skrip pelaksana, tanda: ' + TAG);
+  console.log('TAG=' + TAG);
 }
 for (const c of Object.values(C)) await c.req('auth/logout', {});
 console.log(`\n${pass} lulus, ${failN} gagal`);

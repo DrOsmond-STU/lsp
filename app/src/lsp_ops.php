@@ -1176,7 +1176,17 @@ function r_lsp_skema_hapus(): void
         || q('SELECT 1 FROM listings WHERE skema_id = ?', [$id])->fetch() || q('SELECT 1 FROM sertifikat WHERE skema_id = ?', [$id])->fetch()) {
         fail($msg, 409);
     }
+    // Perangkat asesmen yang sudah divalidasi dan FR.VA yang sudah ditandatangani adalah dokumen mutu: skema tidak dihapus.
+    if (q("SELECT 1 FROM muk_perangkat WHERE skema_id = ? AND status = 'valid'", [$id])->fetch()
+        || q("SELECT 1 FROM formulir WHERE skema_id = ? AND permohonan_id IS NULL AND jadwal_id IS NULL AND status = 'final'", [$id])->fetch()) {
+        fail('Skema ini sudah punya perangkat asesmen tervalidasi atau FR.VA final. Ubah statusnya menjadi nonaktif.', 409);
+    }
     delete_or_409(function () use ($id) {
+        // Draf perangkat dan FR.VA yang belum final ikut terhapus; elemen/KUK dihapus sebelum unitnya (kunci asing).
+        q('DELETE FROM formulir_ttd WHERE formulir_id IN (SELECT id FROM formulir WHERE skema_id = ? AND permohonan_id IS NULL AND jadwal_id IS NULL)', [$id]);
+        q('DELETE FROM formulir WHERE skema_id = ? AND permohonan_id IS NULL AND jadwal_id IS NULL', [$id]);
+        q('DELETE FROM muk_perangkat WHERE skema_id = ?', [$id]);
+        q('DELETE FROM skema_elemen WHERE unit_id IN (SELECT id FROM skema_units WHERE skema_id = ?)', [$id]);
         q('DELETE FROM skema_units WHERE skema_id = ?', [$id]);
         q('DELETE FROM skema WHERE id = ?', [$id]);
     }, $msg);
