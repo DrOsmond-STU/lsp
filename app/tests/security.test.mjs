@@ -2,6 +2,7 @@
 // Jalankan pada database baru (data demo), sesudah suite lain atau sendirian.
 const BASE = process.env.BASE || 'http://127.0.0.1:8099';
 const PW = 'Demo-Pass-2026';
+import { praAsesmen, asesmen, laporan, verifikasi } from './lib-muk.mjs';
 const E = n => `${n}@demo.portallsp.id`;
 let pass = 0, failN = 0;
 const check = (n, c, x = '') => { if (c) { pass++; console.log('  ok  ', n); } else { failN++; console.log('  FAIL', n, typeof x === 'string' ? x : JSON.stringify(x)); } };
@@ -24,7 +25,7 @@ class Client {
   }
 }
 const login = async (email, pw = PW) => { const c = new Client(); await c.req('auth/me'); const r = await c.req('auth/login', { email, password: pw }); if (r.status !== 200) throw new Error(email + ' ' + r.status); return c; };
-const sup = await login(E('superadmin')), tdn = await login(E('admin.tdn')), asr = await login(E('asesor')), rina = await login(E('asesi')), pbi = await login(E('admin.pbi'));
+const sup = await login(E('superadmin')), tdn = await login(E('admin.tdn')), asr = await login(E('asesor')), rina = await login(E('asesi')), pbi = await login(E('admin.pbi')), komite = await login(E('komite.tdn'));
 const rinaId = (await rina.req('auth/me')).json.user.id;
 const pad = n => String(n).padStart(2, '0');
 const d = new Date(); const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -58,15 +59,16 @@ let pid, rinaJadwal;
   if (jd.asesor_id !== (await asr.req('auth/me')).json.user.id) {
     await tdn.req('lsp/jadwal/asesor', { jadwal_id: jd.id, asesor_id: (await asr.req('auth/me')).json.user.id });
   }
-  check('asesor penguji meloloskan pra-asesmen', (await asr.req('asesor/pra/putus', { id: pid, rekom: 'lanjut', catatan: 'ok' })).status === 200);
+  const pra = await praAsesmen(asr, rina, pid);
+  check('asesor penguji meloloskan pra-asesmen (APL.02, AK.07, AK.01)', pra.every(x => x === 200), pra);
   jd = (await tdn.req('lsp/jadwal')).json.items.find(x => x.id === rinaJadwal);
   const budiId = (await asr.req('auth/me')).json.user.id;
   for (const x of (await tdn.req('lsp/jadwal')).json.items.filter(x => x.tanggal === today && x.asesor_id === budiId && x.id !== jd.id && !['selesai', 'batal'].includes(x.status)))
     await tdn.req('lsp/jadwal/asesor', { jadwal_id: x.id, asesor_id: 0 });
   if (jd.tanggal > today) { const mv = await tdn.req('lsp/jadwal', { id: jd.id, skema_id: jd.skema_id, tuk_id: jd.tuk_id, tanggal: today, jam: jd.jam, metode: jd.metode, kuota: jd.kuota, status: jd.status }); check('jadwal dimajukan ke hari ini', mv.status === 201, mv.json); }
-  const units = (await asr.req('asesor/asesmen')).json.items.find(x => x.id === pid).units;
-  const sim = await asr.req('asesor/asesmen/simpan', { id: pid, hasil: Object.fromEntries(units.map(u => [u.id, 'K'])), catatan: 'ok' });
-  check('asesmen tersimpan → menunggu pleno', sim.status === 200, sim.json);
+  const sim = await asesmen(asr, rina, pid);
+  check('asesmen tersimpan → menunggu pleno', sim.every(x => x === 200), sim);
+  check('laporan FR.AK.05 diserahkan', (await laporan(asr, rinaJadwal)).status === 200);
   const asesorMid = (await rina.req('auth/me')).json.memberships.find(m => m.role === 'asesor').id;
   check('Rina berpindah ke konteks asesor', (await rina.req('auth/switch', { membership_id: asesorMid })).status === 200);
   const pl = await rina.req('pleno');
@@ -74,7 +76,7 @@ let pid, rinaJadwal;
   const putus = await rina.req('pleno/putus', { id: pid, keputusan: 'K', catatan: '' });
   check('memutus pleno permohonan sendiri ditolak (403)', putus.status === 403, putus.json);
   check('daftar pra-asesmen tidak memuat permohonannya sendiri', !(await rina.req('asesor/pra')).json.items.some(x => x.asesi_id === rinaId));
-  check('staf pleno (bukan pemilik) tetap bisa memutus', (await tdn.req('pleno/putus', { id: pid, keputusan: 'K', catatan: 'Lengkap' })).status === 200);
+  check('Komite Teknis (bukan pemilik, bukan penguji) tetap bisa memutus', (await komite.req('pleno/putus', { id: pid, keputusan: 'K', catatan: 'Lengkap' })).status === 200);
 }
 
 console.log('Asesor tidak bisa mendaftar di jadwal yang ia uji; asesi nonaktif tidak bisa mendaftar');
@@ -182,7 +184,7 @@ console.log('Harga tagihan dikunci saat mendaftar; perubahan skema tayang ditinj
         && (await tdn.req('listings')).json.items.filter(l => l.skema_id === sk.id).every(l => l.status !== 'tayang'));
     }
     check('nama skema yang sudah dipakai tidak bisa diganti (409)', (await tdn.req('lsp/skema', { ...body, nama: sk.nama + ' Senior' })).status === 409);
-    check('pendaftaran diterima', (await tdn.req('lsp/pendaftaran/putus', { id: p.id, aksi: 'terima', catatan: '' })).status === 200);
+    check('pendaftaran diterima', (await tdn.req('lsp/pendaftaran/putus', { id: p.id, aksi: 'terima', catatan: '', verifikasi: await verifikasi(tdn, p.id) })).status === 200);
     const tg = (await tdn.req('lsp/keuangan')).json.items.find(t => t.permohonan_id === p.id);
     check('tagihan memakai harga saat mendaftar, bukan harga baru', tg && tg.jumlah === p.harga && tg.jumlah !== sk.harga + 4000000, tg);
     await tdn.req('lsp/skema', body);

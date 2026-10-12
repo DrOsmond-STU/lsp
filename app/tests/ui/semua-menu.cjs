@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 const OUT=require('os').tmpdir()+'/';
 (async () => {
   const b = await chromium.launch();
-  for (const who of ['asesi','asesor','admin.tdn','marketing.tdn','keuangan.tdn','tuk.kuningan','superadmin']) {
+  for (const who of ['asesi','asesor','admin.tdn','marketing.tdn','keuangan.tdn','tuk.kuningan','komite.tdn','mutu.tdn','superadmin']) {
     const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
     const errs=[]; p.on('pageerror', e=>errs.push(e.message)); p.on('console', m=>{ if(m.type()==='error') errs.push('console: '+m.text()); });
     await p.goto('http://127.0.0.1:8099/', {waitUntil:'networkidle'});

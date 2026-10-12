@@ -201,8 +201,6 @@ document.addEventListener('change', e => {
   const t = e.target;
   if (!S.ap) return;
   if (t.name === 'ap-jadwal') S.ap.jadwal = Number(t.value);
-  if (t.dataset.map === 'apl') S.ap.apl[t.dataset.key] = t.value;
-  if (t.name === 'ap-tujuan') S.ap.tujuan = t.value;
   if (t.name === 'ap-consent') S.ap.consent = t.checked;
 });
 document.addEventListener('change', async e => {
@@ -227,24 +225,24 @@ const X = {
     S.ap = {id: Number(t.dataset.id), step: 0, jadwal: Number(t.dataset.jadwal || 0), apl: {}, tujuan: 'Sertifikasi', consent: false};
     S.inApp = true; await goApp('skema');
   },
-  apPrev() { S.ap.step = Math.max(0, S.ap.step - 1); render(); window.scrollTo(0, 0); },
+  apPrev() { apCapture(); S.ap.step = Math.max(0, S.ap.step - 1); render(); window.scrollTo(0, 0); },
   apNext() {
-    const det = S.d.skema && S.d.skema.det;
+    apCapture();
     if (S.ap.step === 0 && !S.ap.jadwal) { toast('Pilih jadwal uji dulu.'); return; }
     if (S.ap.step === 1 && !ME.user.email_verified) { toast('Verifikasi email Anda dulu. Buka tautan di email, atau kirim ulang dari banner.'); return; }
-    if (S.ap.step === 2 && det && det.skema.units.some(u => !S.ap.apl[u.id])) { toast('Isi asesmen mandiri untuk semua unit.'); return; }
+    if (S.ap.step === 1 || S.ap.step === 2) { const e = apCheck(S.ap.step); if (e) { toast(e); return; } }
     if (S.ap.step === 3) { const have = (S.d.skema.dok.items || []).map(x => x.jenis); if (S.d.skema.dok.wajib.some(w => !have.includes(w))) { toast('Lengkapi dokumen wajib dulu.'); return; } }
     S.ap.step++; render(); window.scrollTo(0, 0);
   },
-  apAllK() { S.d.skema.det.skema.units.forEach(u => S.ap.apl[u.id] = 'K'); render(); },
+  apAllK() { const el = document.getElementById('apMk'); if (!el) return; el.querySelectorAll('input[type=radio][data-c="kbk"][value="K"]').forEach(r => { r.checked = true; }); apCapture(); render(); },
   apCancel() { S.ap = null; reloadPage(); },
   async apSubmit(t) {
     if (!S.ap.consent) { toast('Centang persetujuan berbagi data ke LSP.'); return; }
     t.disabled = true;
     try {
-      await api('asesi/apply', {jadwal_id: S.ap.jadwal, apl02: S.ap.apl, tujuan: S.ap.tujuan, consent: true});
+      await api('asesi/apply', {jadwal_id: S.ap.jadwal, apl01: S.ap.apl01 || {}, apl02: S.ap.apl02 || {}, consent: true});
       S.ap = null; clearPub(); await loadMe();
-      toast('Pendaftaran terkirim. LSP akan memverifikasi berkas Anda.');
+      toast('Pendaftaran terkirim. FR.APL.01 dan FR.APL.02 sudah ditandatangani elektronik; LSP akan memverifikasi berkas Anda.');
       await goApp('jadwal');
     } catch (x) { toast(x.message); t.disabled = false; }
   },
@@ -370,7 +368,11 @@ function apWizard(D) {
   const det = D.det;
   if (!det) return loading();
   const A = S.ap, sk = det.skema, L = det.listing;
-  const steps = ['Pilih jadwal', 'Data diri', 'Asesmen mandiri (APL.02)', 'Dokumen', 'Konfirmasi'];
+  const steps = ['Pilih jadwal', 'Data diri & FR.APL.01', 'Asesmen mandiri (FR.APL.02)', 'Dokumen', 'Konfirmasi'];
+  if (!A.mk) { A.mk = 'loading'; api('muk/def?skema_id=' + sk.id).then(v => { A.mk = v; render(); }).catch(e => { A.mk = {error: e.message}; render(); }); }
+  const mkReady = A.mk && A.mk !== 'loading' && !A.mk.error;
+  const mkForm = kode => !mkReady ? (A.mk && A.mk.error ? `<p class="alert bad">${A.mk.error}</p>` : loading())
+    : `<div id="apMk">${mukRender(Object.assign({}, A.mk[kode], {data: Object.assign({}, A.mk[kode].data, (kode === 'APL.01' ? A.apl01 : A.apl02) || {})}), {embed: true})}</div>`;
   const jad = det.jadwal.find(j => j.id === A.jadwal);
   let body = '';
   if (A.step === 0) {
@@ -381,17 +383,19 @@ function apWizard(D) {
     const p = S.profile || {};
     body = `${!ME.user.email_verified ? `<div class="alert warn">${ic('bell')}<span>Email Anda belum diverifikasi. Buka tautan di email lalu muat ulang halaman ini. <button class="btn sm orange" data-resend="1" style="margin-top:.4rem">Kirim ulang email</button></span></div>` : ''}
       ${infoGrid([['Nama lengkap', ME.user.nama], ['NIK', p.nik ? `<span class="mono">${p.nik}</span>` : '—'], ['Tanggal lahir', p.tanggal_lahir ? fmtTgl(p.tanggal_lahir) : '—'], ['Email', ME.user.email + (ME.user.email_verified ? ' <span class="chip ok">Terverifikasi</span>' : ' <span class="chip warn">Belum diverifikasi</span>')], ['No. HP', p.no_hp || '—']])}
-      <p class="muted" style="font-size:.84rem">Data diri dari profil Anda dipakai untuk FR.APL.01. Data ini baru dibagikan ke ${L.lsp_nama} setelah Anda mengajukan.</p>`;
+      <p class="muted" style="font-size:.84rem">Data diri dari profil Anda dipakai untuk FR.APL.01 bagian 1. Lengkapi data pendidikan, pekerjaan, tujuan asesmen, dan bukti persyaratan dasar di bawah. Data baru dibagikan ke ${L.lsp_nama} setelah Anda mengajukan.</p>
+      ${mkForm('APL.01')}`;
   } else if (A.step === 2) {
-    body = `<div class="spread"><p class="muted">Nilai diri Anda untuk setiap unit kompetensi: <b>K</b> (kompeten) atau <b>BK</b> (belum kompeten).</p><button class="btn sm ghost" data-x="apAllK">Saya kompeten di semua unit</button></div>${unitTable(sk.units, null, {input: 'apl', label: 'Penilaian diri', cur: A.apl})}`;
+    body = mkReady && !A.mk.siap ? '<p class="alert bad">Skema ini belum memiliki elemen dan KUK. Hubungi LSP sebelum mendaftar.</p>'
+      : `<div class="spread"><p class="muted">Untuk setiap elemen: centang <b>K</b> bila Anda yakin dapat melakukannya atau <b>BK</b> bila belum, lalu tuliskan bukti yang relevan.</p><button class="btn sm ghost" data-x="apAllK">Saya kompeten di semua elemen</button></div>${mkForm('APL.02')}`;
   } else if (A.step === 3) {
     const have = Object.fromEntries((D.dok.items || []).map(x => [x.jenis, x]));
     body = `<div class="stack" style="gap:.6rem">${Object.entries(D.dok.jenis).map(([k, l]) => docRow(k, l, have[k], D.dok.wajib.includes(k))).join('')}</div>
       <p class="muted" style="font-size:.82rem">Format PDF, JPG, atau PNG, maksimal 2 MB. Dokumen disimpan di profil dan bisa dipakai ulang untuk skema berikutnya.</p>`;
   } else {
-    body = `${infoGrid([['Skema', sk.nama], ['LSP', L.lsp_nama], ['Jadwal', jad ? fmtHari(jad.tanggal) + ' · ' + jad.jam : '—'], ['TUK', jad ? (jad.tuk_nama || '—') + ' · ' + jad.metode : '—'], ['APL.02', Object.values(A.apl).filter(v => v === 'K').length + ' dari ' + sk.units.length + ' unit kompeten'], ['Biaya uji', fmtRp(sk.harga) + ' (dibayar setelah berkas diverifikasi)']])}
-      <label class="f">Tujuan asesmen<select name="ap-tujuan">${['Sertifikasi', 'Sertifikasi ulang', 'Pengakuan Kompetensi Terkini (PKT)', 'Rekognisi Pembelajaran Lampau (RPL)', 'Lainnya'].map(o => `<option ${A.tujuan === o ? 'selected' : ''}>${o}</option>`).join('')}</select></label>
-      <label class="toggle"><input type="checkbox" name="ap-consent" ${A.consent ? 'checked' : ''}><span>Saya menyetujui data diri, dokumen, dan asesmen mandiri saya dibagikan ke <b>${L.lsp_nama}</b> untuk proses sertifikasi ini, dan menyatakan data yang saya isi benar.</span></label>`;
+    const el = Object.values((A.apl02 || {}).elemen || {});
+    body = `${infoGrid([['Skema', sk.nama], ['LSP', L.lsp_nama], ['Jadwal', jad ? fmtHari(jad.tanggal) + ' · ' + jad.jam : '—'], ['TUK', jad ? (jad.tuk_nama || '—') + ' · ' + jad.metode : '—'], ['Tujuan asesmen (FR.APL.01)', (A.apl01 || {}).tujuan || '—'], ['Asesmen mandiri (FR.APL.02)', el.filter(v => v.kbk === 'K').length + ' dari ' + el.length + ' elemen K'], ['Biaya uji', fmtRp(sk.harga) + ' (dibayar setelah berkas diverifikasi)']])}
+      <label class="toggle"><input type="checkbox" name="ap-consent" ${A.consent ? 'checked' : ''}><span>Saya menyetujui data diri, dokumen, FR.APL.01, dan FR.APL.02 saya dibagikan ke <b>${L.lsp_nama}</b> untuk proses sertifikasi ini, menyatakan data yang saya isi benar, dan <b>menandatangani FR.APL.01 serta FR.APL.02 secara elektronik</b>.</span></label>`;
   }
   return `<div class="spread"><div><p class="eyebrow">Pendaftaran uji kompetensi</p><h2>${sk.nama}</h2><p class="muted">${L.lsp_nama}</p></div><button class="btn ghost sm" data-x="apCancel">Batalkan</button></div>
   <div class="layout-2"><div class="card">
@@ -422,9 +426,11 @@ function pAsesiJadwal() {
     ${infoGrid([['Jadwal uji', fmtHari(p.tanggal) + ' · ' + p.jam], ['TUK & metode', (p.tuk_nama || '—') + ' · ' + p.metode], ['Asesor', p.asesor_nama || 'Belum ditentukan'], ['Tagihan', p.tagihan ? `${fmtRp(p.tagihan.jumlah)} <span class="chip ${p.tagihan.status === 'lunas' ? 'ok' : p.tagihan.status === 'belum' ? 'warn' : 'plain'}">${p.tagihan.status}</span>` : '—']])}
     ${p.catatan_admin ? `<div class="alert ${p.status === 'perbaikan' || p.status === 'ditolak' ? 'bad' : 'info'}">${ic('doc')}<span><b>Catatan LSP:</b> ${p.catatan_admin}</span></div>` : ''}
     ${p.catatan_pra ? `<div class="alert ${p.rekom_pra === 'tidak' ? 'bad' : 'info'}">${ic('users')}<span><b>Pra-asesmen:</b> ${p.catatan_pra}</span></div>` : ''}
-    ${p.keputusan ? `<div class="alert ${p.keputusan === 'K' ? 'info' : 'warn'}">${ic('shield')}<span><b>Hasil pleno: ${p.keputusan === 'K' ? 'Kompeten' : 'Belum kompeten'}.</b> ${p.catatan_pleno || ''}${p.keputusan === 'BK' ? ' Anda dapat mengajukan banding ke LSP dalam 14 hari.' : ''}</span></div>` : ''}
+    ${p.keputusan ? `<div class="alert ${p.keputusan === 'K' ? 'info' : 'warn'}">${ic('shield')}<span><b>Hasil pleno: ${p.keputusan === 'K' ? 'Kompeten' : 'Belum kompeten'}.</b> ${p.catatan_pleno || ''}${p.keputusan ? ' Bila Anda menilai proses asesmen tidak sesuai, ajukan banding (FR.AK.04) dari berkas asesmen sebelum batas waktu skema.' : ''}</span></div>` : ''}
+    ${p.tugas ? `<div class="alert warn">${ic('pen')}<span><b>Perlu tindakan Anda:</b> ${p.tugas}</span></div>` : ''}
     <div class="row" style="justify-content:flex-end">
-      ${p.status === 'perbaikan' ? `<button class="btn sm ghost" data-go-app="profil">Perbarui dokumen</button>${btnAct('asesi/resubmit', {id: p.id}, 'Kirim perbaikan', 'sm pink', 'data-ok="Perbaikan dikirim ke LSP."')}` : ''}
+      ${btnBerkas(p.id, 'Berkas asesmen (FR)', p.tugas ? 'sm green' : 'sm ghost')}
+      ${p.status === 'perbaikan' ? `<button class="btn sm ghost" data-go-app="profil">Perbarui dokumen</button>${btnAct('asesi/resubmit', {id: p.id}, 'Kirim perbaikan (FR.APL.01/02)', 'sm pink', 'data-ok="Perbaikan dikirim ke LSP."')}` : ''}
       ${p.status === 'menunggu_bayar' ? `<button class="btn sm orange" data-go-app="bayar">${ic('wallet')}Bayar</button>` : ''}
       ${['pra_asesmen', 'siap_uji', 'menunggu_pleno'].includes(p.status) ? `<button class="btn sm purple" data-x="chatOpen" data-id="${p.jadwal_id}">${ic('chat')}Group chat</button>` : ''}
       ${p.sertifikat ? `<button class="btn sm green" data-go-app="sertifikat">${ic('cert')}Sertifikat</button>` : ''}
@@ -525,25 +531,24 @@ function listDetail(items, renderRow, renderDetail, empty) {
 function pPra() {
   const D = S.d.pra;
   if (!D) return loading();
-  return `${phead('Hanya peserta yang ditugaskan kepada Anda', 'Tinjau pra-asesmen')}
-  ${listDetail(D.items.filter(lspOk), x => `<b>${x.asesi_nama}</b><span class="muted" style="display:block;font-size:.8rem">${x.skema_nama} · ${fmtHari(x.tanggal)}</span>`, p => `<h3>APL.01 & APL.02</h3>${asesiPanel(p)}
-    ${unitTable(p.units, p.apl02, {label: 'Penilaian diri asesi'})}
-    ${form('asesor/pra/putus', `${hid('id', p.id)}<div class="row">${[['lanjut', 'Lanjut ke uji'], ['tidak', 'Belum dapat dilanjutkan']].map(([v, l]) => `<label class="row" style="gap:.35rem;font-weight:700"><input type="radio" name="rekom" value="${v}" style="width:auto" ${v === 'lanjut' ? 'checked' : ''}>${l}</label>`).join('')}</div>${fld('Catatan untuk asesi (wajib bila belum dapat dilanjutkan)', txa('catatan', '', 'rows="2" maxlength="500"'))}`, {ok: 'Rekomendasi pra-asesmen disimpan.', submit: 'Simpan rekomendasi'})}`, 'Tidak ada pra-asesmen yang menunggu.')}`;
+  return `${phead('Konsultasi pra-asesmen · FR.APL.02, FR.AK.07, FR.AK.01', 'Tinjau pra-asesmen')}
+  <div class="alert info">${ic('doc')}<span>Untuk setiap asesi: tinjau <b>FR.APL.02</b> (dapat/tidak dilanjutkan), isi <b>FR.AK.07</b> (potensi asesi & penyesuaian wajar), lalu isi dan tandatangani <b>FR.AK.01</b> beserta pernyataan bebas benturan kepentingan. Asesi siap uji setelah ia ikut menandatangani FR.AK.01.</span></div>
+  <div class="card">${table(['Asesi', 'Skema', 'Jadwal', 'LSP', ''], D.items.filter(lspOk).map(p => tr([`<b>${p.asesi_nama}</b>`, p.skema_nama, fmtHari(p.tanggal), p.lsp_nama, btnBerkas(p.id, 'Buka berkas', 'sm green')])), 'Tidak ada pra-asesmen yang menunggu.')}</div>`;
 }
 function pAsesmen() {
   const D = S.d.asesmen;
   if (!D) return loading();
-  return `${phead('Rekaman asesmen (FR.IA / FR.AK)', 'Asesmen')}
-  ${listDetail(D.items.filter(lspOk), x => `<b>${x.asesi_nama}</b><span class="muted" style="display:block;font-size:.8rem">${x.skema_nama} · ${fmtHari(x.tanggal)}</span>`, p => `<h3>Hasil asesmen</h3>${asesiPanel(p)}
-    ${p.tanggal > todayStr() ? `<div class="alert warn">${ic('cal')}<span>Uji dijadwalkan ${fmtHari(p.tanggal)}. Hasil baru bisa disimpan pada atau setelah tanggal uji.</span></div>` : ''}
-    ${form('asesor/asesmen/simpan', `${hid('id', p.id)}<p class="muted" style="font-size:.85rem">Penilaian diri asesi: ${Object.values(p.apl02).filter(v => v === 'K').length}/${p.units.length} unit K.</p>${unitTable(p.units, null, {input: 'hasil', label: 'Keputusan asesor'})}${fld('Catatan asesor / umpan balik', txa('catatan', '', 'rows="3" maxlength="1000"'))}`, {ok: 'Hasil asesmen disimpan dan diteruskan ke pleno.', submit: 'Simpan & teruskan ke pleno'})}`, 'Tidak ada asesi yang siap diuji.')}`;
+  return `${phead('Instrumen FR.IA sesuai FR.MAPA.02 → FR.AK.02', 'Asesmen')}
+  <div class="alert info">${ic('check')}<span>Pada hari uji isi instrumen yang aktif untuk asesi, minta asesi menjawab soal tertulis di akunnya, lalu tandatangani <b>FR.AK.02</b>. Komite Teknis dapat memutuskan setelah laporan <b>FR.AK.05</b> jadwal diserahkan (menu Laporan & Tinjauan).</span></div>
+  <div class="card">${table(['Asesi', 'Skema', 'Jadwal', 'LSP', ''], D.items.filter(lspOk).map(p => tr([`<b>${p.asesi_nama}</b>`, p.skema_nama, fmtHari(p.tanggal) + (p.tanggal > todayStr() ? ' <span class="chip warn">belum hari uji</span>' : ''), p.lsp_nama, btnBerkas(p.id, 'Buka berkas', 'sm green')])), 'Tidak ada asesi yang siap diuji.')}</div>`;
 }
 function plenoView(D) {
-  return `${listDetail(D.items, x => `<b>${x.asesi_nama}</b><span class="muted" style="display:block;font-size:.8rem">${x.skema_nama} · rekomendasi ${x.rekomendasi} · ${x.lsp_nama}</span>`, p => `<h3>Berkas pleno</h3>${asesiPanel(p)}
-    ${infoGrid([['Asesor penguji', p.penguji_nama || '—'], ['Rekomendasi asesor', `<span class="chip ${p.rekomendasi === 'K' ? 'ok' : 'bad'}">${p.rekomendasi === 'K' ? 'Kompeten' : 'Belum kompeten'}</span>`], ['Catatan asesor', p.catatan_asesor || '—']])}
-    ${unitTable(p.units, p.hasil, {label: 'Hasil asesmen'})}
-    ${form('pleno/putus', `${hid('id', p.id)}<div class="row">${[['K', 'Kompeten (terbitkan sertifikat)'], ['BK', 'Belum kompeten']].map(([v, l]) => `<label class="row" style="gap:.35rem;font-weight:700"><input type="radio" name="keputusan" value="${v}" style="width:auto" ${v === p.rekomendasi ? 'checked' : ''}>${l}</label>`).join('')}</div>${fld('Catatan pleno', txa('catatan', '', 'rows="2" maxlength="500"'))}`, {ok: 'Keputusan pleno disimpan.', submit: 'Putuskan'})}`, 'Tidak ada berkas pleno yang menunggu.')}
-  ${D.diuji_sendiri && D.diuji_sendiri.length ? `<div class="card"><h3>Diuji oleh Anda (tidak bisa Anda plenokan)</h3>${table(['Asesi', 'Skema', 'LSP', 'Rekomendasi'], D.diuji_sendiri.map(x => tr([x.asesi_nama, x.skema_nama, x.lsp_nama, x.rekomendasi])))}<p class="muted" style="font-size:.8rem;margin-top:.5rem">Aturan independensi: asesor penguji tidak boleh menjadi pemutus pleno untuk asesi yang sama.</p></div>` : ''}`;
+  return `<div class="alert info">${ic('shield')}<span>Keputusan sertifikasi diambil Komite Teknis yang <b>tidak ikut mengases</b> asesi (PBNSP 201 §9.4.4), berdasarkan FR.AK.02 dan laporan FR.AK.05 asesor. Periksa berkas FR sebelum memutuskan.</span></div>
+  ${listDetail(D.items, x => `<b>${x.asesi_nama}</b><span class="muted" style="display:block;font-size:.8rem">${x.skema_nama} · rekomendasi ${x.rekomendasi} · ${x.lsp_nama}</span>${x.ak05 ? '' : '<span class="chip warn" style="margin-top:.2rem">Menunggu FR.AK.05</span>'}`, p => `<div class="spread"><h3>Berkas pleno</h3>${btnBerkas(p.id, 'Periksa berkas FR', 'sm purple')}</div>${asesiPanel(p)}
+    ${infoGrid([['Asesor penguji', p.penguji_nama || '—'], ['Rekomendasi asesor (FR.AK.02)', `<span class="chip ${p.rekomendasi === 'K' ? 'ok' : 'bad'}">${p.rekomendasi === 'K' ? 'Kompeten' : 'Belum kompeten'}</span>`], ['Laporan asesmen (FR.AK.05)', p.ak05 ? '<span class="chip ok">Sudah diserahkan</span>' : '<span class="chip warn">Belum diserahkan asesor</span>'], ['Catatan asesor', p.catatan_asesor || '—']])}
+    ${unitTable(p.units, p.hasil, {label: 'Hasil asesmen per unit'})}
+    ${p.ak05 ? form('pleno/putus', `${hid('id', p.id)}<div class="row">${[['K', 'Kompeten (terbitkan sertifikat)'], ['BK', 'Belum kompeten']].map(([v, l]) => `<label class="row" style="gap:.35rem;font-weight:700"><input type="radio" name="keputusan" value="${v}" style="width:auto" ${v === p.rekomendasi ? 'checked' : ''}>${l}</label>`).join('')}</div>${fld('Berita acara / catatan pleno', txa('catatan', '', 'rows="2" maxlength="500"'))}`, {ok: 'Keputusan pleno disimpan.', submit: 'Putuskan'}) : '<p class="alert warn">Keputusan dapat diambil setelah asesor menyerahkan laporan asesmen FR.AK.05 untuk jadwal ini.</p>'}`, 'Tidak ada berkas pleno yang menunggu.')}
+  ${D.diuji_sendiri && D.diuji_sendiri.length ? `<div class="card"><h3>Diuji oleh Anda (tidak bisa Anda plenokan)</h3>${table(['Asesi', 'Skema', 'LSP', 'Rekomendasi'], D.diuji_sendiri.map(x => tr([x.asesi_nama, x.skema_nama, x.lsp_nama, x.rekomendasi])))}<p class="muted" style="font-size:.8rem;margin-top:.5rem">Aturan independensi: asesor penguji tidak boleh menjadi pemutus untuk asesi yang sama.</p></div>` : ''}`;
 }
 function pPleno() {
   const D = S.d.pleno;
@@ -602,10 +607,10 @@ function pPendaftaran() {
   ${tabs('daftar', [['diajukan', 'Perlu verifikasi', cnt('diajukan')], ['perbaikan', 'Menunggu perbaikan', cnt('perbaikan')], ['menunggu_bayar', 'Menunggu bayar', cnt('menunggu_bayar')], ['semua', 'Semua', D.items.length]])}
   ${listDetail(items, x => `<b>${x.asesi_nama}</b><span class="muted" style="display:block;font-size:.8rem">${x.skema_nama} · ${fmtHari(x.tanggal)}${isPlatform() ? ' · ' + x.lsp_nama : ''}</span>`, p => `<div class="spread"><h3>Permohonan #${p.id}</h3>${stChip(p)}</div>${asesiPanel(p)}
     ${infoGrid([['Email', p.asesi_email], ['No. HP', p.asesi_hp || '—'], ['Tanggal lahir', p.asesi_tgl_lahir ? fmtTgl(p.asesi_tgl_lahir) : '—'], ['Biaya uji', fmtRp(p.harga)]])}
-    <details><summary style="cursor:pointer;font-weight:700">Asesmen mandiri (APL.02): ${Object.values(p.apl02).filter(v => v === 'K').length}/${p.units.length} unit K</summary>${unitTable(p.units, p.apl02, {label: 'Penilaian diri'})}</details>
+    ${aplVerif(p)}
     ${p.catatan_admin ? `<div class="alert info">${ic('doc')}<span>Catatan sebelumnya: ${p.catatan_admin}</span></div>` : ''}
     ${p.status === 'diajukan' ? `<label class="f">Catatan untuk asesi (wajib untuk perbaikan/tolak)<textarea id="pd-cat" name="catatan" rows="2" maxlength="500"></textarea></label>
-      <div class="row" style="justify-content:flex-end">${btnAct('lsp/pendaftaran/putus', {id: p.id, aksi: 'tolak'}, 'Tolak', 'red', 'data-with="#pd-cat" data-confirm="Tolak pendaftaran ini?" data-ok="Pendaftaran ditolak."')}${btnAct('lsp/pendaftaran/putus', {id: p.id, aksi: 'perbaikan'}, 'Minta perbaikan', 'orange', 'data-with="#pd-cat" data-ok="Permintaan perbaikan dikirim."')}${btnAct('lsp/pendaftaran/putus', {id: p.id, aksi: 'terima'}, ic('check') + 'Berkas lengkap, terbitkan tagihan', 'green', 'data-with="#pd-cat" data-ok="Berkas diterima. Tagihan dikirim ke asesi."')}</div>` : ''}`, 'Tidak ada pendaftaran di tab ini.')}`;
+      <div class="row" style="justify-content:flex-end;flex-wrap:wrap"><button class="btn red" data-x="pdPutus" data-id="${p.id}" data-aksi="tolak" data-confirm="Tolak pendaftaran ini? FR.APL.01 ditandatangani dengan rekomendasi Tidak diterima." data-ok="Pendaftaran ditolak.">Tolak</button><button class="btn orange" data-x="pdPutus" data-id="${p.id}" data-aksi="perbaikan" data-ok="Permintaan perbaikan dikirim.">Minta perbaikan</button><button class="btn green" data-x="pdPutus" data-id="${p.id}" data-aksi="terima" data-ok="Berkas diterima. FR.APL.01 ditandatangani dan tagihan dikirim ke asesi.">${ic('check')}<span style="white-space:normal;text-align:left">Semua bukti memenuhi syarat, terima &amp; terbitkan tagihan</span></button></div>` : ''}`, 'Tidak ada pendaftaran di tab ini.')}`;
 }
 function pJadwalA() {
   const D = S.d.jadwalA;
@@ -638,7 +643,7 @@ function pAsesmenA() {
   const n = st => D.items.filter(p => p.status === st).length;
   return `${phead(ctxName(), 'Pemantauan asesmen')}
   ${tabs('asesmenA', [['semua', 'Semua', D.items.length], ['pra_asesmen', 'Pra-asesmen', n('pra_asesmen')], ['siap_uji', 'Siap uji', n('siap_uji')], ['menunggu_pleno', 'Menunggu pleno', n('menunggu_pleno')], ['tidak_lanjut', 'Tidak lanjut', n('tidak_lanjut')]])}
-  <div class="card">${table(['Asesi', 'Skema', 'Jadwal', 'TUK', 'Asesor', 'Status'], items.map(p => tr([`<b>${p.asesi_nama}</b>`, p.skema_nama, fmtHari(p.tanggal), p.tuk_nama || '—', p.asesor_nama || '<span class="chip bad">Belum ada</span>', stChip(p) + (p.rekomendasi ? ` <span class="chip ${p.rekomendasi === 'K' ? 'ok' : 'bad'}">Rek. ${p.rekomendasi}</span>` : '')])), 'Tidak ada asesmen.')}</div>`;
+  <div class="card">${table(['Asesi', 'Skema', 'Jadwal', 'TUK', 'Asesor', 'Status', ''], items.map(p => tr([`<b>${p.asesi_nama}</b>`, p.skema_nama, fmtHari(p.tanggal), p.tuk_nama || '—', p.asesor_nama || '<span class="chip bad">Belum ada</span>', stChip(p) + (p.rekomendasi ? ` <span class="chip ${p.rekomendasi === 'K' ? 'ok' : 'bad'}">Rek. ${p.rekomendasi}</span>` : ''), btnBerkas(p.id, 'Berkas', 'sm ghost')])), 'Tidak ada asesmen.')}</div>`;
 }
 function pPlenoA() {
   const D = S.d.plenoA;

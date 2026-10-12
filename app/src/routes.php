@@ -47,8 +47,13 @@ function dispatch(string $route): void
         'asesi/cancel' => 'r_asesi_cancel', 'asesi/tagihan' => 'r_asesi_tagihan', 'asesi/bayar' => 'r_asesi_bayar',
         'asesi/sertifikat' => 'r_asesi_sertifikat', 'asesi/kelas' => 'r_asesi_kelas', 'asesi/kelas/daftar' => 'r_asesi_kelas_daftar',
         'asesi/kelas/progres' => 'r_asesi_kelas_progres', 'sertifikat/cetak' => 'r_sertifikat_cetak', 'sertifikat/pdf' => 'r_sertifikat_pdf',
-        'asesor/jadwal' => 'r_asesor_jadwal', 'asesor/pra' => 'r_asesor_pra', 'asesor/pra/putus' => 'r_asesor_pra_putus',
-        'asesor/asesmen' => 'r_asesor_asesmen', 'asesor/asesmen/simpan' => 'r_asesor_asesmen_simpan', 'asesor/riwayat' => 'r_asesor_riwayat',
+        'asesor/jadwal' => 'r_asesor_jadwal', 'asesor/pra' => 'r_asesor_pra',
+        'asesor/asesmen' => 'r_asesor_asesmen', 'asesor/riwayat' => 'r_asesor_riwayat',
+        // Formulir asesmen paperless (Buku Kerja 333-25), perangkat MUK, banding
+        'muk/formulir' => 'r_muk_formulir', 'muk/formulir/simpan' => 'r_muk_simpan', 'muk/formulir/ttd' => 'r_muk_ttd', 'muk/berkas' => 'r_muk_berkas',
+        'muk/jadwal' => 'r_muk_jadwal', 'muk/perangkat' => 'r_muk_perangkat', 'muk/perangkat/detail' => 'r_muk_perangkat_detail',
+        'muk/perangkat/simpan' => 'r_muk_perangkat_simpan', 'muk/perangkat/ttd' => 'r_muk_perangkat_ttd', 'banding' => 'r_banding', 'banding/putus' => 'r_banding_putus',
+        'asesor/laporan' => 'r_asesor_laporan', 'muk/def' => 'r_muk_def',
         'asesor/honor' => 'r_asesor_honor', 'pleno' => 'r_pleno', 'pleno/putus' => 'r_pleno_putus',
         'chat' => 'r_chat', 'chat/kirim' => 'r_chat_kirim', 'chat/ruang' => 'r_chat_ruang',
         'lsp/dashboard' => 'r_lsp_dashboard', 'lsp/pendaftaran' => 'r_lsp_pendaftaran', 'lsp/pendaftaran/putus' => 'r_lsp_pendaftaran_putus',
@@ -364,7 +369,7 @@ function r_users(): void
 }
 
 /** Peran yang datanya (nama, peran, password sementara) boleh diubah dari menu Pengguna. Asesor dan asesi mengelola akunnya sendiri. */
-const USER_EDITABLE_ROLES = ['admin_lsp', 'manajer_mutu', 'keuangan', 'marketing', 'admin_tuk'];
+const USER_EDITABLE_ROLES = ['admin_lsp', 'manajer_mutu', 'komite_teknis', 'keuangan', 'marketing', 'admin_tuk'];
 
 /** Ubah pengguna LSP: nama, peran (antar-peran staf), dan/atau password sementara. */
 function r_user_update(): void

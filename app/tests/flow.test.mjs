@@ -1,5 +1,6 @@
 // Uji alur sertifikasi ujung-ke-ujung + isolasi akses untuk semua menu/fitur baru.
 import { readFileSync } from 'node:fs';
+import { aplData, verifikasi, praAsesmen, asesmen, laporan, signForm } from './lib-muk.mjs';
 const BASE = process.env.BASE || 'http://127.0.0.1:8099';
 const MAIL = new URL('../storage/mail.log', import.meta.url).pathname;
 const PW = 'Demo-Pass-2026';
@@ -30,7 +31,7 @@ class Client {
   }
 }
 const as = async who => { const c = new Client(); await c.req('auth/me'); const r = await c.req('auth/login', { email: E(who), password: PW }); if (r.status !== 200) throw new Error(who + ' ' + r.status); return c; };
-const [sup, tdn, pbi, mkt, kng, tuk, asr, rina] = await Promise.all(['superadmin', 'admin.tdn', 'admin.pbi', 'marketing.tdn', 'keuangan.tdn', 'tuk.kuningan', 'asesor', 'asesi'].map(as));
+const [sup, tdn, pbi, mkt, kng, tuk, asr, rina, komite] = await Promise.all(['superadmin', 'admin.tdn', 'admin.pbi', 'marketing.tdn', 'keuangan.tdn', 'tuk.kuningan', 'asesor', 'asesi', 'komite.tdn'].map(as));
 
 console.log('Semua endpoint menu bisa dibuka sesuai peran');
 {
@@ -38,7 +39,8 @@ console.log('Semua endpoint menu bisa dibuka sesuai peran');
     [rina, ['asesi/permohonan', 'asesi/tagihan', 'asesi/sertifikat', 'asesi/kelas', 'dokumen', 'chat/ruang', 'profile']],
     [asr, ['asesor/jadwal', 'asesor/pra', 'asesor/asesmen', 'pleno', 'asesor/riwayat', 'asesor/honor', 'chat/ruang']],
     [tdn, ['lsp/dashboard', 'lsp/pendaftaran', 'lsp/asesmen', 'lsp/hasil', 'lsp/jadwal', 'lsp/asesor', 'lsp/skema', 'lsp/tuk', 'lsp/opsi', 'lsp/alumni',
-      'lsp/keuangan', 'lsp/laporan', 'lsp/crm', 'lsp/mutu', 'lsp/pengaturan', 'tuk/dashboard', 'tuk/pemohon', 'tuk/jadwal', 'tuk/sarpras', 'tuk/alumni', 'pleno', 'tiket', 'chat/ruang']],
+      'lsp/keuangan', 'lsp/laporan', 'lsp/crm', 'lsp/mutu', 'lsp/pengaturan', 'tuk/dashboard', 'tuk/pemohon', 'tuk/jadwal', 'tuk/sarpras', 'tuk/alumni', 'muk/perangkat', 'tiket', 'chat/ruang']],
+    [komite, ['lsp/dashboard', 'pleno', 'lsp/hasil', 'lsp/asesmen', 'banding', 'lsp/alumni']],
     [tuk, ['tuk/dashboard', 'tuk/pemohon', 'tuk/jadwal', 'tuk/sarpras', 'tuk/alumni', 'chat/ruang']],
     [sup, ['platform/dashboard', 'platform/paket', 'skkni', 'tiket', 'audit', 'lsps', 'lsp/dashboard', 'lsp/pendaftaran', 'lsp/jadwal', 'lsp/skema', 'lsp/keuangan', 'tuk/dashboard', 'pleno']],
     [new Client(), ['pub/catalog', 'pub/jadwal', 'pub/lsp']],
@@ -89,14 +91,13 @@ let pid;
   for (const j of ['ktp', 'ijazah', 'foto']) await asesi.upload(j, PNG);
   const docs = await asesi.req('dokumen');
   check('3 dokumen tersimpan', docs.json.items.length === 3);
-  const d = await asesi.req('pub/skema?id=' + jwd.id);
-  const allK = Object.fromEntries(d.json.skema.units.map(u => [u.id, 'K']));
-  check('APL.02 tidak lengkap ditolak', (await asesi.req('asesi/apply', { jadwal_id: jadwalId, apl02: { [d.json.skema.units[0].id]: 'K' }, consent: true })).status === 422);
-  check('tanpa persetujuan berbagi data ditolak', (await asesi.req('asesi/apply', { jadwal_id: jadwalId, apl02: allK, consent: false })).status === 422);
-  const ap = await asesi.req('asesi/apply', { jadwal_id: jadwalId, apl02: allK, consent: true, tujuan: 'Sertifikasi' });
-  check('pendaftaran skema berhasil', ap.status === 201, ap.json);
+  const allK = await aplData(asesi, jwd.skema_id);
+  check('APL.02 tidak lengkap ditolak', (await asesi.req('asesi/apply', { jadwal_id: jadwalId, apl01: allK.apl01, apl02: { elemen: {} }, consent: true })).status === 422);
+  check('tanpa persetujuan berbagi data ditolak', (await asesi.req('asesi/apply', { jadwal_id: jadwalId, ...allK, consent: false })).status === 422);
+  const ap = await asesi.req('asesi/apply', { jadwal_id: jadwalId, ...allK, consent: true });
+  check('pendaftaran skema berhasil (FR.APL.01/02 ditandatangani)', ap.status === 201, ap.json);
   pid = ap.json.id;
-  check('tidak bisa daftar skema sama dua kali', (await asesi.req('asesi/apply', { jadwal_id: jadwalId, apl02: allK, consent: true })).status === 409);
+  check('tidak bisa daftar skema sama dua kali', (await asesi.req('asesi/apply', { jadwal_id: jadwalId, ...allK, consent: true })).status === 409);
   const me = await asesi.req('auth/me');
   check('asesi kini terdaftar di LSP itu', me.json.memberships.some(m => m.lsp_nama === 'LSP Teknologi Digital Nusantara'));
 }
@@ -121,8 +122,8 @@ console.log('Verifikasi berkas → bayar');
   check('minta perbaikan tanpa catatan ditolak', (await tdn.req('lsp/pendaftaran/putus', { id: pid, aksi: 'perbaikan', catatan: '' })).status === 422);
   check('minta perbaikan', (await tdn.req('lsp/pendaftaran/putus', { id: pid, aksi: 'perbaikan', catatan: 'Ijazah kurang jelas' })).status === 200);
   check('asesi kirim perbaikan', (await asesi.req('asesi/resubmit', { id: pid })).status === 200);
-  check('berkas diterima', (await tdn.req('lsp/pendaftaran/putus', { id: pid, aksi: 'terima', catatan: '' })).status === 200);
-  check('diproses dua kali → 409', (await tdn.req('lsp/pendaftaran/putus', { id: pid, aksi: 'terima', catatan: '' })).status === 409);
+  check('berkas diterima (FR.APL.01 diverifikasi per bukti)', (await tdn.req('lsp/pendaftaran/putus', { id: pid, aksi: 'terima', catatan: '', verifikasi: await verifikasi(tdn, pid) })).status === 200);
+  check('diproses dua kali → 409', (await tdn.req('lsp/pendaftaran/putus', { id: pid, aksi: 'terima', catatan: '', verifikasi: await verifikasi(tdn, pid) })).status === 409);
   const tg = (await asesi.req('asesi/tagihan')).json.items.find(t => t.permohonan_id === pid);
   check('tagihan terbit sesuai biaya skema', tg && tg.jumlah === 750000 && tg.status === 'belum');
   check('asesi lain tidak bisa membayar tagihan ini', (await rina.req('asesi/bayar', { id: tg.id, metode: 'QRIS' })).status === 404);
@@ -138,20 +139,23 @@ let kode;
   const pra = await asr.req('asesor/pra');
   check('asesor yang ditugaskan melihat berkas', pra.json.items.some(x => x.id === pid));
   check('asesor bisa melihat dokumen asesi yang ditugaskan', (await asr.raw('dokumen/file?id=' + pra.json.items.find(x => x.id === pid).dokumen[0].id)).status === 200);
-  check('pra "tidak" tanpa alasan ditolak', (await asr.req('asesor/pra/putus', { id: pid, rekom: 'tidak', catatan: '' })).status === 422);
-  check('pra lanjut', (await asr.req('asesor/pra/putus', { id: pid, rekom: 'lanjut', catatan: 'Bukti cukup' })).status === 200);
-  const units = (await asr.req('asesor/asesmen')).json.items.find(x => x.id === pid).units;
-  const hasil = Object.fromEntries(units.map(u => [u.id, 'K']));
-  check('asesmen sebelum tanggal uji ditolak (409)', (await asr.req('asesor/asesmen/simpan', { id: pid, hasil, catatan: '' })).status === 409);
+  check('APL.02 "tidak dapat dilanjutkan" tanpa alasan ditolak', (await signForm(asr, { permohonan_id: pid }, 'APL.02', 'asesor', { rekom: 'tidak', catatan: null })).status === 422);
+  const pra2 = await praAsesmen(asr, asesi, pid);
+  check('pra-asesmen: APL.02, AK.07, AK.01 ditandatangani asesor & asesi', pra2.every(x => x === 200), pra2);
+  check('status → siap uji', (await asesi.req('asesi/permohonan')).json.items.find(x => x.id === pid).status === 'siap_uji');
+  check('instrumen sebelum tanggal uji ditolak (409)', (await signForm(asr, { permohonan_id: pid }, 'IA.01', 'asesor')).status === 409);
   const jd = (await tdn.req('lsp/jadwal')).json.items.find(j => j.id === jadwalId);
   const up = await tdn.req('lsp/jadwal', { id: jd.id, skema_id: jd.skema_id, tuk_id: jd.tuk_id, tanggal: today, jam: jd.jam, metode: jd.metode, kuota: jd.kuota, status: 'dibuka' });
   check('admin memindah jadwal ke hari ini', up.status === 201, up.json);
-  check('asesmen tersimpan', (await asr.req('asesor/asesmen/simpan', { id: pid, hasil, catatan: 'Semua unit kompeten' })).json.rekomendasi === 'K');
+  const as2 = await asesmen(asr, asesi, pid);
+  check('instrumen FR.IA & FR.AK.02 ditandatangani', as2.every(x => x === 200), as2);
   check('asesor penguji tidak bisa memutuskan pleno sendiri (403)', (await asr.req('pleno/putus', { id: pid, keputusan: 'K', catatan: '' })).status === 403);
   check('berkas sendiri tidak muncul di antrean pleno asesor', !(await asr.req('pleno')).json.items.some(x => x.id === pid));
-  check('LSP lain tidak bisa memutuskan (404)', (await pbi.req('pleno/putus', { id: pid, keputusan: 'K', catatan: '' })).status === 404);
-  const pl = await tdn.req('pleno/putus', { id: pid, keputusan: 'K', catatan: 'Sesuai rekomendasi' });
-  check('pleno oleh Admin LSP → sertifikat terbit', pl.status === 200 && pl.json.sertifikat && pl.json.sertifikat.nomor.startsWith('LSP-TDN/JWD/'));
+  check('LSP lain tidak bisa memutuskan (403/404)', [403, 404].includes((await pbi.req('pleno/putus', { id: pid, keputusan: 'K', catatan: '' })).status));
+  check('keputusan sebelum laporan FR.AK.05 ditolak (409)', (await komite.req('pleno/putus', { id: pid, keputusan: 'K', catatan: '' })).status === 409);
+  check('asesor menyerahkan laporan FR.AK.05', (await laporan(asr, jadwalId)).status === 200);
+  const pl = await komite.req('pleno/putus', { id: pid, keputusan: 'K', catatan: 'Sesuai rekomendasi' });
+  check('pleno oleh Komite Teknis → sertifikat terbit', pl.status === 200 && pl.json.sertifikat && pl.json.sertifikat.nomor.startsWith('LSP-TDN/JWD/'), pl.json);
   kode = pl.json.sertifikat.kode;
   check('sertifikat ada di dompet asesi', (await asesi.req('asesi/sertifikat')).json.items.some(s => s.kode === kode));
   check('verifikasi publik sertifikat baru', (await new Client().req('pub/verify?q=' + kode)).json.nama === 'Bayu Pratama');
@@ -247,6 +251,11 @@ console.log('Kelas & platform');
   check('Admin Platform balas & proses tiket', (await sup.req('tiket/balas', { id: tk.json.id, isi: 'Sedang kami cek.', status: 'proses' })).status === 200);
   check('tiket LSP lain tidak terlihat', !(await pbi.req('tiket')).json.items.some(t => t.id === tk.json.id));
   check('log audit berisi aktivitas', (await sup.req('audit')).json.items.some(a => a.action === 'pleno.K'));
+  check('buat skema dengan elemen & KUK', (await tdn.req('lsp/skema', { kode: 'UXK', nama: 'UI/UX Designer Madya', bidang: 'TIK', kkni: 'Level 5', harga: 900000, status: 'aktif', kemasan: 'KKNI', masa_berlaku_tahun: 3, banding_hari: 7,
+    units_text: 'J.62UXD00.001.1 | Melakukan riset pengguna | 1\n- Merencanakan riset | Tujuan riset ditetapkan; Metode riset dipilih\nJ.62UXD00.005.1 | Membuat prototipe antarmuka | 2\n- Membuat wireframe | Alur pengguna digambarkan; Wireframe divalidasi' })).status === 201);
+  const ux = (await tdn.req('lsp/skema')).json.items.find(x => x.kode === 'UXK');
+  check('elemen & KUK tersimpan dan dapat diubah lagi', ux && /- Merencanakan riset \| Tujuan riset ditetapkan; Metode riset dipilih/.test(ux.units_text) && ux.banding_hari === 7);
+  check('elemen tanpa KUK ditolak', (await tdn.req('lsp/skema', { kode: 'UXL', nama: 'Skema Tanpa KUK', bidang: 'TIK', kkni: '3', harga: 1, units_text: 'A.1 | Unit\n- Elemen tanpa kuk' })).status === 422);
 }
 console.log(`\n${pass} lulus, ${failN} gagal`);
 process.exit(failN ? 1 : 0);

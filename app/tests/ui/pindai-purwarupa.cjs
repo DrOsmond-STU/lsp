@@ -28,7 +28,7 @@ async function periksa(p, nama, temuan) {
   // detail skema
   const kartu = await pub.$('[data-go="cari"]'); if (kartu) { await kartu.click(); await pub.waitForTimeout(700); const d = await pub.$('[data-skema], [data-detail], .skema-card'); if (d) { await d.click().catch(() => {}); await pub.waitForTimeout(700); n++; await periksa(pub, 'publik/detail', temuan); } }
   await pub.close();
-  for (const who of ['asesi', 'asesor', 'admin.tdn', 'admin.pbi', 'marketing.tdn', 'keuangan.tdn', 'tuk.kuningan', 'superadmin']) {
+  for (const who of ['asesi', 'asesor', 'admin.tdn', 'admin.pbi', 'marketing.tdn', 'keuangan.tdn', 'tuk.kuningan', 'komite.tdn', 'mutu.tdn', 'superadmin']) {
     const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
     await p.goto(BASE, { waitUntil: 'networkidle' });
     await p.click('.topbar [data-go="login"]'); await p.fill('#lg-email', who + '@demo.portallsp.id'); await p.fill('#lg-pass', 'Demo-Pass-2026');

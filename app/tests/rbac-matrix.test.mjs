@@ -25,12 +25,16 @@ const NEED = {
   'asesi/apply': ['application.own'], 'asesi/permohonan': ['application.own'], 'asesi/resubmit': ['application.own'], 'asesi/cancel': ['application.own'],
   'asesi/tagihan': ['payment.own'], 'asesi/bayar': ['payment.own'], 'asesi/sertifikat': ['certificate.own'], 'asesi/kelas': ['class.own'],
   'asesi/kelas/daftar': ['class.own'], 'asesi/kelas/progres': ['class.own'], 'sertifikat/cetak': 'auth', 'sertifikat/pdf': 'auth',
-  'asesor/jadwal': ['asesor.dashboard'], 'asesor/pra': ['preassessment.review'], 'asesor/pra/putus': ['preassessment.review'],
-  'asesor/asesmen': ['assessment.conduct'], 'asesor/asesmen/simpan': ['assessment.conduct'], 'asesor/riwayat': ['asesor.history'], 'asesor/honor': ['asesor.honor'],
+  'asesor/jadwal': ['asesor.dashboard'], 'asesor/pra': ['preassessment.review'],
+  'asesor/asesmen': ['assessment.conduct'], 'asesor/riwayat': ['asesor.history'], 'asesor/honor': ['asesor.honor'], 'asesor/laporan': ['assessment.conduct'],
+  // Formulir paperless: cukup login; isinya dibatasi per pihak/LSP (diuji di muk.test.mjs).
+  'muk/formulir': 'auth', 'muk/formulir/simpan': 'auth', 'muk/formulir/ttd': 'auth', 'muk/berkas': 'auth', 'muk/jadwal': 'auth', 'muk/perangkat': 'auth',
+  'muk/perangkat/detail': 'auth', 'muk/perangkat/simpan': ['muk.manage'], 'muk/perangkat/ttd': ['muk.manage'], 'muk/def': ['application.own'],
+  'banding': ['appeal.decide'], 'banding/putus': ['appeal.decide'],
   'pleno': ['decision.manage', 'pleno.participate'], 'pleno/putus': ['decision.manage', 'pleno.participate'],
   'chat': 'auth', 'chat/kirim': 'auth', 'chat/ruang': 'auth', // isi dibatasi: asesor/asesi hanya ruang jadwalnya, staf hanya LSP-nya
   'lsp/dashboard': ['lsp.dashboard'], 'lsp/pendaftaran': ['registration.verify'], 'lsp/pendaftaran/putus': ['registration.verify'],
-  'lsp/asesmen': ['assessment.monitor'], 'lsp/hasil': ['decision.manage'], 'lsp/jadwal': ['schedule.manage'], 'lsp/jadwal/asesor': ['schedule.manage'],
+  'lsp/asesmen': ['assessment.monitor'], 'lsp/hasil': ['decision.manage', 'alumni.view'], 'lsp/jadwal': ['schedule.manage'], 'lsp/jadwal/asesor': ['schedule.manage'],
   'lsp/asesor': ['master.manage'], 'lsp/skema': ['master.manage'], 'lsp/tuk': ['master.manage'], 'lsp/opsi': ['schedule.manage', 'listing.manage', 'master.manage'],
   'lsp/alumni': ['alumni.view'], 'lsp/keuangan': ['finance.manage'], 'lsp/keuangan/lunas': ['finance.manage'], 'lsp/laporan': ['report.bnsp'],
   'lsp/crm': ['crm.manage'], 'lsp/crm/tahap': ['crm.manage'], 'lsp/mutu': ['quality.manage'], 'lsp/pengaturan': ['settings.manage'],
@@ -44,7 +48,7 @@ const NEED = {
   'pub/catalog': 'public', 'pub/skema': 'public', 'pub/jadwal': 'public', 'pub/lsp': 'public', 'pub/verify': 'public', 'pub/ca': 'public', 'pub/paket': 'public',
   'pub/blog': 'public', 'pub/blog/post': 'public', 'pub/blog/cover': 'public',
 };
-const ROLES = ['superadmin', 'admin.tdn', 'marketing.tdn', 'keuangan.tdn', 'admin.pbi', 'tuk.kuningan', 'asesor', 'asesi'];
+const ROLES = ['superadmin', 'admin.tdn', 'marketing.tdn', 'keuangan.tdn', 'admin.pbi', 'tuk.kuningan', 'asesor', 'asesi', 'komite.tdn', 'mutu.tdn', 'asesor2'];
 const DENY = new Set([401, 403, 404, 405]); // 404: data di luar cakupan diperlakukan seperti tidak ada
 const login = async who => { const c = new Client(); await c.req('auth/me'); const r = await c.req('auth/login', { email: `${who}@demo.portallsp.id`, password: PW }); if (r.status !== 200) throw new Error(who + ' login ' + r.status); const me = await c.req('auth/me'); c.perms = me.json.permissions || []; return c; };
 

@@ -72,7 +72,7 @@ async function api(path, data, retried){
   }
   return clean(body);
 }
-const UI_ROLE = {platform_admin:'super',admin_lsp:'admin',manajer_mutu:'admin',keuangan:'admin',marketing:'admin',admin_tuk:'tuk',asesor:'asesor',asesi:'asesi'};
+const UI_ROLE = {platform_admin:'super',admin_lsp:'admin',manajer_mutu:'admin',komite_teknis:'admin',keuangan:'admin',marketing:'admin',admin_tuk:'tuk',asesor:'asesor',asesi:'asesi'};
 const can = p => !!ME && Array.isArray(ME.permissions) && ME.permissions.includes(p);
 
 function applyMe(data){
@@ -741,6 +741,7 @@ setInterval(async()=>{
 function loadScript(src){ return new Promise(r=>{ const s=document.createElement('script'); s.src=src; s.onload=r; s.onerror=r; document.head.appendChild(s); }); }
 (async function boot(){
   await loadScript('fitur.js?v='+ASSET_V);   // layar kerja semua menu
+  await loadScript('muk.js?v='+ASSET_V);     // formulir asesmen paperless (Buku Kerja 333-25)
   const cek=new URLSearchParams(location.search).get('cek');
   if(cek){ S.page='verif'; S.cekQ=cek; history.replaceState(null,'',location.pathname); }
   const rst=new URLSearchParams(location.search).get('reset');

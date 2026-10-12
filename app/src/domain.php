@@ -44,24 +44,6 @@ function units_of(int $skemaId): array
     }, q('SELECT id, kode, judul FROM skema_units WHERE skema_id = ? ORDER BY urut, id', [$skemaId])->fetchAll());
 }
 
-/** Peta unit → K/BK dari input; semua unit skema wajib diisi. */
-function unit_map_in(string $key, int $skemaId, string $label): string
-{
-    $in = body()[$key] ?? null;
-    if (!is_array($in)) {
-        fail("Isi $label untuk setiap unit kompetensi.", 422);
-    }
-    $out = [];
-    foreach (units_of($skemaId) as $u) {
-        $v = $in[(string)$u['id']] ?? null;
-        if (!in_array($v, ['K', 'BK'], true)) {
-            fail("Isi $label untuk setiap unit kompetensi.", 422);
-        }
-        $out[(string)$u['id']] = $v;
-    }
-    return json_encode($out);
-}
-
 function new_invoice(int $lspId, ?int $permohonanId, ?int $kelasPesertaId, int $userId, string $desc, int $jumlah): int
 {
     q('INSERT INTO tagihan (lsp_id, permohonan_id, kelas_peserta_id, user_id, nomor, deskripsi, jumlah, status, jatuh_tempo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -343,7 +325,6 @@ function r_asesi_apply(): void
     if ($missing) {
         fail('Lengkapi dokumen: ' . implode(', ', array_map(function ($k) { return DOK_JENIS[$k]; }, $missing)) . '.', 422);
     }
-    $apl = unit_map_in('apl02', (int)$j['skema_id'], 'asesmen mandiri (APL.02)');
     if ((body()['consent'] ?? false) !== true) {
         fail('Setujui pembagian data diri dan dokumen Anda ke LSP ini.', 422);
     }
@@ -362,12 +343,14 @@ function r_asesi_apply(): void
         $ins = q("INSERT INTO permohonan (lsp_id, asesi_id, skema_id, jadwal_id, status, tujuan, apl02, created_at, updated_at, diajukan_at, harga)
            SELECT ?, ?, ?, ?, 'diajukan', ?, ?, ?, ?, ?, ? FROM jadwal WHERE id = ?
              AND kuota > (SELECT COUNT(*) FROM permohonan WHERE jadwal_id = ? AND status IN (" . in_list_sql(P_AKTIF) . "))",
-            array_merge([$j['lsp_id'], $uid, $j['skema_id'], $j['id'], $tujuan, $apl, $t, $t, $t, (int)$j['harga'], $j['id'], $j['id']], P_AKTIF));
+            array_merge([$j['lsp_id'], $uid, $j['skema_id'], $j['id'], $tujuan, '{}', $t, $t, $t, (int)$j['harga'], $j['id'], $j['id']], P_AKTIF));
         if ($ins->rowCount() !== 1) {
             db()->rollBack();
             fail('Kuota jadwal ini sudah penuh. Pilih jadwal lain.', 409);
         }
         $pid = (int)db()->lastInsertId();
+        // FR.APL.01 dan FR.APL.02 diisi dan ditandatangani elektronik oleh asesi (paperless).
+        q('UPDATE permohonan SET apl02 = ? WHERE id = ?', [muk_isi_pendaftaran(muk_ctx_permohonan($pid)), $pid]);
         db()->commit();
     } catch (Throwable $e) {
         db()->rollBack();
@@ -400,6 +383,7 @@ function r_asesi_permohonan(): void
         $x = permohonan_row($r, true);
         $tg = q('SELECT id, nomor, jumlah, status FROM tagihan WHERE permohonan_id = ? ORDER BY id DESC', [$r['id']])->fetch();
         $x['tagihan'] = $tg ? ['id' => (int)$tg['id'], 'nomor' => $tg['nomor'], 'jumlah' => (int)$tg['jumlah'], 'status' => $tg['status']] : null;
+        $x['tugas'] = in_array($r['status'], ['perbaikan', 'pra_asesmen', 'siap_uji', 'menunggu_pleno', 'kompeten', 'belum_kompeten'], true) ? muk_tugas_asesi((int)$r['id']) : null;
         $sc = q('SELECT id, nomor, kode FROM sertifikat WHERE permohonan_id = ?', [$r['id']])->fetch();
         $x['sertifikat'] = $sc ? ['id' => (int)$sc['id'], 'nomor' => $sc['nomor'], 'kode' => $sc['kode']] : null;
         unset($x['dokumen']);
@@ -417,11 +401,15 @@ function r_asesi_resubmit(): void
     if ($p['status'] !== 'perbaikan') {
         fail('Permohonan ini tidak sedang menunggu perbaikan.', 409);
     }
-    $extra = ['diajukan_at' => now()];
-    if (isset(body()['apl02'])) {
-        $extra['apl02'] = unit_map_in('apl02', (int)$p['skema_id'], 'asesmen mandiri (APL.02)');
+    db()->beginTransaction();
+    try {
+        $extra = ['diajukan_at' => now(), 'apl02' => muk_isi_pendaftaran(muk_ctx_permohonan((int)$p['id']))];
+        set_status((int)$p['id'], 'perbaikan', 'diajukan', $extra);
+        db()->commit();
+    } catch (Throwable $e) {
+        db()->rollBack();
+        throw $e;
     }
-    set_status((int)$p['id'], 'perbaikan', 'diajukan', $extra);
     audit('permohonan.diajukan_ulang', 'permohonan:' . $p['id']);
     notify(users_with_perm('registration.verify', (int)$p['lsp_id']), (int)$p['lsp_id'], 'permohonan.perbaikan_dikirim', 'Perbaikan berkas dikirim',
         $p['asesi_nama'] . ' mengirim perbaikan untuk skema ' . $p['skema_nama'] . '.', 'daftar');
@@ -533,7 +521,7 @@ function sertifikat_akses(): array
     $id = isset($_GET['id']) && ctype_digit((string)$_GET['id']) ? (int)$_GET['id'] : 0;
     $c = q(sertifikat_sql() . ' WHERE c.id = ?', [$id])->fetch();
     $m = active_membership();
-    $ok = $c && ((int)$c['user_id'] === uid() || is_platform($m) || ($m['lsp_id'] !== null && (int)$m['lsp_id'] === (int)$c['lsp_id'] && can('decision.manage')));
+    $ok = $c && ((int)$c['user_id'] === uid() || is_platform($m) || ($m['lsp_id'] !== null && (int)$m['lsp_id'] === (int)$c['lsp_id'] && (can('decision.manage') || can('alumni.view'))));
     if (!$ok) {
         if ($id) audit('access.denied', 'sertifikat:' . $id);
         fail('Sertifikat tidak ditemukan.', 404);
@@ -696,60 +684,11 @@ function r_asesor_pra(): void
     json_out(['items' => array_map(function ($r) { return permohonan_row($r, true); }, asesor_permohonan(['pra_asesmen']))]);
 }
 
-function r_asesor_pra_putus(): void
-{
-    require_method('POST');
-    csrf_check();
-    require_perm('preassessment.review');
-    $rows = asesor_permohonan(['pra_asesmen'], int_in('id'));
-    if (!$rows) {
-        fail('Permohonan tidak ditemukan di daftar tinjauan Anda.', 404);
-    }
-    $p = $rows[0];
-    $rekom = str_in('rekom', 10);
-    $cat = str_in('catatan', 500, 'Catatan');
-    if (!in_array($rekom, ['lanjut', 'tidak'], true)) {
-        fail('Pilih rekomendasi.', 422);
-    }
-    if ($rekom === 'tidak' && text_len($cat) < 5) {
-        fail('Tulis alasan untuk asesi (minimal 5 karakter).', 422);
-    }
-    set_status((int)$p['id'], 'pra_asesmen', $rekom === 'lanjut' ? 'siap_uji' : 'tidak_lanjut', ['rekom_pra' => $rekom, 'catatan_pra' => $cat ?: null]);
-    audit('pra.' . $rekom, 'permohonan:' . $p['id'], null, (int)$p['lsp_id']);
-    notify([(int)$p['asesi_id']], (int)$p['lsp_id'], 'pra.' . $rekom, $rekom === 'lanjut' ? 'Pra-asesmen selesai: siap uji' : 'Pra-asesmen: belum dapat dilanjutkan',
-        $rekom === 'lanjut' ? "Anda siap mengikuti uji {$p['skema_nama']} pada {$p['tanggal']}" . ($p['tuk_nama'] ? " di {$p['tuk_nama']}." : '.') : "Catatan asesor: $cat", 'jadwal');
-    json_out(['ok' => true]);
-}
-
 function r_asesor_asesmen(): void
 {
     require_method('GET');
     require_perm('assessment.conduct');
     json_out(['items' => array_map(function ($r) { return permohonan_row($r, true); }, asesor_permohonan(['siap_uji']))]);
-}
-
-function r_asesor_asesmen_simpan(): void
-{
-    require_method('POST');
-    csrf_check();
-    require_perm('assessment.conduct');
-    $rows = asesor_permohonan(['siap_uji'], int_in('id'));
-    if (!$rows) {
-        fail('Permohonan tidak ditemukan di daftar asesmen Anda.', 404);
-    }
-    $p = $rows[0];
-    if ($p['tanggal'] > today()) {
-        fail('Asesmen baru bisa diisi pada atau setelah tanggal uji (' . $p['tanggal'] . ').', 409);
-    }
-    $hasil = unit_map_in('hasil', (int)$p['skema_id'], 'hasil asesmen');
-    $cat = str_in('catatan', 1000, 'Catatan');
-    $rekom = in_array('BK', json_decode($hasil, true), true) ? 'BK' : 'K';
-    set_status((int)$p['id'], 'siap_uji', 'menunggu_pleno', ['hasil' => $hasil, 'rekomendasi' => $rekom, 'catatan_asesor' => $cat ?: null,
-        'asesor_id' => uid(), 'diuji_at' => now()]);
-    audit('asesmen.' . $rekom, 'permohonan:' . $p['id'], null, (int)$p['lsp_id']);
-    notify(users_with_perm('decision.manage', (int)$p['lsp_id']), (int)$p['lsp_id'], 'pleno.baru', 'Berkas menunggu pleno',
-        "Asesmen {$p['asesi_nama']} ({$p['skema_nama']}) selesai dengan rekomendasi $rekom.", 'plenoA');
-    json_out(['ok' => true, 'rekomendasi' => $rekom]);
 }
 
 /** Berkas pleno: asesor (bukan penguji berkas itu) di LSP tempat ia aktif; atau staf dengan decision.manage dalam cakupan. */
@@ -791,6 +730,7 @@ function r_pleno(): void
     $detail = can('decision.manage');
     $items = array_map(function ($r) use ($detail) {
         $x = permohonan_row($r, true);
+        $x['ak05'] = muk_ak05_mencakup((int)$r['id'], (int)$r['jadwal_id']);
         if (!$detail) {
             unset($x['asesi_email'], $x['asesi_nik'], $x['asesi_hp'], $x['asesi_tgl_lahir'], $x['dokumen']);
         }
@@ -824,6 +764,14 @@ function r_pleno_putus(): void
         fail('Berkas pleno tidak ditemukan.', 404);
     }
     $p = $rows[0];
+    // Keputusan hanya atas dasar rekaman lengkap: FR.AK.02 ditandatangani asesor dan tercakup laporan FR.AK.05 (PBNSP 201 §9.4.1).
+    $ak02 = q("SELECT f.id FROM formulir f JOIN formulir_ttd t ON t.formulir_id = f.id AND t.peran = 'asesor' WHERE f.permohonan_id = ? AND f.kode = 'AK.02'", [$p['id']])->fetch();
+    if (!$ak02) {
+        fail('Rekaman asesmen (FR.AK.02) belum ditandatangani asesor.', 409);
+    }
+    if (!muk_ak05_mencakup((int)$p['id'], (int)$p['jadwal_id'])) {
+        fail('Asesor belum menyerahkan laporan asesmen (FR.AK.05) untuk jadwal ini.', 409);
+    }
     $k = str_in('keputusan', 5);
     $cat = str_in('catatan', 500, 'Catatan');
     if (!in_array($k, ['K', 'BK'], true)) {

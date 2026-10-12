@@ -55,17 +55,18 @@ Jalankan setiap suite pada database baru: hapus `storage/test.sqlite` sebelum su
 node tests/api.test.mjs             # 49 uji: autentikasi, CSRF, RBAC, isolasi LSP
 node tests/register.test.mjs        # 29 uji: pendaftaran asesi mandiri
 node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server tiruan port 8098)
-node tests/platform.test.mjs        # 27 uji: akses penuh Admin Platform + isolasi Admin LSP + harga paket publik
-node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
+node tests/platform.test.mjs        # 28 uji: akses penuh Admin Platform + isolasi Admin LSP + harga paket publik
+node tests/flow.test.mjs            # 115 uji: alur sertifikasi ujung-ke-ujung + isolasi
 node tests/blog.test.mjs            # 83 uji: CMS blog
-node tests/rbac-matrix.test.mjs     # 1.232 uji: setiap peran × setiap endpoint
+node tests/rbac-matrix.test.mjs     # 1.731 uji: setiap peran × setiap endpoint
 node tests/crud.test.mjs            # 103 uji: buat/baca/ubah/hapus semua data (termasuk ubah pengguna)
-node tests/security.test.mjs        # 49 uji: regresi temuan audit keamanan
+node tests/security.test.mjs        # 50 uji: regresi temuan audit keamanan
 node tests/reset.test.mjs           # 25 uji: lupa password
 node tests/sertifikat.test.mjs      # 36 uji: PDF sertifikat, kode QR, tanda tangan digital, hak unduh
+node tests/muk.test.mjs             # 88 uji: formulir asesmen paperless (FR.APL/AK/IA/MAPA/VA), Komite Teknis, banding
 
-TZ=Asia/Jakarta NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # daftar asesi s.d. sertifikat terverifikasi
-NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs                  # buka semua menu untuk 7 peran
+TZ=Asia/Jakarta NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # alur paperless: APL.01/02 s.d. keputusan Komite dan sertifikat
+NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs                  # buka semua menu untuk 9 peran
 NODE_PATH=$(npm root -g) node tests/ui/blog.cjs                        # CMS blog s.d. halaman artikel publik
 NODE_PATH=$(npm root -g) node tests/ui/crud.cjs                        # harga paket, tombol ubah/hapus, profil, unduh PDF
 NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs                   # 548 tampilan di lebar 360/390/768/1024 px
@@ -73,7 +74,7 @@ NODE_PATH=$(npm root -g) node tests/ui/reset.cjs                       # lupa pa
 NODE_PATH=$(npm root -g) node tests/ui/pindai-purwarupa.cjs            # 112 halaman: tidak ada sisa purwarupa
 ```
 
-Hasil terakhir (11 Oktober 2026, v15, dengan data demo lengkap): semua 1.738 uji API lulus, semua uji browser lulus, dan audit responsif tanpa masalah.
+Hasil terakhir (12 Oktober 2026, v17, formulir paperless): semua 2.384 uji API lulus di SQLite dan MariaDB, semua uji browser lulus, dan audit responsif tanpa masalah.
 
 ## Ringkasan keamanan
 

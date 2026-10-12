@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
 const BASE = process.env.BASE || 'http://127.0.0.1:8099';
 const SHOT = process.env.SHOT || '';            // folder screenshot (opsional)
 const VIEWPORTS = (process.env.VP || '360x740,390x844,768x1024,1024x768').split(',').map(v => v.split('x').map(Number));
-const ROLES = (process.env.ROLES || 'asesi,asesor,admin.tdn,marketing.tdn,keuangan.tdn,tuk.kuningan,superadmin').split(',');
+const ROLES = (process.env.ROLES || 'asesi,asesor,admin.tdn,marketing.tdn,keuangan.tdn,tuk.kuningan,komite.tdn,mutu.tdn,superadmin').split(',');
 const MEASURE = () => {
   const W = document.documentElement.clientWidth;
   const clipped = el => { for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) { const ox = getComputedStyle(p).overflowX; if (ox === 'auto' || ox === 'scroll' || ox === 'hidden' || ox === 'clip') return true; } return false; };
@@ -50,6 +50,13 @@ const MEASURE = () => {
         await q.evaluate(x => goApp(x), k); await q.waitForTimeout(700); await check(q, `${who}-${k}`, vp);
         if (await q.locator('.content [data-edit="new"]').count()) { await q.locator('.content [data-edit="new"]').first().click(); await q.waitForTimeout(400); await check(q, `${who}-${k}+form`, vp); }
         if (await q.locator('.content [data-sel]').count()) { await q.locator('.content [data-sel]').first().click(); await q.waitForTimeout(500); await check(q, `${who}-${k}+detail`, vp); }
+        // Berkas asesmen paperless: daftar periksa lalu formulir pertama (atau perangkat MUK skema).
+        for (const [a, b2] of [['mkOpen', 'mkForm'], ['mukSkema', 'mukOpen']]) {
+          if (!await q.locator(`.content [data-x="${a}"]`).count()) continue;
+          await q.locator(`.content [data-x="${a}"]`).first().click(); await q.waitForTimeout(800); await check(q, `${who}-${k}+${a}`, vp);
+          if (await q.locator(`.content [data-x="${b2}"]`).count()) { await q.locator(`.content [data-x="${b2}"]`).first().click(); await q.waitForTimeout(800); await check(q, `${who}-${k}+${b2}`, vp); }
+          break;
+        }
       }
       if (w < 980 && await q.locator('#appMenuBtn').count()) { await q.click('#appMenuBtn'); await q.waitForTimeout(300); await check(q, `${who}-drawer`, vp); }
       await c.close();

@@ -6,7 +6,8 @@ Dokumen ini menjelaskan aplikasi PortalLSP secara menyeluruh: fungsi, peran peng
 - **Situs demo:** https://demo-lsp.semestateknologiutama.com (database MySQL terpisah, lihat bagian 15)
 - **Kode sumber:** folder `app/` di repositori ini
 - **Rancangan fitur awal:** [`docs/rancangan-fitur.md`](rancangan-fitur.md)
-- **Versi terpasang:** v15 di produksi; v16 di situs demo (lupa password, ubah pengguna, kode purwarupa dibersihkan)
+- **Versi terpasang:** v17 di produksi (formulir asesmen paperless sesuai peraturan BNSP); v16 di situs demo
+- **Rancangan formulir paperless:** [`docs/rancangan-muk-digital.md`](rancangan-muk-digital.md)
 
 ---
 
@@ -139,21 +140,22 @@ app/
 |---|---|---|---|
 | `platform_admin` | Admin Platform | Platform | Memegang **semua** hak akses untuk **semua** LSP |
 | `admin_lsp` | Admin LSP | Satu LSP | Semua data LSP-nya, termasuk semua TUK di LSP itu |
-| `manajer_mutu` | Manajer Mutu | Satu LSP | Mutu, pleno, alumni, laporan |
+| `manajer_mutu` | Manajer Mutu | Satu LSP | Mutu, validasi asesmen (FR.VA), pemantauan berkas asesmen, alumni, laporan. **Tidak** memutus sertifikasi. |
+| `komite_teknis` | Komite Teknis (Pengambil Keputusan) | Satu LSP | Memutus sertifikasi (pleno) dan banding. Tidak boleh asesor yang menguji berkas itu (PBNSP 201). |
 | `keuangan` | Keuangan LSP | Satu LSP | Keuangan |
 | `marketing` | Marketing LSP | Satu LSP | Etalase, CRM |
 | `admin_tuk` | Admin TUK | Satu TUK | Hanya TUK miliknya |
 | `asesor` | Asesor | Pribadi | Boleh aktif di banyak LSP |
 | `asesi` | Asesi | Pribadi | Boleh aktif di banyak LSP |
 
-Peran internal LSP (`admin_lsp`, `manajer_mutu`, `keuangan`, `marketing`, `admin_tuk`) hanya boleh punya **satu** keanggotaan. Asesor dan asesi boleh terdaftar di banyak LSP dan berpindah konteks lewat pemilih LSP di aplikasi.
+Peran internal LSP (`admin_lsp`, `manajer_mutu`, `komite_teknis`, `keuangan`, `marketing`, `admin_tuk`) hanya boleh punya **satu** keanggotaan. Asesor dan asesi boleh terdaftar di banyak LSP dan berpindah konteks lewat pemilih LSP di aplikasi.
 
-### Hak akses (39)
+### Hak akses (42)
 
 | Kelompok | Kode hak akses |
 |---|---|
 | Platform | `platform.dashboard`, `listing.review`, `lsp.manage`, `rbac.view` |
-| LSP | `lsp.dashboard`, `registration.verify`, `schedule.manage`, `assessment.monitor`, `decision.manage`, `master.manage`, `alumni.view`, `listing.manage`, `quality.manage`, `finance.manage`, `crm.manage`, `report.bnsp`, `settings.manage`, `user.manage` |
+| LSP | `lsp.dashboard`, `registration.verify`, `schedule.manage`, `assessment.monitor`, `assessment.review`, `muk.manage`, `decision.manage`, `appeal.decide`, `master.manage`, `alumni.view`, `listing.manage`, `quality.manage`, `finance.manage`, `crm.manage`, `report.bnsp`, `settings.manage`, `user.manage` |
 | TUK | `tuk.dashboard`, `tuk.applicants`, `tuk.schedule`, `tuk.facility`, `tuk.chat`, `tuk.alumni` |
 | Asesor | `asesor.dashboard`, `preassessment.review`, `assessment.conduct`, `pleno.participate`, `asesor.history`, `asesor.honor` |
 | Asesi | `asesi.dashboard`, `application.own`, `payment.own`, `certificate.own`, `class.own`, `profile.own` |
@@ -163,14 +165,22 @@ Peran internal LSP (`admin_lsp`, `manajer_mutu`, `keuangan`, `marketing`, `admin
 
 | Peran | Hak akses |
 |---|---|
-| Admin Platform | Semua (39) |
-| Admin LSP | Semua hak LSP, `rbac.view`, `notif.log`, `ai.use`, `blog.manage`, dan semua hak TUK |
-| Manajer Mutu | `lsp.dashboard`, `quality.manage`, `alumni.view`, `report.bnsp`, `decision.manage`, `ai.use` |
+| Admin Platform | Semua (42) |
+| Admin LSP | Semua hak LSP **kecuali** `decision.manage`, `appeal.decide`, dan `assessment.review`; ditambah `rbac.view`, `notif.log`, `ai.use`, `blog.manage`, dan semua hak TUK |
+| Manajer Mutu | `lsp.dashboard`, `quality.manage`, `alumni.view`, `report.bnsp`, `assessment.monitor`, `assessment.review`, `ai.use` |
+| Komite Teknis | `lsp.dashboard`, `decision.manage`, `appeal.decide`, `assessment.monitor`, `alumni.view`, `ai.use` |
 | Keuangan | `lsp.dashboard`, `finance.manage`, `ai.use` |
 | Marketing | `lsp.dashboard`, `listing.manage`, `crm.manage`, `blog.manage`, `ai.use` |
 | Admin TUK | Semua hak TUK, `ai.use` |
-| Asesor | Semua hak asesor, `ai.use` |
+| Asesor | Semua hak asesor, `muk.manage`, `assessment.review`, `ai.use` |
 | Asesi | Semua hak asesi, `ai.use` |
+
+Arti hak akses baru (v17):
+
+- `muk.manage`: menyusun perangkat asesmen (MUK) skema: FR.MAPA.01/02 dan soal instrumen IA.
+- `assessment.review`: memvalidasi perangkat asesmen dan mengisi FR.VA (validator tidak boleh penyusunnya sendiri).
+- `decision.manage`: memutus sertifikasi (pleno). Sejak v17 hanya Komite Teknis (dan Admin Platform).
+- `appeal.decide`: memutus banding FR.AK.04.
 
 Hak akses disimpan di tabel `role_permissions` dan diperiksa di server pada setiap permintaan. Menu di frontend hanya menyembunyikan tautan; penegakan akses selalu terjadi di server.
 
@@ -210,24 +220,27 @@ Aturan tambahan yang ikut membatasi data:
 
 ## 5. Alur sertifikasi
 
-### Langkah utama
+### Langkah utama (paperless, sejak v17)
 
-1. **Asesi** memilih skema di portal publik → masuk/daftar → wizard pendaftaran:
-   1. pilih jadwal;
-   2. isi data diri;
-   3. isi APL.02 (asesmen mandiri per unit kompetensi);
-   4. unggah KTP, ijazah, dan pas foto;
-   5. setujui berbagi data ke LSP;
-   6. ajukan.
-2. **Admin LSP** memverifikasi berkas dengan salah satu keputusan:
-   - **terima:** tagihan dibuat otomatis;
-   - **minta perbaikan:** dengan catatan;
-   - **tolak.**
-3. **Asesi** membayar tagihan. Selama `payment_simulation` bernilai `true`, asesi bisa menandai lunas sendiri (simulasi). Bila `false`, asesi mentransfer sesuai instruksi LSP dan **Keuangan LSP** mengonfirmasi pelunasan.
-4. **Asesor** meninjau pra-asesmen dengan rekomendasi *lanjut* atau *tidak lanjut*.
-5. **Asesor** mengisi hasil asesmen per unit (K/BK). Pengisian hanya bisa dilakukan **pada atau sesudah tanggal uji**.
-6. **Pleno** (Admin LSP / Manajer Mutu, bisa juga asesor anggota pleno) memutuskan *Kompeten* atau *Belum Kompeten*. **Asesor yang menguji tidak boleh memutus pleno berkas yang ia uji, dan tidak seorang pun boleh memutus berkasnya sendiri.**
-7. Bila kompeten, **sertifikat terbit otomatis** dengan kode verifikasi 10 karakter. Asesi bisa mencetak atau mengunduhnya, dan publik bisa memverifikasinya.
+Sejak v17 semua tahap memakai **formulir elektronik** sesuai Buku Kerja Asesmen 333-25 (Perangkat Asesmen Kompetensi BNSP) dan PBNSP 201/202/206/210. Setiap formulir diisi di aplikasi, ditandatangani secara elektronik oleh pihak yang berwenang (nama, peran, waktu, IP, dan sidik jari SHA-256 isi formulir), lalu bisa dicetak atau disimpan sebagai PDF. Rancangan lengkap ada di [`rancangan-muk-digital.md`](rancangan-muk-digital.md).
+
+| No | Tahap | Pelaku | Formulir | Akibat |
+|---|---|---|---|---|
+| 1 | Daftar | Asesi | **FR.APL.01** (data diri, pendidikan, pekerjaan, tujuan asesmen, bukti persyaratan dasar) dan **FR.APL.02** (asesmen mandiri per elemen dan KUK, bukti) | Keduanya ditandatangani asesi saat mengajukan. Status `diajukan`. |
+| 2 | Verifikasi | Admin LSP | FR.APL.01 bagian 3: setiap bukti diberi status **Memenuhi Syarat / Tidak Memenuhi Syarat / Tidak Ada** | Terima hanya bila semua bukti MS → tagihan terbit (`menunggu_bayar`). Bisa juga minta perbaikan (asesi mengubah APL lalu menandatangani ulang) atau tolak. |
+| 3 | Bayar | Asesi / Keuangan | Tagihan | `pra_asesmen` |
+| 4 | Konsultasi pra-asesmen | Asesor | Tinjauan **FR.APL.02** (dapat/tidak dapat dilanjutkan), **FR.AK.07** (potensi asesi dan penyesuaian wajar), **FR.AK.01** (persetujuan asesmen, pernyataan bebas benturan kepentingan, penjelasan banding) | APL.02 "tidak dapat dilanjutkan" → `tidak_lanjut`. AK.01 hanya bisa ditandatangani bila APL.02 dan AK.07 sudah ditandatangani dan perangkat skema sudah tervalidasi. |
+| 5 | Persetujuan | Asesi | Tanda tangan FR.AK.07 dan FR.AK.01 | `siap_uji` |
+| 6 | Asesmen (pada/sesudah tanggal uji) | Asesor dan asesi | Instrumen aktif sesuai peta **FR.MAPA.02** untuk potensi asesi (ditambah instrumen dari AK.07): IA.01 observasi, IA.02 tugas praktik, IA.03 pertanyaan pendukung observasi, IA.04 proyek, IA.05 pilihan ganda (dinilai otomatis dari kunci), IA.06 esai, IA.07 lisan, IA.08 verifikasi portofolio, IA.09 wawancara, IA.10 pihak ketiga, IA.11 reviu produk | Untuk IA.05 dan IA.06 asesi menjawab dan menandatangani dulu; kunci jawaban tidak pernah dikirim ke akun asesi. |
+| 7 | Keputusan asesor | Asesor | **FR.AK.02** rekaman asesmen per unit (bukti dan K/BK) | Wajib semua instrumen aktif sudah ditandatangani asesor. Status `menunggu_pleno`. Asesi bisa ikut menandatangani AK.02 dan mengisi **FR.AK.03** umpan balik. |
+| 8 | Laporan | Asesor | **FR.AK.05** laporan asesmen per jadwal (rekomendasi tiap asesi, aspek negatif/positif, penolakan) dan **FR.AK.06** meninjau proses asesmen | Laporan susulan bisa dibuat bila ada asesi yang selesai belakangan. |
+| 9 | Keputusan sertifikasi | **Komite Teknis** | Pleno | Hanya bisa memutus bila AK.02 sudah ditandatangani asesor **dan** FR.AK.05 yang mencakup asesi sudah diserahkan. Komite tidak boleh asesor yang menguji berkas itu. Kompeten → sertifikat terbit. |
+| 10 | Banding | Asesi → Komite Teknis | **FR.AK.04** | Diajukan dalam batas hari banding skema (bawaan 7 hari). Diputus oleh orang yang **tidak terlibat** asesmen maupun keputusan awal (bukan asesor, bukan pemutus pleno, bukan asesi). |
+| — | Mutu perangkat | Asesor / Admin LSP (penyusun), Manajer Mutu / asesor lain (validator) | **FR.MAPA.01**, **FR.MAPA.02**, soal IA.02–IA.07/IA.11, dan **FR.VA** per skema | Perangkat berversi. Validator wajib berbeda dari penyusun. Mengubah perangkat yang sudah valid membuat versi baru yang harus divalidasi ulang. |
+
+Setiap asesi, asesor, admin, dan komite membuka formulir dari **Berkas asesmen (FR)**: daftar periksa semua formulir permohonan itu, status isian, dan tanda tangan tiap pihak. Pihak yang belum gilirannya hanya bisa membaca. Kolom milik pihak lain tidak bisa diubah (diperiksa di server).
+
+Selama `payment_simulation` bernilai `true`, asesi bisa menandai lunas sendiri (simulasi). Bila `false`, asesi mentransfer sesuai instruksi LSP dan **Keuangan LSP** mengonfirmasi pelunasan.
 
 ### Mesin status permohonan
 
@@ -283,7 +296,7 @@ Setiap sertifikat yang terbit bisa diunduh sebagai PDF (A4 melintang). PDF dibua
 - **Halaman 2 dan seterusnya (lampiran):** daftar unit kompetensi (no., kode unit, judul). Bila unit banyak, tabel berlanjut ke halaman berikutnya dengan judul "(lanjutan)".
 - **Kode QR** berisi tautan `https://<alamat aplikasi>/?cek=<KODE>`. Memindai QR membuka halaman verifikasi publik yang menampilkan nama, skema, LSP, dan status sertifikat dari database, sehingga sertifikat palsu atau sudah dicabut langsung ketahuan. Halaman cetak HTML juga menampilkan QR yang sama.
 - **Peringatan:** bila sertifikat dicabut/dibekukan atau masa berlakunya habis, PDF memuat tulisan merah "SERTIFIKAT TIDAK BERLAKU" atau "MASA BERLAKU SERTIFIKAT TELAH HABIS".
-- **Siapa yang bisa mengunduh:** pemegang sertifikat, staf LSP penerbit yang punya hak `decision.manage` (Admin LSP, Manajer Mutu), dan Admin Platform. Pengguna lain mendapat 404 (tidak membocorkan bahwa sertifikat itu ada). Unduhan oleh selain pemegang dicatat di log audit (`sertifikat.pdf`).
+- **Siapa yang bisa mengunduh:** pemegang sertifikat, staf LSP penerbit yang punya hak `decision.manage` atau `alumni.view` (Komite Teknis, Admin LSP, Manajer Mutu), dan Admin Platform. Pengguna lain mendapat 404 (tidak membocorkan bahwa sertifikat itu ada). Unduhan oleh selain pemegang dicatat di log audit (`sertifikat.pdf`).
 - **Tombol:** Dompet Sertifikat asesi punya **Unduh PDF**, **Lihat PDF**, dan **Cetak**; menu Pleno & Sertifikat dan Database Alumni punya tombol **PDF** dan **Cetak** di setiap baris.
 - **Teknis:** encoder QR (`src/qr.php`, versi 1–10, koreksi galat L/M/Q/H) dan penyusun PDF (`src/pdf.php`, font standar PDF) ditulis sendiri. Matriks QR diuji terhadap dua pembaca QR independen (jsQR dan ZXing), dan PDF hasil render dipindai ulang pada beberapa resolusi.
 - **Batasan:** PDF memakai font standar PDF (Helvetica/Times), sehingga huruf Latin termasuk aksen (é, ü, ñ) tampil benar, tetapi aksara non-Latin (mis. Arab, Tionghoa) tampil sebagai `?`.
@@ -365,9 +378,11 @@ Data yang menjadi bukti proses sertifikasi (permohonan, tagihan, sertifikat, log
 |---|---|
 | Beranda | Tugas hari ini, pra-asesmen tertunda, berkas menunggu pleno |
 | Kalender Gabungan | Semua jadwal penugasan dari semua LSP tempat ia aktif |
-| Tinjau Pra-Asesmen | Melihat APL.02 dan dokumen asesi, lalu memberi rekomendasi lanjut/tidak lanjut |
-| Asesmen (MUK/FR) | Mengisi hasil per unit (K/BK) dan catatan, hanya pada/sesudah tanggal uji |
-| Pleno | Ikut memutus pleno (kecuali berkas yang ia uji sendiri). Daftar "Diuji oleh Anda" ditampilkan terpisah. |
+| Tinjau Pra-Asesmen | Daftar asesi pra-asesmen; tombol **Buka berkas** untuk meninjau FR.APL.02 dan menandatangani FR.AK.07 dan FR.AK.01 |
+| Asesmen (MUK/FR) | Berkas asesi siap uji: mengisi instrumen IA aktif dan FR.AK.02, hanya pada/sesudah tanggal uji |
+| Laporan & Tinjauan | FR.AK.05 laporan asesmen dan FR.AK.06 meninjau proses asesmen per jadwal |
+| Pleno | Melihat berkas pleno (keputusan oleh Komite Teknis). Daftar "Diuji oleh Anda" ditampilkan terpisah. |
+| Perangkat Asesmen (MUK) | Menyusun FR.MAPA.01/02 dan soal instrumen skema LSP tempat ia aktif; memvalidasi perangkat yang disusun asesor lain |
 | Riwayat & Logbook | Riwayat asesmen, unduh logbook CSV |
 | Honor | Rekap honor per LSP |
 
@@ -378,9 +393,11 @@ Data yang menjadi bukti proses sertifikasi (permohonan, tagihan, sertifikat, log
 | Operasional | Dashboard | KPI pendaftaran, jadwal, kelulusan, pendapatan |
 | | Pendaftaran | Verifikasi berkas: terima / perbaikan / tolak (tagihan otomatis) |
 | | Jadwal & Penugasan | Buat dan ubah jadwal (tervalidasi, lihat bagian 5), tetapkan asesor (cek bentrok dan konflik kepentingan), kuota |
-| | Asesmen | Memantau progres asesmen tiap jadwal |
-| | Pleno & Sertifikat | Memutus pleno dan menerbitkan sertifikat |
-| Data | Skema, Asesor, TUK | Master skema dan unit kompetensi (format `KODE \| Judul` per baris), asesor, TUK |
+| | Asesmen | Memantau progres asesmen tiap jadwal dan membuka berkas FR tiap asesi |
+| | Banding Asesmen | Memantau banding FR.AK.04 (yang memutus Komite Teknis) |
+| | Perangkat Asesmen (MUK) | Menyusun perangkat asesmen skema (FR.MAPA.01/02, soal IA) |
+| | Validasi Asesmen | Status validasi perangkat dan FR.VA per skema |
+| Data | Skema, Asesor, TUK | Master skema: unit kompetensi beserta elemen dan KUK (format `KODE \| Judul \| kelompok`, lalu baris `- Elemen \| KUK 1; KUK 2`), kemasan, masa berlaku, batas hari banding; asesor (dengan nomor registrasi MET); TUK |
 | | Database Alumni | Pemegang sertifikat LSP |
 | Manajemen | Etalase & Pelatihan | Listing skema/kelas ke portal publik (wajib disetujui Admin Platform). Ubah, hapus, tarik, dan turunkan listing. |
 | | Blog (CMS) | Menulis, menjadwalkan, dan mengelola artikel blog LSP (lihat bagian 8) |
@@ -393,6 +410,8 @@ Data yang menjadi bukti proses sertifikasi (permohonan, tagihan, sertifikat, log
 | | Profil LSP & Pengaturan | Profil, kontak, honor asesor. Masa berlaku lisensi hanya bisa dilihat; yang mengubah Admin Platform. |
 | | Tiket Support | Membuat dan memantau tiket ke tim platform |
 | TUK | Dashboard TUK, Pemohon, Jadwal TUK, Sarana & Prasarana, Group Chat, Alumni TUK | Semua TUK milik LSP ini |
+
+**Komite Teknis** melihat Dashboard, Asesmen (berkas FR), Pleno & Sertifikat (memutus setelah FR.AK.05 diserahkan), Banding Asesmen (memutus FR.AK.04), dan Database Alumni. **Manajer Mutu** melihat Dashboard, Asesmen, Validasi Asesmen, Mutu, Laporan BNSP, dan Database Alumni.
 
 Staf non-admin hanya melihat menu yang sesuai haknya. Contoh: Keuangan hanya melihat Dashboard dan Keuangan, sedangkan Marketing melihat Dashboard, Etalase, Blog (CMS), dan CRM.
 
@@ -609,7 +628,10 @@ Hardening server (diperiksa ulang 10 Okt 2026): HTTP dialihkan ke HTTPS, TLS 1.0
 
 | Tabel | Isi |
 |---|---|
-| `skema`, `skema_units` | Skema sertifikasi dan unit kompetensinya |
+| `skema`, `skema_units`, `skema_elemen` | Skema sertifikasi (termasuk kemasan, masa berlaku, batas hari banding), unit kompetensi (dengan kelompok pekerjaan), elemen dan KUK |
+| `muk_perangkat` | Perangkat asesmen per skema dan kode (FR.MAPA.01/02, soal IA): versi, isi, penyusun, validator, status validasi |
+| `formulir`, `formulir_ttd` | Formulir FR elektronik per permohonan, jadwal, atau skema (isi JSON, status) dan tanda tangan tiap pihak (peran, waktu, IP, sidik jari SHA-256 isi) |
+| `banding` | Banding FR.AK.04: alasan, status, keputusan, pemutus |
 | `skkni` | Pustaka unit SKKNI acuan |
 | `jadwal` | Jadwal uji (skema, TUK, tanggal, kuota, asesor) |
 | `permohonan` | Pendaftaran asesi: status, APL.02, rekomendasi pra-asesmen, hasil per unit, keputusan pleno, biaya uji saat mendaftar (`harga`) |
@@ -701,11 +723,17 @@ Semua endpoint: `api.php?r=<rute>`.
 | Rute | Fungsi |
 |---|---|
 | `asesor/jadwal` | Kalender gabungan |
-| `asesor/pra`, `asesor/pra/putus` | Pra-asesmen |
-| `asesor/asesmen`, `asesor/asesmen/simpan` | Hasil asesmen per unit |
+| `asesor/pra` | Daftar pra-asesmen (keputusan lewat formulir FR) |
+| `asesor/asesmen` | Daftar asesi siap uji (penilaian lewat formulir FR) |
+| `asesor/laporan` | Jadwal yang perlu FR.AK.05/AK.06 |
 | `asesor/riwayat` | Riwayat dan logbook (CSV) |
 | `asesor/honor` | Honor |
-| `pleno`, `pleno/putus` | Pleno dan penerbitan sertifikat. `pleno` juga mengembalikan `diuji_sendiri`; `pleno/putus` dibalas 403 untuk berkas yang diuji atau milik sendiri. |
+| `pleno`, `pleno/putus` | Pleno dan penerbitan sertifikat (hak `decision.manage`, Komite Teknis). `pleno` juga mengembalikan `diuji_sendiri` dan status FR.AK.05; `pleno/putus` dibalas 403 untuk berkas yang diuji atau milik sendiri, dan 409 bila AK.02 atau AK.05 belum ada. |
+| `muk/def` | Definisi FR.APL.01/02 untuk wizard pendaftaran |
+| `muk/formulir`, `muk/formulir/simpan`, `muk/formulir/ttd` | Ambil, simpan draf, dan tanda tangani formulir FR (konteks `permohonan_id`, `jadwal_id`, atau `skema_id`). Tanda tangan butuh `setuju: true` dan mengikuti urutan pihak. |
+| `muk/berkas`, `muk/jadwal` | Daftar periksa formulir satu permohonan / satu jadwal |
+| `muk/perangkat`, `muk/perangkat/detail`, `muk/perangkat/simpan`, `muk/perangkat/ttd` | Perangkat asesmen skema: lihat, susun, ajukan, validasi atau kembalikan |
+| `banding`, `banding/putus` | Daftar dan keputusan banding FR.AK.04 (hak `appeal.decide`) |
 | `chat`, `chat/kirim`, `chat/ruang` | Group chat per jadwal |
 
 ### Staf LSP
@@ -840,6 +868,7 @@ Riwayat versi di produksi:
 | v14 | Label "Terdaftar PSE · Server di Indonesia" dihapus dari footer portal publik dan aplikasi, karena status PSE belum dikonfirmasi; versi aset `?v=15`. Tanpa migrasi database. Dideploy 11 Okt 2026. |
 | v15 | Data demo lengkap (migrasi 10, `src/seed_lengkap.php`): riwayat sertifikasi 11 bulan di empat LSP, permohonan di setiap tahap proses, sertifikat akan habis/kedaluwarsa/dicabut, notifikasi dan log pengiriman, tiket dengan balasan, CRM, mutu, sarana TUK, group chat, kelas, profil asesi. Stempel waktu data contoh lama dirapikan dan jadwal asesor demo yang bentrok dialihkan. Hanya berjalan bila akun demo ada. Kartu KPI sempit dengan angka panjang (mis. nominal rupiah di layar 1024 px) kini menaruh ikon di atas angka agar tidak menimbulkan scroll horizontal; versi aset `?v=16`. Dideploy 11 Okt 2026, cadangan database `storage/backup-db-pra-v15.sqlite`. Karena data migrasi 6 di produksi dibuat 2 hari lebih awal, lima jadwal contoh sempat bentrok dengan jadwal asesor yang sama; sudah digeser (cadangan `storage/backup-db-pra-v15b.sqlite`) dan seed kini memilih tanggal kosong otomatis. |
 | v16 | Fitur **Lupa password** (migrasi 11, tabel `password_resets`): tautan atur ulang lewat email, halaman Lupa password dan Buat password baru. **Ubah pengguna** di menu Pengguna (nama, peran, password sementara). Kode tampilan purwarupa lama yang sudah tidak dipakai (dashboard, halaman publik, dan data contoh statis di `app.js`) dihapus; pemindai otomatis memastikan tidak ada teks purwarupa, label "contoh", atau tombol tanpa aksi di 112 halaman. Perbaikan seed riwayat jadwal asesor lintas LSP. Versi aset `?v=17`. Situs demo `demo-lsp` (MySQL) dibuat 12 Okt 2026. |
+| v17 | **Formulir asesmen paperless** sesuai Buku Kerja 333-25 dan PBNSP 201/202/206/210 (migrasi 12; `src/muk*.php`, `public/muk.js`): FR.APL.01/02, AK.01–AK.07, IA.01–IA.11, MAPA.01/02, VA dengan tanda tangan elektronik berurutan. Peran baru **Komite Teknis** (pemutus sertifikasi dan banding); Admin LSP dan Manajer Mutu tidak lagi memutus pleno. Elemen/KUK skema, perangkat asesmen berversi dengan validator ≠ penyusun, banding FR.AK.04, laporan AK.05/AK.06 per jadwal, nomor MET asesor. Akun demo baru: `komite.tdn`, `mutu.tdn`, `asesor2`. Versi aset `?v=18`. |
 
 ### Situs demo (demo-lsp)
 
@@ -889,19 +918,20 @@ php -S 127.0.0.1:8099 -t public
 node tests/api.test.mjs             # 49 uji: autentikasi, CSRF, RBAC, isolasi LSP
 node tests/register.test.mjs        # 29 uji: pendaftaran asesi mandiri
 node tests/notify-ai.test.mjs       # 47 uji: notifikasi & asisten AI (server tiruan port 8098)
-node tests/platform.test.mjs        # 27 uji: akses penuh Admin Platform + isolasi Admin LSP + harga paket publik
-node tests/flow.test.mjs            # 108 uji: alur sertifikasi ujung-ke-ujung + isolasi
+node tests/platform.test.mjs        # 28 uji: akses penuh Admin Platform + isolasi Admin LSP + harga paket publik
+node tests/flow.test.mjs            # 115 uji: alur sertifikasi ujung-ke-ujung + isolasi
 node tests/blog.test.mjs            # 83 uji: CMS blog (akses, isolasi, terjadwal, moderasi, sampul, API publik)
-node tests/rbac-matrix.test.mjs     # 1.232 uji: setiap peran × setiap endpoint sesuai hak akses
+node tests/rbac-matrix.test.mjs     # 1.731 uji: setiap peran × setiap endpoint sesuai hak akses
 node tests/crud.test.mjs            # 103 uji: buat/baca/ubah/hapus semua data (termasuk ubah pengguna) + penjaga rujukan, cakupan LSP, hak akses
-node tests/security.test.mjs        # 49 uji: regresi temuan audit keamanan (putaran 1 dan 2)
+node tests/security.test.mjs        # 50 uji: regresi temuan audit keamanan (putaran 1 dan 2)
 node tests/reset.test.mjs           # 25 uji: lupa password (tanpa bocor email, sekali pakai, sesi lama keluar, kunci login dibuka, batas IP)
 node tests/sertifikat.test.mjs      # 36 uji: PDF sertifikat (struktur, isi, lampiran), tanda tangan digital (sah, deteksi perubahan, penanda tangan, kunci), hak unduh, QR, regresi encoder QR
+node tests/muk.test.mjs             # 88 uji: formulir paperless (peran, APL.01/02, verifikasi bukti, pra-asesmen, instrumen, kunci jawaban rahasia, AK.02, AK.05, Komite, banding, validasi perangkat, FR.VA, jejak audit)
 
-NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # uji browser: daftar asesi s.d. sertifikat terverifikasi
-NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs  # uji browser: buka semua menu untuk 7 peran
+NODE_PATH=$(npm root -g) node tests/ui/alur-asesi.cjs  # uji browser alur paperless: APL.01/02 → verifikasi bukti → bayar → AK.07/AK.01 → IA → AK.02 → AK.05 → Komite → sertifikat
+NODE_PATH=$(npm root -g) node tests/ui/semua-menu.cjs  # uji browser: buka semua menu untuk 9 peran
 NODE_PATH=$(npm root -g) node tests/ui/blog.cjs        # uji browser: tulis, pratinjau, terbitkan, sampul, baca, moderasi
-NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs   # audit responsif: semua halaman × 7 peran × 4 ukuran layar
+NODE_PATH=$(npm root -g) node tests/ui/responsif.cjs   # audit responsif: semua halaman, berkas, dan formulir FR × 9 peran × 4 ukuran layar
 NODE_PATH=$(npm root -g) node tests/ui/crud.cjs        # uji browser tombol ubah/hapus/turunkan, nonaktif asesor, ubah pengguna, ubah profil, unduh PDF
 NODE_PATH=$(npm root -g) node tests/ui/reset.cjs       # uji browser lupa password: minta tautan, tautan palsu, password baru, masuk
 NODE_PATH=$(npm root -g) node tests/ui/pindai-purwarupa.cjs  # pindai semua halaman publik + semua menu 8 akun: tidak boleh ada teks purwarupa, label "contoh", atau tombol tanpa aksi
@@ -911,7 +941,13 @@ Semua suite bisa dijalankan terhadap MySQL/MariaDB dengan mengganti `dsn` di `co
 
 Catatan: jalankan tiap suite pada database baru (`php tests/make-test-config.php` lalu hapus `storage/test.sqlite`). Suite berbagi data (mis. NIK contoh) dan batas login per IP, sehingga menjalankan semuanya berturut-turut pada satu database bisa memicu kegagalan palsu. `tests/ui/alur-asesi.cjs` membuat jadwal "hari ini", jadi jalankan dengan `TZ=Asia/Jakarta`.
 
-Hasil terakhir (12 Oktober 2026, v16), dijalankan dua kali: SQLite dan MariaDB (MySQL):
+Hasil terakhir (12 Oktober 2026, v17, formulir paperless), SQLite dan MariaDB (MySQL):
+
+- Semua 2.384 uji API lulus: 49 api, 29 pendaftaran, 47 notifikasi/AI, 28 platform, 115 alur, 83 blog, 1.731 matriks RBAC, 103 CRUD, 50 keamanan, 25 lupa password, 36 sertifikat PDF, 88 formulir paperless.
+- Uji browser lulus: alur paperless lengkap 41 cek (APL.01/02 di wizard, verifikasi bukti per baris, AK.07/AK.01 asesor lalu asesi, IA.05 dijawab asesi tanpa kunci, IA.01/02/03, AK.02, AK.05, Komite memutus, sertifikat, cetak berkas, perangkat dan validasi), CRUD 24, blog 24, lupa password 11, semua menu 9 peran tanpa error JavaScript, pemindai purwarupa 127 halaman.
+- Audit responsif mencakup halaman berkas FR dan formulir: tidak ada scroll horizontal di 360–1024 px.
+
+Hasil sebelumnya (12 Oktober 2026, v16), dijalankan dua kali: SQLite dan MariaDB (MySQL):
 
 - Semua 1.813 uji API lulus di kedua database: 49 api, 29 pendaftaran, 47 notifikasi/AI, 27 platform, 108 alur, 83 blog, 1.232 matriks RBAC, 103 CRUD, 49 keamanan, 25 lupa password, 36 sertifikat PDF dan tanda tangan digital.
 - Uji browser lulus di kedua database: CRUD 24, blog 24, lupa password 11, alur asesi lengkap (daftar → verifikasi → bayar → pra-asesmen → asesmen → pleno → sertifikat → verifikasi publik), dan semua menu di 7 peran tanpa error JavaScript.
@@ -955,12 +991,15 @@ Setiap skema punya unit SKKNI dan jadwal di masa lalu dan mendatang.
 | Email | Peran |
 |---|---|
 | `superadmin@demo.portallsp.id` | Admin Platform |
-| `admin.tdn@demo.portallsp.id` | Admin LSP — TDN |
+| `admin.tdn@demo.portallsp.id` | Admin LSP — TDN (verifikasi, jadwal, perangkat MUK; **tidak** memutus sertifikasi) |
+| `komite.tdn@demo.portallsp.id` | Komite Teknis — TDN (Dr. Hendro Wibowo): memutus pleno dan banding |
+| `mutu.tdn@demo.portallsp.id` | Manajer Mutu — TDN (Fitri Handayani): validasi perangkat dan FR.VA |
 | `marketing.tdn@demo.portallsp.id` | Marketing — TDN |
 | `keuangan.tdn@demo.portallsp.id` | Keuangan — TDN |
 | `admin.pbi@demo.portallsp.id` | Admin LSP — PBI |
 | `tuk.kuningan@demo.portallsp.id` | Admin TUK Kuningan |
-| `asesor@demo.portallsp.id` | Asesor (TDN, KMD, LMP) |
+| `asesor@demo.portallsp.id` | Asesor Budi (TDN, KMD, LMP) — penyusun perangkat MUK |
+| `asesor2@demo.portallsp.id` | Asesor Lina Marlina (TDN) — validator perangkat yang disusun Budi |
 | `asesi@demo.portallsp.id` | Asesi Rina (TDN, PBI) — punya permohonan di berbagai tahap dan satu sertifikat |
 
 Password akun demo **tidak** dicantumkan di dokumen ini. Password ada di berkas kredensial terpisah yang sudah dikirim ke pemilik.
@@ -985,7 +1024,9 @@ Data demo dibuat agar setiap menu menunjukkan alur dan fungsinya. Semua tanggal 
 | Operasional LSP | CRM 16 prospek di empat LSP, 14 catatan mutu (termasuk banding dan keluhan), sarana prasarana di kelima TUK, group chat di jadwal yang berjalan, 5 tiket support dengan balasan. |
 | Platform | Paket berbeda tiap LSP (Enterprise, Pro, Basic) dengan pemakaian kuota, tarif honor berbeda, statistik platform terisi. |
 
-Akun contoh tambahan (`@contoh.portallsp.id`: ±130 asesi, 7 asesor, Manajer Mutu TDN, Keuangan PBI, Admin LSP KMD dan LMP) memakai password acak dan tidak bisa dipakai login. Akun-akun ini hanya mengisi data. NIK mereka fiktif.
+Akun contoh tambahan (`@contoh.portallsp.id`: ±130 asesi, 6 asesor, Komite Teknis PBI/KMD/LMP, Keuangan PBI, Admin LSP KMD dan LMP) memakai password acak dan tidak bisa dipakai login. Akun-akun ini hanya mengisi data. NIK mereka fiktif.
+
+**Berkas FR demo (v17, migrasi 12):** setiap permohonan contoh punya formulir FR sesuai tahapnya (sekitar 2.500 formulir dan 4.600 tanda tangan elektronik). Contoh: permohonan `pra_asesmen` sudah punya FR.APL.01/02 yang diverifikasi; permohonan `menunggu_pleno` sudah punya AK.01, instrumen IA, dan AK.02; jadwal yang sudah selesai punya FR.AK.05 dan FR.AK.06. Setiap skema punya perangkat asesmen tervalidasi (penyusun dan validator berbeda) dan FR.VA. Ada dua banding contoh: satu menunggu keputusan Komite, satu sudah diputus. Elemen dan KUK ketujuh skema diisi dari SKKNI acuannya; setiap asesor punya nomor registrasi contoh berformat `MET.000.xxxxxx.2019`.
 
 Log Akses Support (audit) sengaja tidak diisi data contoh: log ini catatan keamanan, jadi hanya berisi aktivitas sungguhan.
 

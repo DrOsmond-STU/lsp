@@ -3,7 +3,7 @@
 $dir = dirname(__DIR__);
 $db = $argv[1] ?? ($dir . '/storage/test.sqlite');
 $pw = 'Demo-Pass-2026';
-$emails = ['superadmin', 'admin.tdn', 'marketing.tdn', 'keuangan.tdn', 'admin.pbi', 'tuk.kuningan', 'asesor', 'asesi'];
+$emails = ['superadmin', 'admin.tdn', 'marketing.tdn', 'keuangan.tdn', 'admin.pbi', 'tuk.kuningan', 'asesor', 'asesi', 'komite.tdn', 'mutu.tdn', 'asesor2'];
 $hashes = [];
 foreach ($emails as $e) {
     $hashes[$e . '@demo.portallsp.id'] = password_hash($pw, PASSWORD_DEFAULT);

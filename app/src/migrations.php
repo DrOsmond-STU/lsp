@@ -161,6 +161,10 @@ function migrations(): array
             db()->exec('CREATE INDEX idx_pw_reset_token ON password_resets (token_hash)');
             db()->exec('CREATE INDEX idx_pw_reset_user ON password_resets (user_id, created_at)');
         },
+        12 => function (): void {
+            // Alur paperless sesuai Buku Kerja 333-25 & PBNSP 201: formulir FR.*, perangkat MUK, banding, Komite Teknis.
+            muk_migrasi_12();
+        },
     ];
 }
 
