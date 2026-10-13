@@ -74,7 +74,7 @@ NODE_PATH=$(npm root -g) node tests/ui/reset.cjs                       # lupa pa
 NODE_PATH=$(npm root -g) node tests/ui/pindai-purwarupa.cjs            # 112 halaman: tidak ada sisa purwarupa
 ```
 
-Hasil terakhir (12 Oktober 2026, v17.1, setelah audit keamanan & kelengkapan): semua 2.422 uji API lulus di SQLite dan MariaDB, semua uji browser lulus, dan audit responsif tanpa masalah.
+Hasil terakhir (12 Oktober 2026, v17.2): semua 2.423 uji API lulus di SQLite dan MariaDB (crud 104 termasuk hapus skema dengan elemen/KUK), semua uji browser lulus, audit responsif tanpa masalah, dan uji CRUD langsung di situs demo (`tests/live-demo.test.mjs`, 75 cek, 11 akun) lulus tanpa meninggalkan data.
 
 ## Ringkasan keamanan
 
